@@ -1,10 +1,9 @@
 # Weechat Discord
 
-![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)
+[![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)](https://github.com/terminal-discord/weechat-discord/actions)
+
 
 A plugin that adds Discord to [Weechat](https://weechat.org/)
-
-(Beta)
 
 ---
 
@@ -12,124 +11,118 @@ A plugin that adds Discord to [Weechat](https://weechat.org/)
 
 ***Usage of self-tokens is a violation of Discord's TOS***
 
-This client makes use of the "user api" and is essentially a self-bot.
-This client does not abuse the api however it is still a violation of the TOS.
+This client makes use of the Discord "user api" and is could potentially viewed as a "self-bot".
 
-Use at your own risk, using this program could get your account or ip disabled, banned, etc.
+This client does not abuse the api, however it is still a violation of the TOS and makes use of undocumented "client only" 
+apis.
+
+Use at your own risk: using this program could get your account or ip disabled, banned, etc.
 
 ---
 
+### Table of Contents
+
+* [Installation](#installation)
+* [Setup](#setup)
+* [Configuration](#configuration)
+  * [Typing indicator](#typing-indicator)
+* [Usage](#usage)
+  * [Editing](#editing)
+* [MacOS](#macos)
+
+
 ### Installation
 
-Binaries are automatically compiled for macOS and linux on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?redirect)
+Binaries are automatically compiled for macOS and linux and archived on [Github Actions](https://github.com/terminal-discord/weechat-discord/actions)
 
-#### Building
+On macOS you will need to [adjust the Weechat plugin extensions](#macos)
 
-Dependencies:
+### Building
 
-* Weechat developer libraries. Usually called `weechat-dev`, or sometimes just `weechat` includes them.
-* [Rust](https://www.rust-lang.org)
+In order to build weechat-discord yourself you will need:
 
-Then just run `make install`
+* A recent version of [Rust](https://www.rust-lang.org/)
+* Weechat developer libraries (optional)
+* [libclang](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
-    cd weechat-discord # or wherever you cloned it
-    make install
+Compiling with Cargo with result in a shared object file `target/release/libweecord.so` (or `.dylib` on macos), which
+then needs to be installed to the `plugins/` dir of your weechat home.
 
-This will produce a shared object called `target/release/libweecord.so` (or `.dylib` on macos). Place it in your weechat plugins directory, which is probably located at `~/.weechat/plugins` (may need to be created)
+This can be done automatically with the project build tool.
 
-The Makefile has several other development commands:
+```
+cargo run -- install
+```
 
-    make # (same as make all) just runs that `cargo build --release` command, produces weecord.so
-    make install # builds and copies the .so to ~/.weechat/plugins, creating the dir if required
-    make test # install to ./test_dir/ and opens weechat with that dir
-    make run # installs and runs `weechat -a` (-a means "don't autoconnect to servers")
+Other commands include:
 
-Quitting weechat before installing is recommended
+* `cargo run -- test` - Builds and installs in a test directory
+* `cargo run -- run` - Builds and installs globally for release
+* `cargo run -- fmt` - Builds and formats the repo
+* `cargo run` - Is the same as `cargo run -- test`
 
-### Set up
+The global install dir defaults to ~/.weechat and can be changed by setting `WEECHAT_HOME` and the test dir defaults to
+`./test_dir/` and can be changed by setting `WEECHAT_TEST_DIR`
 
-[You will need to obtain a login token](https://github.com/discordapp/discord-api-docs/issues/69#issuecomment-223886862).
-You can either use a python script to find the tokens, or try and grab them manually.
+### Setup
 
-#### Python Script
+You must first obtain a login token.
 
-`find_token.py` is a simple python3 script to search the computer for localstorage databases. It will present a list of all found databases.
+A Python script [`find_token.py`](find_token.py) is included which will attempt to find the tokens used by installed
+Discord clients (both the webapp and desktop app should work).
 
-If ripgrep is installed it will use that, if not, it will use `find`.
+The script will use ripgrep if installed to search faster.
+
+If the script fails, you can get the tokens manually.
+
+Open Devtools (ctrl+shift+i or ctrl+opt+i) and navigate to Application tab > Local Storage on left > discordapp.com > "token".
+Discord deletes the token once the page has loaded, so you will need to refresh the page and to grab it.
+
+Once you have your token you can run
+
+```
+/discord token 123456789ABCDEF
+```
+
+Although this saves your token insecurely in `$WEECHAT_HOME/weecord.conf`, so it is recommended you use 
+[secure data](https://weechat.org/blog/post/2013/08/04/Secured-data).
+Then, if you saved your token as `discord_token` then you would run
+
+```
+/discord token ${sec.data.discord_token}
+```
 
 
-#### Manually
+### Configuration
 
-In the devtools menu of the website and desktop app (ctrl+shift+i or ctrl+opt+i) Application tab > Local Storage on left, discordapp.com, token entry.
+#### Typing indicator
 
-When this was written, discord deletes its token from the visible table, so you may need to refresh the page (ctrl/cmd+r) and grab the token as it is refreshing.
+The bar item `discord_typing` displays the typing status of the current buffer and can be appended to
+`weechat.bar.status.items`.
 
 
 ### Usage
 
-First, you either need to load the plugin, or have it set to autoload.
-
-Then, set your token:
-
-    /discord token 123456789ABCDEF
-   
-This saves the discord token in `<weechatdir>/plugins.conf`, **so make sure not to commit this file or share it with anyone.**
-
-You can also secure your token with [secure data](https://weechat.org/blog/post/2013/08/04/Secured-data).
-If you saved your token as `discord_token` then you would run
-
-    /discord token ${sec.data.discord_token}
-
-Then, connect:
-
-    /discord connect
-
-If you want to always connect on load, you can enable autostart with:
-
-    /discord autostart
-
-Note you may also have to adjust a few settings for best use:
-
-    weechat.bar.status.items -> replace buffer_name with buffer_short_name
-    # additionally, buffer_guild_name, buffer_channel_name, and buffer_discord_full_name bar
-    # items can be used
-    plugins.var.python.go.short_name -> on (if you use go.py)
-
-If you want a more irc-style interface, you can enable irc-mode:
-
-    /discord irc-mode
-
-In irc-mode, weecord will not automatically "join" every Discord channel.  You must join a channel using the
-`/discord join <guild-name> [<channel-name>]` command.
-
-Watched channels:  
-You can use `/discord watch <guild-name> [<channel-name>]` to start watching a channel or entire guild.
-This means that if a message is received in a watched channel, that channel will be joined and added to the nicklist.
-
-Autojoin channels:  
-You can use `/discord autojoin <guild-name> [<channel-name>]` to start watching a channel or entire guild.
-Any channel or guild marked as autojoin will be automatically joined when weecord connects.
-
-A typing indicator can be added with the `discord_typing` bar item by appending `,discord_typing` to `weechat.bar.status.items`.
+#### Editing
 
 Messages can be edited and deleted using ed style substitutions.
 
-To edit:
+To edit the previous message:
+```
+s/foo/bar/
+```
 
-    s/foo/bar/
+To delete the previous message:
+```
+s///
+```
 
-To delete:
-    
-    s///
+To select an older message, an offset can be included, for example, to delete the 3rd most recent message (sent by you):
+```
+3s///
+```
 
-An optional message id can also be passed to target the nth most recent message:
-
-    3s///
-
----
-
-## MacOS
-
+### MacOS
 Weechat does not search for mac dynamic libraries (.dylib) by default, this can be fixed by adding dylibs to the plugin search path,
 
 ```

@@ -1,111 +1,72 @@
-#![allow(clippy::let_unit_value)]
+use crate::discord::discord_connection::DiscordConnection;
+use std::result::Result as StdResult;
+use tokio::sync::mpsc::channel;
+use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
 
-mod bar_items;
-mod buffers;
-mod command;
 mod config;
+mod debug;
 mod discord;
-mod hook;
-mod sync;
-mod utils;
-mod weechat_utils;
 
-use crate::weechat_utils::BufferManager;
-pub use sync::{on_main, on_main_blocking, upgrade_plugin};
-
-use std::borrow::Cow;
-use weechat::{weechat_plugin, ArgsWeechat, ConfigOption, Weechat, WeechatPlugin, WeechatResult};
-
-pub struct Discord {
-    weechat: Weechat,
-    config: config::Config,
-    buffer_manager: BufferManager,
-    _sync_handle: sync::SyncHandle,
-    _hook_handles: hook::HookHandles,
-    _bar_handles: bar_items::BarHandles,
+pub struct Weecord {
+    _discord_connection: Option<DiscordConnection>,
+    _config: config::Config,
 }
 
-impl WeechatPlugin for Discord {
-    // Note: We cannot use on_main (or plugin_print)
-    fn init(weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
-        let args: Vec<_> = args.collect();
+impl WeechatPlugin for Weecord {
+    fn init(_weechat: &Weechat, _args: ArgsWeechat) -> StdResult<Self, ()> {
+        let config = config::Config::new();
 
-        let _sync_handle = sync::init(&weechat);
-        let _hook_handles = hook::init(&weechat);
-        let _bar_handles = bar_items::init(&weechat);
-        let config = config::init(&weechat);
-        let buffer_manager = buffers::init(&weechat);
-
-        let autostart = config.autostart.value();
-
-        let weecord = Discord {
-            weechat,
-            config,
-            buffer_manager,
-            _sync_handle,
-            _hook_handles,
-            _bar_handles,
-        };
-
-        if !args.contains(&"-a".to_owned()) && autostart {
-            weecord.connect();
+        if let Err(_) = config.read() {
+            return Err(());
         }
 
-        Ok(weecord)
+        tracing_subscriber::fmt()
+            .with_writer(|| debug::Debug)
+            .without_time()
+            .with_max_level(config.tracing_level())
+            .init();
+
+        if config.auto_open_tracing() {
+            let _ = debug::Debug::create_buffer();
+        }
+
+        let discord_connection = match config.token() {
+            Some(token) => {
+                let token = token.to_string();
+
+                let (tx, rx) = channel(1000);
+
+                let connection = DiscordConnection::start(&token, tx);
+
+                Weechat::spawn(DiscordConnection::handle_events(rx));
+
+                Some(connection)
+            },
+            None => None,
+        };
+
+        Ok(Weecord {
+            _discord_connection: discord_connection,
+            _config: config,
+        })
     }
 }
 
-impl Discord {
-    fn connect(&self) {
-        if unsafe { &crate::discord::CONTEXT }.is_some() {
-            plugin_print("Already connected");
-        }
-
-        let token = self.config.token.value().into_owned();
-
-        let token = if token.starts_with("${sec.data") {
-            self.eval_string_expression(&token).map(Cow::into_owned)
-        } else {
-            Some(token)
-        };
-        if let Some(t) = token {
-            if !t.is_empty() {
-                discord::init(&self, &t, self.config.irc_mode.value());
-            } else {
-                self.print("Error: weecord.main.token is not set. To set it, run:");
-                self.print("/discord token 123456789ABCDEF");
-            }
-        } else {
-            self.print("Error: failed to evaluate token option, expected valid ${sec.data...}");
-        }
-    }
-}
-
-impl Drop for Discord {
+impl Drop for Weecord {
     fn drop(&mut self) {
-        // TODO: Why is the config file not saved on quit?
-        self.config.config.write()
-    }
-}
-
-impl std::ops::Deref for Discord {
-    type Target = Weechat;
-
-    fn deref(&self) -> &Self::Target {
-        &self.weechat
+        self._config
+            .config
+            .borrow()
+            .write()
+            .expect("Unable to write config file");
     }
 }
 
 weechat_plugin!(
-    Discord,
+    Weecord,
     name: "weecord",
     author: "Noskcaj19",
     description: "Discord integration for weechat",
-    version: "0.2.0",
+    version: "0.3.0",
     license: "MIT"
 );
-
-pub fn plugin_print(msg: &str) {
-    let msg = msg.to_owned();
-    on_main(move |weechat| weechat.print(&format!("discord: {}", msg)))
-}

@@ -1,171 +1,154 @@
-use crate::{utils, utils::GuildOrChannel};
+use anyhow::Result;
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+    str::FromStr,
+};
+use tracing::debug;
 use weechat::{
-    BooleanOption, ConfigOption, ConfigSectionInfo, IntegerOption, StringOption, Weechat,
+    config::{
+        BooleanOptionSettings, Conf, ConfigSection, ConfigSectionSettings, OptionChanged,
+        SectionReadCallback, StringOption, StringOptionSettings,
+    },
+    Weechat,
 };
 
+#[derive(Clone)]
 pub struct Config {
-    pub token: StringOption,
-    pub watched_channels: StringOption,
-    pub autojoin_channels: StringOption,
-    pub autostart: BooleanOption,
-    pub use_presence: BooleanOption,
-    pub send_typing_events: BooleanOption,
-    pub irc_mode: BooleanOption,
-    pub message_fetch_count: IntegerOption,
-    pub user_typing_list_max: IntegerOption,
-    pub user_typing_list_expanded: BooleanOption,
-    pub config: weechat::Config<()>,
+    pub(crate) config: Rc<RefCell<weechat::config::Config>>,
+    inner: Rc<RefCell<InnerConfig>>,
 }
 
-pub fn init(weechat: &Weechat) -> Config {
-    let mut config = weechat.config_new("weecord", None, None);
+impl SectionReadCallback for Config {
+    fn callback(
+        &mut self,
+        _: &Weechat,
+        _: &Conf,
+        section: &mut ConfigSection,
+        option_name: &str,
+        option_value: &str,
+    ) -> OptionChanged {
+        let option = section.search_option(option_name);
 
-    let section_info: ConfigSectionInfo<()> = ConfigSectionInfo {
-        name: "main",
-        ..Default::default()
-    };
+        if let Some(o) = option {
+            o.set(option_value, true)
+        } else {
+            OptionChanged::NotFound
+        }
+    }
+}
 
-    let section = config.new_section(section_info);
+#[derive(Clone)]
+pub struct InnerConfig {
+    token: Option<String>,
+    tracing_level: tracing::Level,
+    auto_open_tracing: bool,
+}
 
-    let token = section.new_string_option(
-        "token",
-        "Discord auth token. Supports secure data",
-        "",
-        "",
-        false,
-        None,
-        None::<()>,
-    );
-
-    let watched_channels = section.new_string_option(
-        "watched_channels",
-        "List of channels to open when a message is received",
-        "",
-        "",
-        false,
-        None,
-        None::<()>,
-    );
-
-    let autojoin_channels = section.new_string_option(
-        "autojoin_channels",
-        "List of channels to automatically open on connecting (irc mode only)",
-        "",
-        "",
-        false,
-        None,
-        None::<()>,
-    );
-
-    let autostart = section.new_boolean_option(
-        "autostart",
-        "Automatically connect to Discord when weechat starts",
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
-    let use_presence = section.new_boolean_option(
-        "use_presence",
-        "Show the presence of other users in the nicklist",
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
-    let send_typing_events = section.new_boolean_option(
-        "send_typing_events",
-        "Send typing events to the channel",
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
-    let irc_mode = section.new_boolean_option(
-        "irc_mode",
-        r#"Enable "IRC-Mode" where only the channels you choose will be automatically joined"#,
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
-    let message_fetch_count = section.new_integer_option(
-        "message_load_count",
-        "How many messages will be fetched when a buffer is loaded",
-        "",
-        0,
-        100,
-        "25",
-        "25",
-        false,
-        None,
-        None::<()>,
-    );
-
-    let user_typing_list_max = section.new_integer_option(
-        "user_typing_list_max",
-        "How many users will be displayed at most in the typing indicator",
-        "",
-        0,
-        100,
-        "3",
-        "3",
-        false,
-        None,
-        None::<()>,
-    );
-
-    let user_typing_list_expanded = section.new_boolean_option(
-        "user_typing_list_expanded",
-        "Format the typing list more like the electron client",
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
-    config.read();
-
-    Config {
-        token,
-        watched_channels,
-        autojoin_channels,
-        autostart,
-        use_presence,
-        send_typing_events,
-        irc_mode,
-        message_fetch_count,
-        user_typing_list_max,
-        user_typing_list_expanded,
-        config,
+impl InnerConfig {
+    pub fn new() -> InnerConfig {
+        InnerConfig {
+            token: None,
+            tracing_level: tracing::Level::WARN,
+            auto_open_tracing: false,
+        }
     }
 }
 
 impl Config {
-    pub fn autojoin_channels(&self) -> Vec<GuildOrChannel> {
-        self.autojoin_channels
-            .value()
-            .split(',')
-            .filter(|i| !i.is_empty())
-            .filter_map(utils::parse_id)
-            .collect()
+    pub fn new() -> Config {
+        let config = Rc::new(RefCell::new(
+            Weechat::config_new("weecord").expect("Can't create new config"),
+        ));
+        let inner = Rc::new(RefCell::new(InnerConfig::new()));
+
+        let config = Config {
+            config,
+            inner: Rc::clone(&inner),
+        };
+
+        {
+            let inner = Rc::downgrade(&inner);
+            let general_secion_option = ConfigSectionSettings::new("general");
+            let mut config_borrow = config.config.borrow_mut();
+            let mut sec = config_borrow
+                .new_section(general_secion_option)
+                .expect("Unable to create general section");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_string_option(
+                StringOptionSettings::new("token")
+                    .description("Discord auth token. Supports secure data")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().token = Some(option.value().to_string());
+                    }),
+            )
+            .expect("Unable to create token option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_string_option(
+                StringOptionSettings::new("tracing_level")
+                    .description("Tracing level for debugging")
+                    .default_value("warn")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+
+                        inner.borrow_mut().tracing_level =
+                            tracing::Level::from_str(&option.value())
+                                .unwrap_or(tracing::Level::WARN);
+                    })
+                    .set_check_callback(|_: &Weechat, _: &StringOption, value| {
+                        match value.as_ref() {
+                            "error" | "warn" | "info" | "debug" | "trace" => true,
+                            _ => false,
+                        }
+                    }),
+            )
+            .expect("Unable to create tracing level option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_boolean_option(
+                BooleanOptionSettings::new("open_tracing_window")
+                    .description("Should the tracing window be opened automatically")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().auto_open_tracing = option.value();
+                    }),
+            )
+            .expect("Unable to create tracing window option");
+        }
+
+        {
+            let server_section_options = ConfigSectionSettings::new("server");
+            let mut config_borrow = config.config.borrow_mut();
+            config_borrow
+                .new_section(server_section_options)
+                .expect("Unable to create server section");
+        }
+
+        config
     }
 
-    pub fn watched_channels(&self) -> Vec<GuildOrChannel> {
-        self.watched_channels
-            .value()
-            .split(',')
-            .filter(|i| !i.is_empty())
-            .filter_map(utils::parse_id)
-            .collect()
+    pub fn read(&self) -> Result<()> {
+        Ok(self.config.borrow().read()?)
+    }
+
+    pub fn auto_open_tracing(&self) -> bool {
+        self.inner.borrow().auto_open_tracing
+    }
+
+    pub fn token(&self) -> Option<String> {
+        self.inner.borrow().token.clone()
+    }
+
+    pub fn tracing_level(&self) -> tracing::Level {
+        self.inner.borrow().tracing_level.clone()
     }
 }

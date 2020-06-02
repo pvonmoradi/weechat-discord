@@ -20,11 +20,11 @@ impl WeechatPlugin for Weecord {
             return Err(());
         }
 
-        tracing_subscriber::fmt()
+        let _ = tracing_subscriber::fmt()
             .with_writer(|| debug::Debug)
             .without_time()
             .with_max_level(config.tracing_level())
-            .init();
+            .try_init();
 
         if config.auto_open_tracing() {
             let _ = debug::Debug::create_buffer();

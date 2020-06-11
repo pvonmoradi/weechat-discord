@@ -1,20 +1,69 @@
-use crate::discord::discord_connection::DiscordConnection;
-use std::result::Result as StdResult;
+use crate::{discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    collections::HashMap,
+    rc::Rc,
+    result::Result as StdResult,
+};
 use tokio::sync::mpsc::channel;
+use twilight::model::id::GuildId;
 use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
 
+mod channel_buffer;
 mod config;
 mod debug;
 mod discord;
+mod guild_buffer;
+mod twilight_utils;
+mod utils;
+
+#[derive(Clone)]
+pub struct Guilds {
+    guilds: Rc<RefCell<HashMap<GuildId, DiscordGuild>>>,
+}
+
+impl Guilds {
+    pub fn borrow(&self) -> Ref<'_, HashMap<GuildId, DiscordGuild>> {
+        self.guilds.borrow()
+    }
+
+    pub fn borrow_mut(&self) -> RefMut<'_, HashMap<GuildId, DiscordGuild>> {
+        self.guilds.borrow_mut()
+    }
+}
+
+impl Guilds {
+    pub fn new() -> Guilds {
+        Guilds {
+            guilds: Rc::new(RefCell::new(HashMap::new())),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct DiscordSession {
+    guilds: Guilds,
+}
+
+impl DiscordSession {
+    pub fn new() -> DiscordSession {
+        DiscordSession {
+            guilds: Guilds::new(),
+        }
+    }
+}
 
 pub struct Weecord {
-    _discord_connection: Option<DiscordConnection>,
+    _discord: DiscordSession,
+    _discord_connection: Rc<RefCell<Option<DiscordConnection>>>,
     _config: config::Config,
 }
 
 impl WeechatPlugin for Weecord {
     fn init(_weechat: &Weechat, _args: ArgsWeechat) -> StdResult<Self, ()> {
-        let config = config::Config::new();
+        let session = DiscordSession::new();
+
+        let config = config::Config::new(&session);
 
         if let Err(_) = config.read() {
             return Err(());
@@ -30,35 +79,38 @@ impl WeechatPlugin for Weecord {
             let _ = debug::Debug::create_buffer();
         }
 
-        let discord_connection = match config.token() {
-            Some(token) => {
-                let token = token.to_string();
+        let discord_connection = Rc::new(RefCell::new(None));
 
-                let (tx, rx) = channel(1000);
+        if let Some(token) = config.token() {
+            let token = token.to_string();
 
-                let connection = DiscordConnection::start(&token, tx);
+            let (tx, rx) = channel(1000);
 
-                Weechat::spawn(DiscordConnection::handle_events(rx));
+            let discord_connection = Rc::clone(&discord_connection);
+            let session = session.clone();
+            Weechat::spawn(async move {
+                if let Ok(connection) = DiscordConnection::start(&token, tx).await {
+                    let cache_clone = connection.cache.clone();
+                    let http_clone = connection.http.clone();
 
-                Some(connection)
-            },
-            None => None,
+                    discord_connection.borrow_mut().replace(connection);
+                    DiscordConnection::handle_events(
+                        rx,
+                        session,
+                        cache_clone,
+                        &http_clone,
+                        &discord_connection.borrow().as_ref().unwrap().rt,
+                    )
+                    .await;
+                }
+            });
         };
 
         Ok(Weecord {
+            _discord: session,
             _discord_connection: discord_connection,
             _config: config,
         })
-    }
-}
-
-impl Drop for Weecord {
-    fn drop(&mut self) {
-        self._config
-            .config
-            .borrow()
-            .write()
-            .expect("Unable to write config file");
     }
 }
 

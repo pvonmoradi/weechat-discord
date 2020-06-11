@@ -1,14 +1,15 @@
+use crate::{DiscordGuild, DiscordSession};
 use anyhow::Result;
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
     str::FromStr,
 };
-use tracing::debug;
+use twilight::model::id::GuildId;
 use weechat::{
     config::{
-        BooleanOptionSettings, Conf, ConfigSection, ConfigSectionSettings, OptionChanged,
-        SectionReadCallback, StringOption, StringOptionSettings,
+        BooleanOptionSettings, Conf, ConfigSection, ConfigSectionSettings, IntegerOptionSettings,
+        OptionChanged, SectionReadCallback, StringOption, StringOptionSettings,
     },
     Weechat,
 };
@@ -17,6 +18,7 @@ use weechat::{
 pub struct Config {
     pub(crate) config: Rc<RefCell<weechat::config::Config>>,
     inner: Rc<RefCell<InnerConfig>>,
+    session: DiscordSession,
 }
 
 impl SectionReadCallback for Config {
@@ -28,6 +30,21 @@ impl SectionReadCallback for Config {
         option_name: &str,
         option_value: &str,
     ) -> OptionChanged {
+        let option_args: Vec<&str> = option_name.splitn(2, '.').collect();
+
+        let guild_id = option_args[0];
+
+        {
+            let mut guilds_borrow = self.session.guilds.borrow_mut();
+
+            if let Ok(guild_id) = guild_id.parse().map(GuildId) {
+                if !guilds_borrow.contains_key(&guild_id) {
+                    let guild = DiscordGuild::new(&self, guild_id, section);
+                    guilds_borrow.insert(guild_id.into(), guild);
+                }
+            }
+        }
+
         let option = section.search_option(option_name);
 
         if let Some(o) = option {
@@ -43,6 +60,7 @@ pub struct InnerConfig {
     token: Option<String>,
     tracing_level: tracing::Level,
     auto_open_tracing: bool,
+    message_fetch_count: i32,
 }
 
 impl InnerConfig {
@@ -51,12 +69,13 @@ impl InnerConfig {
             token: None,
             tracing_level: tracing::Level::WARN,
             auto_open_tracing: false,
+            message_fetch_count: 50,
         }
     }
 }
 
 impl Config {
-    pub fn new() -> Config {
+    pub fn new(session: &DiscordSession) -> Config {
         let config = Rc::new(RefCell::new(
             Weechat::config_new("weecord").expect("Can't create new config"),
         ));
@@ -65,6 +84,7 @@ impl Config {
         let config = Config {
             config,
             inner: Rc::clone(&inner),
+            session: session.clone(),
         };
 
         {
@@ -87,6 +107,22 @@ impl Config {
                     }),
             )
             .expect("Unable to create token option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("message_fetch_count")
+                    .description("number of messages to fetch when opening a buffer")
+                    .default_value(50)
+                    .min(0)
+                    .max(100)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().message_fetch_count = option.value();
+                    }),
+            )
+            .expect("Unable to create message fetch count option");
 
             let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
@@ -126,7 +162,8 @@ impl Config {
         }
 
         {
-            let server_section_options = ConfigSectionSettings::new("server");
+            let server_section_options =
+                ConfigSectionSettings::new("server").set_read_callback(config.clone());
             let mut config_borrow = config.config.borrow_mut();
             config_borrow
                 .new_section(server_section_options)
@@ -150,5 +187,18 @@ impl Config {
 
     pub fn tracing_level(&self) -> tracing::Level {
         self.inner.borrow().tracing_level.clone()
+    }
+
+    pub fn message_fetch_count(&self) -> i32 {
+        self.inner.borrow().message_fetch_count
+    }
+}
+
+impl Drop for Config {
+    fn drop(&mut self) {
+        self.config
+            .borrow()
+            .write()
+            .expect("Unable to write config file");
     }
 }

@@ -1,11 +1,5 @@
-use serenity::model::prelude::*;
+use twilight::model::user::CurrentUser;
 
 pub enum PluginMessage {
-    Connected {
-        user: CurrentUser,
-    },
-    SerenityError {
-        message: String,
-        error: serenity::Error,
-    },
+    Connected { user: CurrentUser },
 }

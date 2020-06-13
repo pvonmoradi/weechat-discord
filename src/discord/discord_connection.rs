@@ -35,7 +35,7 @@ impl DiscordConnection {
                 let shard = match Shard::new(config).await {
                     Ok(shard) => shard,
                     Err(e) => {
-                        let err_msg = format!("An error occured connecting to Discord: {:#?}", e);
+                        let err_msg = format!("An error occured connecting to Discord: {}", e);
                         Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });
                         error!("An error occured connecting to Discord: {:#?}", e);
                         return;

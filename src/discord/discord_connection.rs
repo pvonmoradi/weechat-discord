@@ -1,6 +1,6 @@
 use crate::{discord::plugin_message::PluginMessage, DiscordSession};
 use anyhow::Result;
-use std::sync::Arc;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 use tokio::{
     runtime::Runtime,
     stream::StreamExt,
@@ -17,14 +17,16 @@ use twilight::{
 };
 use weechat::Weechat;
 
-pub struct DiscordConnection {
+pub type DiscordConnection = Rc<RefCell<Option<RawDiscordConnection>>>;
+
+pub struct RawDiscordConnection {
     pub(crate) rt: Runtime,
     pub(crate) cache: Arc<Cache>,
     pub(crate) http: HttpClient,
 }
 
-impl DiscordConnection {
-    pub async fn start(token: &str, tx: Sender<PluginMessage>) -> Result<DiscordConnection> {
+impl RawDiscordConnection {
+    pub async fn start(token: &str, tx: Sender<PluginMessage>) -> Result<RawDiscordConnection> {
         let (cache_tx, cache_rx) = channel();
         let runtime = Runtime::new().expect("Unable to create tokio runtime");
         let token = token.to_owned();
@@ -72,7 +74,7 @@ impl DiscordConnection {
         let (cache, http) = cache_rx
             .await
             .map_err(|_| anyhow::anyhow!("The connection to discord failed"))?;
-        Ok(DiscordConnection {
+        Ok(RawDiscordConnection {
             rt: runtime,
             cache,
             http,

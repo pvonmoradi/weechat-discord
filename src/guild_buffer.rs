@@ -62,6 +62,7 @@ impl InnerGuild {
     }
 }
 
+#[derive(Clone)]
 pub struct DiscordGuild {
     id: GuildId,
     inner: Rc<RefCell<InnerGuild>>,
@@ -151,6 +152,10 @@ impl DiscordGuild {
             warn!(guild_id = self.id.0, "Unable to find cached guild");
         }
         Ok(())
+    }
+
+    pub fn autojoin(&self) -> Vec<ChannelId> {
+        self.inner.borrow().autojoin.clone()
     }
 
     pub fn autoconnect(&self) -> bool {

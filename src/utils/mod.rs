@@ -3,4 +3,5 @@ pub fn clean_name(name: &str) -> String {
         .replace(' ', "_")
         .replace('\'', "")
         .replace('"', "")
+        .replace('.', "")
 }

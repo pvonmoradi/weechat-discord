@@ -1,4 +1,7 @@
-use crate::{discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild};
+use crate::{
+    discord::discord_connection::{DiscordConnection, RawDiscordConnection},
+    guild_buffer::DiscordGuild,
+};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
@@ -14,6 +17,7 @@ mod config;
 mod debug;
 mod discord;
 mod guild_buffer;
+mod hooks;
 mod twilight_utils;
 mod utils;
 
@@ -55,12 +59,13 @@ impl DiscordSession {
 
 pub struct Weecord {
     _discord: DiscordSession,
-    _discord_connection: Rc<RefCell<Option<DiscordConnection>>>,
+    _discord_connection: DiscordConnection,
     _config: config::Config,
+    _hooks: hooks::Hooks,
 }
 
 impl WeechatPlugin for Weecord {
-    fn init(_weechat: &Weechat, _args: ArgsWeechat) -> StdResult<Self, ()> {
+    fn init(weechat: &Weechat, _args: ArgsWeechat) -> StdResult<Self, ()> {
         let session = DiscordSession::new();
 
         let config = config::Config::new(&session);
@@ -89,12 +94,12 @@ impl WeechatPlugin for Weecord {
             let discord_connection = Rc::clone(&discord_connection);
             let session = session.clone();
             Weechat::spawn(async move {
-                if let Ok(connection) = DiscordConnection::start(&token, tx).await {
+                if let Ok(connection) = RawDiscordConnection::start(&token, tx).await {
                     let cache_clone = connection.cache.clone();
                     let http_clone = connection.http.clone();
 
                     discord_connection.borrow_mut().replace(connection);
-                    DiscordConnection::handle_events(
+                    RawDiscordConnection::handle_events(
                         rx,
                         session,
                         cache_clone,
@@ -106,10 +111,18 @@ impl WeechatPlugin for Weecord {
             });
         };
 
+        let _hooks = hooks::Hooks::hook_all(
+            weechat,
+            discord_connection.clone(),
+            session.clone(),
+            config.clone(),
+        );
+
         Ok(Weecord {
             _discord: session,
             _discord_connection: discord_connection,
             _config: config,
+            _hooks,
         })
     }
 }

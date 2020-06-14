@@ -1,7 +1,7 @@
 use crate::{DiscordGuild, DiscordSession};
 use anyhow::Result;
 use std::{
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     rc::{Rc, Weak},
     str::FromStr,
 };
@@ -19,6 +19,12 @@ pub struct Config {
     pub(crate) config: Rc<RefCell<weechat::config::Config>>,
     inner: Rc<RefCell<InnerConfig>>,
     session: DiscordSession,
+}
+
+impl Config {
+    pub fn borrow_mut(&self) -> RefMut<'_, weechat::config::Config> {
+        self.config.borrow_mut()
+    }
 }
 
 impl SectionReadCallback for Config {

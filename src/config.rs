@@ -162,8 +162,16 @@ impl Config {
         }
 
         {
-            let server_section_options =
-                ConfigSectionSettings::new("server").set_read_callback(config.clone());
+            let server_section_options = ConfigSectionSettings::new("server")
+                .set_read_callback(config.clone())
+                .set_write_callback(
+                    |_weechat: &Weechat, config: &Conf, section: &mut ConfigSection| {
+                        config.write_section(section.name());
+                        for option in section.options() {
+                            config.write_option(option);
+                        }
+                    },
+                );
             let mut config_borrow = config.config.borrow_mut();
             config_borrow
                 .new_section(server_section_options)

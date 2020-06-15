@@ -18,6 +18,7 @@ mod debug;
 mod discord;
 mod guild_buffer;
 mod hooks;
+mod message_renderer;
 mod twilight_utils;
 mod utils;
 

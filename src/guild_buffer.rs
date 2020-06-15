@@ -136,7 +136,7 @@ impl DiscordGuild {
                     if crate::twilight_utils::is_text_channel(&cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
                         if let Ok(buf) = DiscordChannel::new(&self.config, &channel, &guild.name) {
-                            if let Err(e) = buf.load_history(http.clone(), &rt).await {
+                            if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
                                 warn!(
                                     error = ?e,
                                     channel = %channel.name(),

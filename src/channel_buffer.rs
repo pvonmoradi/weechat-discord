@@ -1,20 +1,20 @@
-use crate::{config::Config, twilight_utils::ext::GuildChannelExt};
+use crate::{
+    config::Config, message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
+};
 use anyhow::Result;
 use std::sync::mpsc::channel;
 use twilight::{
+    cache::InMemoryCache as Cache,
     http::Client as HttpClient,
     model::{
         channel::{GuildChannel, Message},
         id::ChannelId,
     },
 };
-use weechat::{
-    buffer::{BufferHandle, BufferSettings},
-    Weechat,
-};
+use weechat::{buffer::BufferSettings, Weechat};
 
 pub struct ChannelBuffer {
-    buffer_handle: BufferHandle,
+    renderer: MessageRender,
 }
 
 impl ChannelBuffer {
@@ -40,7 +40,9 @@ impl ChannelBuffer {
             buffer.set_title(&format!("#{}", channel.name()));
         }
 
-        Ok(ChannelBuffer { buffer_handle })
+        Ok(ChannelBuffer {
+            renderer: MessageRender::new(buffer_handle),
+        })
     }
 }
 
@@ -66,6 +68,7 @@ impl DiscordChannel {
 
     pub async fn load_history(
         &self,
+        cache: &Cache,
         http: HttpClient,
         runtime: &tokio::runtime::Runtime,
     ) -> Result<()> {
@@ -86,20 +89,11 @@ impl DiscordChannel {
         }
         let messages = rx.recv().unwrap();
 
-        let buffer = self
-            .channel_buffer
-            .buffer_handle
-            .upgrade()
-            .map_err(|_| anyhow::anyhow!("Unable to upgrade handle"))?;
-
         for msg in messages.iter().rev() {
-            buffer.print_date_tags(
-                chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
-                    .expect("Discord returned an invalid datetime")
-                    .timestamp(),
-                &[],
-                &format!("{}\t{}", msg.author.name, msg.content),
-            );
+            self.channel_buffer
+                .renderer
+                .add_msg(cache, msg, false)
+                .await;
         }
         Ok(())
     }

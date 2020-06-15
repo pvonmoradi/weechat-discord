@@ -1,7 +1,7 @@
-use crate::{channel_buffer::DiscordChannel, config::Config, twilight_utils::GuildChannelExt};
+use crate::{channel_buffer::DiscordChannel, config::Config, twilight_utils::ext::GuildChannelExt};
 use anyhow::Result;
 use std::{
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     collections::HashMap,
     rc::{Rc, Weak},
 };
@@ -64,7 +64,7 @@ impl InnerGuild {
 
 #[derive(Clone)]
 pub struct DiscordGuild {
-    id: GuildId,
+    pub id: GuildId,
     inner: Rc<RefCell<InnerGuild>>,
     config: Config,
 }
@@ -133,7 +133,7 @@ impl DiscordGuild {
 
             for channel_id in inner.autojoin.clone() {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {
-                    if DiscordChannel::is_text_channel(&cache, &channel).await {
+                    if crate::twilight_utils::is_text_channel(&cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
                         if let Ok(buf) = DiscordChannel::new(&self.config, &channel, &guild.name) {
                             if let Err(e) = buf.load_history(http.clone(), &rt).await {
@@ -158,7 +158,31 @@ impl DiscordGuild {
         self.inner.borrow().autojoin.clone()
     }
 
+    pub fn autojoin_mut(&self) -> RefMut<Vec<ChannelId>> {
+        RefMut::map(self.inner.borrow_mut(), |i| &mut i.autojoin)
+    }
+
     pub fn autoconnect(&self) -> bool {
         self.inner.borrow().autoconnect
+    }
+
+    pub fn write_config(&self) {
+        let config = self.config.config.borrow();
+        let section = config
+            .search_section("server")
+            .expect("Unable to get server section");
+
+        let autojoin = section
+            .search_option(&format!("{}.autojoin", self.id))
+            .expect("autojoin option does not exist");
+        autojoin.set(
+            &self
+                .autojoin()
+                .iter()
+                .map(|c| c.0.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            true,
+        );
     }
 }

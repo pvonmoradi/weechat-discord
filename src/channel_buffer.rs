@@ -1,15 +1,10 @@
-use crate::{
-    config::Config,
-    twilight_utils::{CachedGuildExt, GuildChannelExt},
-};
+use crate::{config::Config, twilight_utils::ext::GuildChannelExt};
 use anyhow::Result;
 use std::sync::mpsc::channel;
 use twilight::{
-    cache::InMemoryCache as Cache,
     http::Client as HttpClient,
     model::{
-        channel::{ChannelType, GuildChannel, Message},
-        guild::Permissions,
+        channel::{GuildChannel, Message},
         id::ChannelId,
     },
 };
@@ -107,43 +102,5 @@ impl DiscordChannel {
             );
         }
         Ok(())
-    }
-
-    pub async fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
-        let current_user = match cache
-            .current_user()
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
-            Some(user) => user,
-            None => return false,
-        };
-
-        let guild_id = match channel.guild_id() {
-            Some(guild_id) => guild_id,
-            None => return false,
-        };
-        let guild = match cache
-            .guild(guild_id)
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
-            Some(guild) => guild,
-            None => return false,
-        };
-
-        if !guild
-            .permissions_in(cache, channel.id(), current_user.id)
-            .await
-            .contains(Permissions::READ_MESSAGE_HISTORY)
-        {
-            return false;
-        }
-
-        match channel {
-            GuildChannel::Category(c) => c.kind == ChannelType::GuildText,
-            GuildChannel::Text(c) => c.kind == ChannelType::GuildText,
-            GuildChannel::Voice(_) => false,
-        }
     }
 }

@@ -1,4 +1,6 @@
-use crate::{discord::plugin_message::PluginMessage, DiscordSession};
+use crate::{
+    discord::plugin_message::PluginMessage, twilight_utils::ext::MessageExt, DiscordSession,
+};
 use anyhow::Result;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 use tokio::{
@@ -113,6 +115,29 @@ impl RawDiscordConnection {
                         }
                     }
                 },
+                PluginMessage::MessageCreate { message } => {
+                    if let Some(guild_id) = message.guild_id {
+                        let guilds = session.guilds.borrow();
+                        let guild = match guilds.get(&guild_id) {
+                            Some(guild) => guild,
+                            None => continue,
+                        };
+
+                        let buffers = guild.channel_buffers();
+                        let channel = match buffers.get(&message.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel
+                            .add_message(
+                                cache.as_ref(),
+                                &message,
+                                message.is_own(cache.as_ref()).await,
+                            )
+                            .await;
+                    }
+                },
             }
         }
     }
@@ -130,6 +155,11 @@ impl RawDiscordConnection {
                     .ok()
                     .unwrap();
             },
+            GatewayEvent::MessageCreate(message) => tx
+                .send(PluginMessage::MessageCreate { message: message.0 })
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
             _ => {},
         }
     }

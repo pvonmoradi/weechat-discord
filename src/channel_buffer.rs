@@ -2,7 +2,7 @@ use crate::{
     config::Config, message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
-use std::sync::mpsc::channel;
+use std::sync::{mpsc::channel, Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
     http::Client as HttpClient,
@@ -46,8 +46,9 @@ impl ChannelBuffer {
     }
 }
 
+#[derive(Clone)]
 pub struct DiscordChannel {
-    channel_buffer: ChannelBuffer,
+    channel_buffer: Arc<ChannelBuffer>,
     id: ChannelId,
     config: Config,
 }
@@ -62,7 +63,7 @@ impl DiscordChannel {
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),
-            channel_buffer,
+            channel_buffer: Arc::new(channel_buffer),
         })
     }
 
@@ -96,5 +97,12 @@ impl DiscordChannel {
                 .await;
         }
         Ok(())
+    }
+
+    pub async fn add_message(&self, cache: &Cache, msg: &Message, notify: bool) {
+        self.channel_buffer
+            .renderer
+            .add_msg(cache, msg, notify)
+            .await;
     }
 }

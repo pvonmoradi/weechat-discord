@@ -166,6 +166,10 @@ impl DiscordGuild {
         self.inner.borrow().autoconnect
     }
 
+    pub fn channel_buffers(&self) -> HashMap<ChannelId, DiscordChannel> {
+        self.inner.borrow().buffers.clone()
+    }
+
     pub fn write_config(&self) {
         let config = self.config.config.borrow();
         let section = config

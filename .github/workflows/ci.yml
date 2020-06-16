@@ -11,40 +11,53 @@ jobs:
       fail-fast: false
 
     steps:
-    - name: Install Linux packages
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-key adv --keyserver hkps://keys.openpgp.org --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
-        sudo add-apt-repository "deb https://weechat.org/ubuntu $(lsb_release -cs) main"
-        sudo apt-get update
-        sudo apt install weechat-devel-curses libclang-dev
-    - name: Install macOS packages
-      if: runner.os == 'macOS'
-      run: brew install weechat
+      - name: Install Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-key adv --keyserver hkps://keys.openpgp.org --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
+          sudo add-apt-repository "deb https://weechat.org/ubuntu $(lsb_release -cs) main"
+          sudo apt-get update
+          sudo apt install weechat-devel-curses libclang-dev
+      - name: Install macOS packages
+        if: runner.os == 'macOS'
+        run: brew install weechat
 
-    - name: Display Rust and Cargo versions
-      run: |
-        rustc -Vv
-        cargo -V
+      - name: Display Rust and Cargo versions
+        run: |
+          rustc -Vv
+          cargo -V
 
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Cache cargo build
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo build
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build binaries
-      run: cargo build --release
+      - name: Build binaries
+        run: cargo build --release
 
-    - uses: actions/upload-artifact@v2
-      if: runner.os == 'Linux'
-      with:
-        name: weechat-discord-linux
-        path: target/release/libweecord.*
-    - uses: actions/upload-artifact@v2
-      if: runner.os == 'macOS'
-      with:
-        name: weechat-discord-macos
-        path: target/release/libweecord.*
+      - uses: actions/upload-artifact@v2
+        if: runner.os == 'Linux'
+        with:
+          name: weechat-discord-linux
+          path: target/release/libweecord.*
+      - uses: actions/upload-artifact@v2
+        if: runner.os == 'macOS'
+        with:
+          name: weechat-discord-macos
+          path: target/release/libweecord.*
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check

@@ -1,3 +1,4 @@
+use crate::format;
 use std::{cell::RefCell, sync::Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
@@ -27,7 +28,7 @@ impl MessageRender {
                     .expect("Discord returned an invalid datetime")
                     .timestamp(),
                 &MessageRender::msg_tags(cache, msg, notify).await,
-                &msg.content,
+                &format::discord_to_weechat(&msg.content),
             );
     }
 

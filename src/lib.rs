@@ -18,6 +18,7 @@ mod channel_buffer;
 mod config;
 mod debug;
 mod discord;
+mod format;
 mod guild_buffer;
 mod hooks;
 mod message_renderer;

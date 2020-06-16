@@ -1,5 +1,6 @@
 use crate::{
-    config::Config, message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
+    config::Config, guild_buffer::DiscordGuild, message_renderer::MessageRender,
+    twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
 use std::sync::{mpsc::channel, Arc};
@@ -12,20 +13,35 @@ use twilight::{
         id::{ChannelId, MessageId},
     },
 };
-use weechat::{buffer::BufferSettings, Weechat};
+use weechat::{
+    buffer::{Buffer, BufferSettings},
+    Weechat,
+};
 
 pub struct ChannelBuffer {
     renderer: MessageRender,
 }
 
 impl ChannelBuffer {
-    pub fn new(channel: &GuildChannel, guild_name: &str) -> Result<ChannelBuffer> {
+    pub fn new(
+        guild: DiscordGuild,
+        channel: &GuildChannel,
+        guild_name: &str,
+    ) -> Result<ChannelBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let clean_channel_name = crate::utils::clean_name(channel.name());
-        let buffer_handle = Weechat::buffer_new(BufferSettings::new(&format!(
-            "discord.{}.{}",
-            clean_guild_name, clean_channel_name
-        )))
+        let channel_id = channel.id();
+        let buffer_handle = Weechat::buffer_new(
+            BufferSettings::new(&format!(
+                "discord.{}.{}",
+                clean_guild_name, clean_channel_name
+            ))
+            .close_callback(move |_: &Weechat, buffer: &Buffer| {
+                tracing::trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
+                guild.channel_buffers_mut().remove(&channel_id);
+                Ok(())
+            }),
+        )
         .map_err(|_| anyhow::anyhow!("Unable to create channel buffer"))?;
 
         let buffer = buffer_handle
@@ -57,10 +73,11 @@ pub struct DiscordChannel {
 impl DiscordChannel {
     pub fn new(
         config: &Config,
+        guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
     ) -> Result<DiscordChannel> {
-        let channel_buffer = ChannelBuffer::new(channel, guild_name)?;
+        let channel_buffer = ChannelBuffer::new(guild, channel, guild_name)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),

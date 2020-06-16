@@ -5,7 +5,6 @@ use crate::{
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
-    default,
     rc::Rc,
     result::Result as StdResult,
 };

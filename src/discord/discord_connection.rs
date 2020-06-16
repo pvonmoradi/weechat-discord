@@ -109,7 +109,10 @@ impl RawDiscordConnection {
                     for (guild_id, guild) in session.guilds.borrow().iter() {
                         if guild.autoconnect() {
                             trace!(guild_id = guild_id.0, "Autoconnecting");
-                            if let Err(e) = guild.connect(&cache, &http, rt).await {
+                            if let Err(e) = guild
+                                .connect(&cache, &http, rt, session.guilds.clone())
+                                .await
+                            {
                                 warn!(guild_id = guild_id.0, error=?e, "Error connecting guild");
                             }
                         }

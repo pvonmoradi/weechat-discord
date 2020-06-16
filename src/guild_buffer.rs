@@ -1,4 +1,6 @@
-use crate::{channel_buffer::DiscordChannel, config::Config, twilight_utils::ext::GuildChannelExt};
+use crate::{
+    channel_buffer::DiscordChannel, config::Config, twilight_utils::ext::GuildChannelExt, Guilds,
+};
 use anyhow::Result;
 use std::{
     cell::{RefCell, RefMut},
@@ -12,7 +14,7 @@ use twilight::{
     model::id::{ChannelId, GuildId},
 };
 use weechat::{
-    buffer::{BufferHandle, BufferSettings},
+    buffer::{Buffer, BufferHandle, BufferSettings},
     config::{BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings},
     Weechat,
 };
@@ -22,13 +24,17 @@ pub struct GuildBuffer {
 }
 
 impl GuildBuffer {
-    pub fn new(guild_name: &str) -> Result<GuildBuffer> {
+    pub fn new(guilds: Guilds, guild_id: GuildId, guild_name: &str) -> Result<GuildBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
-        let buffer_handle = Weechat::buffer_new(BufferSettings::new(&format!(
-            "discord.{}",
-            clean_guild_name
-        )))
-        .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
+        let buffer_handle = Weechat::buffer_new(
+            BufferSettings::new(&format!("discord.{}", clean_guild_name))
+                .close_callback(move |_: &Weechat, buffer: &Buffer| {
+                    tracing::trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
+                    guilds.borrow_mut().remove(&guild_id);
+                    Ok(())
+                }),
+        )
+            .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
 
         let buffer = buffer_handle
             .upgrade()
@@ -121,6 +127,7 @@ impl DiscordGuild {
         cache: &Cache,
         http: &HttpClient,
         rt: &tokio::runtime::Runtime,
+        guilds: Guilds,
     ) -> Result<()> {
         if let Some(guild) = cache.guild(self.id).await? {
             let mut inner = self.inner.borrow_mut();
@@ -129,13 +136,17 @@ impl DiscordGuild {
                 return Ok(());
             }
 
-            inner.guild_buffer.replace(GuildBuffer::new(&guild.name)?);
+            inner
+                .guild_buffer
+                .replace(GuildBuffer::new(guilds, self.id, &guild.name)?);
 
             for channel_id in inner.autojoin.clone() {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {
                     if crate::twilight_utils::is_text_channel(&cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
-                        if let Ok(buf) = DiscordChannel::new(&self.config, &channel, &guild.name) {
+                        if let Ok(buf) =
+                            DiscordChannel::new(&self.config, self.clone(), &channel, &guild.name)
+                        {
                             if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
                                 warn!(
                                     error = ?e,
@@ -168,6 +179,10 @@ impl DiscordGuild {
 
     pub fn channel_buffers(&self) -> HashMap<ChannelId, DiscordChannel> {
         self.inner.borrow().buffers.clone()
+    }
+
+    pub fn channel_buffers_mut(&self) -> RefMut<HashMap<ChannelId, DiscordChannel>> {
+        RefMut::map(self.inner.borrow_mut(), |i| &mut i.buffers)
     }
 
     pub fn write_config(&self) {

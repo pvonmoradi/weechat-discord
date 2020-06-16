@@ -7,8 +7,10 @@ use std::{
     collections::HashMap,
     rc::Rc,
     result::Result as StdResult,
+    sync::{atomic::AtomicBool, Arc},
 };
 use tokio::sync::mpsc::channel;
+use tracing::__macro_support::Ordering;
 use twilight::model::id::GuildId;
 use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
 
@@ -63,6 +65,7 @@ pub struct Weecord {
     _discord_connection: DiscordConnection,
     _config: config::Config,
     _hooks: hooks::Hooks,
+    alive: Arc<AtomicBool>,
 }
 
 impl WeechatPlugin for Weecord {
@@ -75,8 +78,11 @@ impl WeechatPlugin for Weecord {
             return Err(());
         }
 
+        let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
+
+        let ac = Arc::clone(&alive);
         let _ = tracing_subscriber::fmt()
-            .with_writer(|| debug::Debug)
+            .with_writer(move || debug::Debug::new(ac.clone()))
             .without_time()
             .with_max_level(config.tracing_level())
             .try_init();
@@ -122,7 +128,14 @@ impl WeechatPlugin for Weecord {
             _discord_connection: discord_connection,
             _config: config,
             _hooks,
+            alive,
         })
+    }
+}
+
+impl Drop for Weecord {
+    fn drop(&mut self) {
+        self.alive.store(false, Ordering::Relaxed)
     }
 }
 

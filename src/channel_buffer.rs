@@ -8,6 +8,7 @@ use twilight::{
     http::Client as HttpClient,
     model::{
         channel::{GuildChannel, Message},
+        gateway::payload::MessageUpdate,
         id::{ChannelId, MessageId},
     },
 };
@@ -108,5 +109,9 @@ impl DiscordChannel {
 
     pub async fn remove_message(&self, cache: &Cache, msg_id: MessageId) {
         self.channel_buffer.renderer.remove_msg(cache, msg_id).await;
+    }
+
+    pub async fn update_message(&self, cache: &Cache, update: MessageUpdate) {
+        self.channel_buffer.renderer.update_msg(cache, update).await;
     }
 }

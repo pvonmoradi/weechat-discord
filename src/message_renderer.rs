@@ -1,7 +1,7 @@
 use std::{cell::RefCell, sync::Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
-    model::{channel::Message, id::MessageId},
+    model::{channel::Message, gateway::payload::MessageUpdate, id::MessageId},
 };
 use weechat::buffer::BufferHandle;
 
@@ -53,6 +53,43 @@ impl MessageRender {
         if let Some(index) = index {
             self.messages.borrow_mut().remove(index);
         }
+        self.redraw_buffer(cache).await;
+    }
+
+    pub async fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
+        if let Some(old_msg) = self
+            .messages
+            .borrow_mut()
+            .iter_mut()
+            .find(|it| it.id == update.id)
+        {
+            old_msg.id = update.id;
+            old_msg.channel_id = update.channel_id;
+            old_msg.edited_timestamp = update.edited_timestamp;
+            for user in update.mentions.unwrap_or_default() {
+                old_msg.mentions.insert(user.id, user);
+            }
+            update
+                .attachments
+                .map(|attachments| old_msg.attachments = attachments);
+            update.author.map(|author| old_msg.author = author);
+            update.content.map(|content| old_msg.content = content);
+            update.embeds.map(|embeds| old_msg.embeds = embeds);
+            update.kind.map(|kind| old_msg.kind = kind);
+            update
+                .mention_everyone
+                .map(|mention_everyone| old_msg.mention_everyone = mention_everyone);
+            update
+                .mention_roles
+                .map(|mention_roles| old_msg.mention_roles = mention_roles);
+
+            update.pinned.map(|pinned| old_msg.pinned = pinned);
+            update
+                .timestamp
+                .map(|timestamp| old_msg.timestamp = timestamp);
+            update.tts.map(|tts| old_msg.tts = tts);
+        }
+
         self.redraw_buffer(cache).await;
     }
 

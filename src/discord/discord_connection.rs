@@ -159,6 +159,27 @@ impl RawDiscordConnection {
                         channel.remove_message(cache.as_ref(), event.id).await;
                     }
                 },
+                PluginMessage::MessageUpdate { message } => {
+                    if let Some(guild_channel) = cache
+                        .guild_channel(message.channel_id)
+                        .await
+                        .expect("InMemoryCache cannot fail")
+                    {
+                        let guilds = session.guilds.borrow();
+                        let guild = match guilds.get(&guild_channel.guild_id()) {
+                            Some(guild) => guild,
+                            None => continue,
+                        };
+
+                        let buffers = guild.channel_buffers();
+                        let channel = match buffers.get(&message.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.update_message(cache.as_ref(), *message).await;
+                    }
+                },
             }
         }
     }
@@ -199,6 +220,11 @@ impl RawDiscordConnection {
                     .expect("Receiving thread has died")
                 }
             },
+            GatewayEvent::MessageUpdate(message) => tx
+                .send(PluginMessage::MessageUpdate { message })
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
             _ => {},
         }
     }

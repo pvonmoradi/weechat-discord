@@ -277,7 +277,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
         let app = App::new("/discord")
             .global_setting(AppSettings::DisableVersion)
             .global_setting(AppSettings::VersionlessSubcommands)
-            .setting(AppSettings::SubcommandRequiredElseHelp)
+            .global_setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(
                 App::new("server")
                     .subcommand(App::new("add").arg(Arg::with_name("name").required(true)))

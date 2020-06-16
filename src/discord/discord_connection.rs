@@ -89,6 +89,7 @@ impl RawDiscordConnection {
         cache: Arc<Cache>,
         http: &HttpClient,
         rt: &Runtime,
+        connection: DiscordConnection,
     ) {
         loop {
             let event = match rx.recv().await {
@@ -110,7 +111,13 @@ impl RawDiscordConnection {
                         if guild.autoconnect() {
                             trace!(guild_id = guild_id.0, "Autoconnecting");
                             if let Err(e) = guild
-                                .connect(&cache, &http, rt, session.guilds.clone())
+                                .connect(
+                                    &cache,
+                                    &http,
+                                    rt,
+                                    connection.clone(),
+                                    session.guilds.clone(),
+                                )
                                 .await
                             {
                                 warn!(guild_id = guild_id.0, error=?e, "Error connecting guild");

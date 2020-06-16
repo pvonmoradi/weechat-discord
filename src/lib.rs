@@ -110,6 +110,7 @@ impl WeechatPlugin for Weecord {
                         cache_clone,
                         &http_clone,
                         &discord_connection.borrow().as_ref().unwrap().rt,
+                        discord_connection.clone(),
                     )
                     .await;
                 }

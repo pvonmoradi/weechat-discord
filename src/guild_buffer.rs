@@ -1,5 +1,6 @@
 use crate::{
-    channel_buffer::DiscordChannel, config::Config, twilight_utils::ext::GuildChannelExt, Guilds,
+    channel_buffer::DiscordChannel, config::Config, discord::discord_connection::DiscordConnection,
+    twilight_utils::ext::GuildChannelExt, Guilds,
 };
 use anyhow::Result;
 use std::{
@@ -127,6 +128,7 @@ impl DiscordGuild {
         cache: &Cache,
         http: &HttpClient,
         rt: &tokio::runtime::Runtime,
+        connection: DiscordConnection,
         guilds: Guilds,
     ) -> Result<()> {
         if let Some(guild) = cache.guild(self.id).await? {
@@ -144,9 +146,13 @@ impl DiscordGuild {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {
                     if crate::twilight_utils::is_text_channel(&cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
-                        if let Ok(buf) =
-                            DiscordChannel::new(&self.config, self.clone(), &channel, &guild.name)
-                        {
+                        if let Ok(buf) = DiscordChannel::new(
+                            &self.config,
+                            connection.clone(),
+                            self.clone(),
+                            &channel,
+                            &guild.name,
+                        ) {
                             if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
                                 warn!(
                                     error = ?e,

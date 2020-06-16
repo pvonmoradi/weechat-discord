@@ -1,9 +1,12 @@
 use crate::{
-    config::Config, guild_buffer::DiscordGuild, message_renderer::MessageRender,
-    twilight_utils::ext::GuildChannelExt,
+    config::Config, discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild,
+    message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
-use std::sync::{mpsc::channel, Arc};
+use std::{
+    borrow::Cow,
+    sync::{mpsc::channel, Arc},
+};
 use twilight::{
     cache::InMemoryCache as Cache,
     http::Client as HttpClient,
@@ -24,6 +27,7 @@ pub struct ChannelBuffer {
 
 impl ChannelBuffer {
     pub fn new(
+        connection: DiscordConnection,
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
@@ -36,6 +40,34 @@ impl ChannelBuffer {
                 "discord.{}.{}",
                 clean_guild_name, clean_channel_name
             ))
+            .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
+                if let Some(conn) = connection.borrow().as_ref() {
+                    let http = conn.http.clone();
+                    let input = input.to_string();
+                    conn.rt.spawn(async move {
+                        match http.create_message(channel_id).content(input) {
+                            Ok(msg) => {
+                                if let Err(e) = msg.await {
+                                    tracing::error!("Failed to send message: {:#?}", e);
+                                    Weechat::spawn_from_thread(async move {
+                                        Weechat::print(&format!(
+                                            "An error occured sending message: {}",
+                                            e
+                                        ))
+                                    });
+                                };
+                            },
+                            Err(e) => {
+                                tracing::error!("Failed to create message: {:#?}", e);
+                                Weechat::spawn_from_thread(async {
+                                    Weechat::print("Message content's invalid")
+                                })
+                            },
+                        }
+                    });
+                }
+                Ok(())
+            })
             .close_callback(move |_: &Weechat, buffer: &Buffer| {
                 tracing::trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
                 guild.channel_buffers_mut().remove(&channel_id);
@@ -73,11 +105,12 @@ pub struct DiscordChannel {
 impl DiscordChannel {
     pub fn new(
         config: &Config,
+        connection: DiscordConnection,
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
     ) -> Result<DiscordChannel> {
-        let channel_buffer = ChannelBuffer::new(guild, channel, guild_name)?;
+        let channel_buffer = ChannelBuffer::new(connection, guild, channel, guild_name)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),

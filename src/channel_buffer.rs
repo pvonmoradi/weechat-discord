@@ -8,7 +8,7 @@ use twilight::{
     http::Client as HttpClient,
     model::{
         channel::{GuildChannel, Message},
-        id::ChannelId,
+        id::{ChannelId, MessageId},
     },
 };
 use weechat::{buffer::BufferSettings, Weechat};
@@ -104,5 +104,9 @@ impl DiscordChannel {
             .renderer
             .add_msg(cache, msg, notify)
             .await;
+    }
+
+    pub async fn remove_message(&self, cache: &Cache, msg_id: MessageId) {
+        self.channel_buffer.renderer.remove_msg(cache, msg_id).await;
     }
 }

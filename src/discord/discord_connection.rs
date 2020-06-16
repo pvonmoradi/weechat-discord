@@ -1,5 +1,7 @@
 use crate::{
-    discord::plugin_message::PluginMessage, twilight_utils::ext::MessageExt, DiscordSession,
+    discord::plugin_message::PluginMessage,
+    twilight_utils::ext::{GuildChannelExt, MessageExt},
+    DiscordSession,
 };
 use anyhow::Result;
 use std::{cell::RefCell, rc::Rc, sync::Arc};
@@ -136,6 +138,27 @@ impl RawDiscordConnection {
                             .await;
                     }
                 },
+                PluginMessage::MessageDelete { event } => {
+                    if let Some(guild_channel) = cache
+                        .guild_channel(event.channel_id)
+                        .await
+                        .expect("InMemoryCache cannot fail")
+                    {
+                        let guilds = session.guilds.borrow();
+                        let guild = match guilds.get(&guild_channel.guild_id()) {
+                            Some(guild) => guild,
+                            None => continue,
+                        };
+
+                        let buffers = guild.channel_buffers();
+                        let channel = match buffers.get(&event.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.remove_message(cache.as_ref(), event.id).await;
+                    }
+                },
             }
         }
     }
@@ -155,6 +178,11 @@ impl RawDiscordConnection {
             },
             GatewayEvent::MessageCreate(message) => tx
                 .send(PluginMessage::MessageCreate { message: message.0 })
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+            GatewayEvent::MessageDelete(event) => tx
+                .send(PluginMessage::MessageDelete { event })
                 .await
                 .ok()
                 .expect("Receiving thread has died"),

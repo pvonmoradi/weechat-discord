@@ -87,12 +87,8 @@ pub async fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
         None => return false,
     };
 
-    let guild_id = match channel.guild_id() {
-        Some(guild_id) => guild_id,
-        None => return false,
-    };
     let guild = match cache
-        .guild(guild_id)
+        .guild(channel.guild_id())
         .await
         .expect("InMemoryCache cannot fail")
     {

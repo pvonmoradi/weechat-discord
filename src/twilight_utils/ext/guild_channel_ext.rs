@@ -6,7 +6,7 @@ use twilight::model::{
 pub trait GuildChannelExt {
     fn name(&self) -> &str;
     fn id(&self) -> ChannelId;
-    fn guild_id(&self) -> Option<GuildId>;
+    fn guild_id(&self) -> GuildId;
     fn kind(&self) -> ChannelType;
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
@@ -28,11 +28,12 @@ impl GuildChannelExt for GuildChannel {
             GuildChannel::Voice(c) => c.id,
         }
     }
-    fn guild_id(&self) -> Option<GuildId> {
+
+    fn guild_id(&self) -> GuildId {
         match self {
-            GuildChannel::Category(c) => c.guild_id,
-            GuildChannel::Text(c) => c.guild_id,
-            GuildChannel::Voice(c) => c.guild_id,
+            GuildChannel::Category(c) => c.guild_id.expect("GuildChannel must have a guild_id"),
+            GuildChannel::Text(c) => c.guild_id.expect("GuildChannel must have a guild_id"),
+            GuildChannel::Voice(c) => c.guild_id.expect("GuildChannel must have a guild_id"),
         }
     }
 

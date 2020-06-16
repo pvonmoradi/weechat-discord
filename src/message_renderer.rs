@@ -1,5 +1,8 @@
 use std::{cell::RefCell, sync::Arc};
-use twilight::{cache::InMemoryCache as Cache, model::channel::Message};
+use twilight::{
+    cache::InMemoryCache as Cache,
+    model::{channel::Message, id::MessageId},
+};
 use weechat::buffer::BufferHandle;
 
 pub struct MessageRender {
@@ -18,7 +21,7 @@ impl MessageRender {
     async fn print_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
         self.buffer_handle
             .upgrade()
-            .expect("message render outlived buffer")
+            .expect("message renderer outlived buffer")
             .print_date_tags(
                 chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
                     .expect("Discord returned an invalid datetime")
@@ -28,10 +31,29 @@ impl MessageRender {
             );
     }
 
+    /// Clear the buffer and reprint all messages
+    pub async fn redraw_buffer(&self, cache: &Cache) {
+        self.buffer_handle
+            .upgrade()
+            .expect("message renderer outlived buffer")
+            .clear();
+        for message in self.messages.borrow().iter() {
+            self.print_msg(cache, &message, false).await;
+        }
+    }
+
     pub async fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
         self.print_msg(cache, msg, notify).await;
 
         self.messages.borrow_mut().push(msg.clone());
+    }
+
+    pub async fn remove_msg(&self, cache: &Cache, id: MessageId) {
+        let index = self.messages.borrow().iter().position(|it| it.id == id);
+        if let Some(index) = index {
+            self.messages.borrow_mut().remove(index);
+        }
+        self.redraw_buffer(cache).await;
     }
 
     async fn msg_tags(cache: &Cache, msg: &Message, notify: bool) -> Vec<&'static str> {

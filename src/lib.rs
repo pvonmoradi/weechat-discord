@@ -5,6 +5,7 @@ use crate::{
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
+    default,
     rc::Rc,
     result::Result as StdResult,
 };
@@ -71,7 +72,7 @@ impl WeechatPlugin for Weecord {
 
         let config = config::Config::new(&session);
 
-        if let Err(_) = config.read() {
+        if config.read().is_err() {
             return Err(());
         }
 
@@ -88,8 +89,6 @@ impl WeechatPlugin for Weecord {
         let discord_connection = Rc::new(RefCell::new(None));
 
         if let Some(token) = config.token() {
-            let token = token.to_string();
-
             let (tx, rx) = channel(1000);
 
             let discord_connection = Rc::clone(&discord_connection);

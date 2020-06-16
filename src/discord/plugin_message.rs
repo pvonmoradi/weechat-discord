@@ -6,7 +6,7 @@ use twilight::model::{
 
 pub enum PluginMessage {
     Connected { user: CurrentUser },
-    MessageCreate { message: Message },
+    MessageCreate { message: Box<Message> },
     MessageDelete { event: MessageDelete },
     MessageUpdate { message: Box<MessageUpdate> },
 }

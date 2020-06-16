@@ -16,15 +16,10 @@ impl Hooks {
         session: DiscordSession,
         config: Config,
     ) -> Hooks {
-        let _command = command::hook(
-            weechat,
-            discord_connection.clone(),
-            session.clone(),
-            config.clone(),
-        );
+        let _command = command::hook(weechat, discord_connection.clone(), session, config);
         tracing::trace!("Command hooked");
 
-        let _completions = completions::Completions::hook_all(weechat, discord_connection.clone());
+        let _completions = completions::Completions::hook_all(weechat, discord_connection);
         tracing::trace!("Completions hooked");
 
         Hooks {

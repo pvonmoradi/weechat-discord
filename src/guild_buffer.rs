@@ -143,7 +143,7 @@ impl DiscordGuild {
                                     "Failed to load channel history",
                                 )
                             }
-                            inner.buffers.insert(channel_id.clone(), buf);
+                            inner.buffers.insert(channel_id, buf);
                         }
                     }
                 }

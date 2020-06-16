@@ -54,7 +54,7 @@ impl RawDiscordConnection {
                 let http = shard.config().http_client();
                 cache_tx
                     .send((cache.clone(), http.clone()))
-                    .ok()
+                    .map_err(|_| ())
                     .expect("Cache receiver closed before data could be sent");
 
                 while let Some(event) = events.next().await {
@@ -198,7 +198,9 @@ impl RawDiscordConnection {
                     .unwrap();
             },
             GatewayEvent::MessageCreate(message) => tx
-                .send(PluginMessage::MessageCreate { message: message.0 })
+                .send(PluginMessage::MessageCreate {
+                    message: Box::new(message.0),
+                })
                 .await
                 .ok()
                 .expect("Receiving thread has died"),

@@ -46,7 +46,7 @@ impl SectionReadCallback for Config {
             if let Ok(guild_id) = guild_id.parse().map(GuildId) {
                 if !guilds_borrow.contains_key(&guild_id) {
                     let guild = DiscordGuild::new(&self, guild_id, section);
-                    guilds_borrow.insert(guild_id.into(), guild);
+                    guilds_borrow.insert(guild_id, guild);
                 }
             }
         }

@@ -22,7 +22,7 @@ impl Completions {
                 "Completion for Discord servers",
                 move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
                     // `list` should not have any completion items
-                    if completion.arguments().splitn(3, " ").nth(1) == Some("list") {
+                    if completion.arguments().splitn(3, ' ').nth(1) == Some("list") {
                         return Ok(());
                     }
 
@@ -55,14 +55,14 @@ impl Completions {
             )
             .expect("Unable to hook discord guild completion");
 
-        let connection_clone = connection.clone();
+        let connection_clone = connection;
         let _channel_completion_hook = weechat
             .hook_completion(
                 "discord_channel",
                 "Completion for Discord channels",
                 move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
                     // Get the previous argument which should be the guild name
-                    let guild_name = match completion.arguments().splitn(4, " ").nth(2) {
+                    let guild_name = match completion.arguments().splitn(4, ' ').nth(2) {
                         Some(guild_name) => guild_name.to_string(),
                         None => return Err(()),
                     };

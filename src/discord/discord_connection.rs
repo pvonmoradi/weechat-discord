@@ -186,6 +186,19 @@ impl RawDiscordConnection {
                 .await
                 .ok()
                 .expect("Receiving thread has died"),
+            GatewayEvent::MessageDeleteBulk(event) => {
+                for id in event.ids {
+                    tx.send(PluginMessage::MessageDelete {
+                        event: twilight::model::gateway::payload::MessageDelete {
+                            channel_id: event.channel_id,
+                            id,
+                        },
+                    })
+                    .await
+                    .ok()
+                    .expect("Receiving thread has died")
+                }
+            },
             _ => {},
         }
     }

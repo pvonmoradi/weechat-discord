@@ -36,14 +36,12 @@ impl RawDiscordConnection {
             let tx = tx.clone();
             runtime.spawn(async move {
                 let config = ShardConfig::builder(&token).build();
-                let shard = match Shard::new(config).await {
-                    Ok(shard) => shard,
-                    Err(e) => {
-                        let err_msg = format!("An error occured connecting to Discord: {}", e);
-                        Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });
-                        error!("An error occured connecting to Discord: {:#?}", e);
-                        return;
-                    },
+                let mut shard = Shard::new(config);
+                if let Err(e) = shard.start().await {
+                    let err_msg = format!("An error occured connecting to Discord: {}", e);
+                    Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });
+                    error!("An error occured connecting to Discord: {:#?}", e);
+                    return;
                 };
 
                 let cache = Arc::new(Cache::new());

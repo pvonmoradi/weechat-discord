@@ -1625,7 +1625,7 @@ dependencies = [
 [[package]]
 name = "twilight"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "twilight-builders",
  "twilight-cache",
@@ -1637,7 +1637,7 @@ dependencies = [
 [[package]]
 name = "twilight-builders"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "twilight-model",
 ]
@@ -1645,7 +1645,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "twilight-cache-inmemory",
  "twilight-cache-trait",
@@ -1654,7 +1654,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -1667,7 +1667,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-trait"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "async-trait",
  "twilight-model",
@@ -1676,7 +1676,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "async-trait",
  "bitflags",
@@ -1696,7 +1696,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "bytes",
  "futures",
@@ -1714,9 +1714,10 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=mk3#26ffd5820b58d0abf82fdea3f1cf8f91a13c7b5f"
+source = "git+https://github.com/terminal-discord/twilight?branch=mk3#6d594131fb5d22f23534cd92555463d6e35f5fdc"
 dependencies = [
  "bitflags",
+ "log",
  "serde",
  "serde-mappable-seq",
  "serde-value",

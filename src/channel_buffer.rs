@@ -3,10 +3,8 @@ use crate::{
     message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
-use std::{
-    borrow::Cow,
-    sync::{mpsc::channel, Arc},
-};
+use std::{borrow::Cow, sync::Arc};
+use tokio::sync::mpsc;
 use twilight::{
     cache::InMemoryCache as Cache,
     http::Client as HttpClient,
@@ -127,7 +125,7 @@ impl DiscordChannel {
         http: HttpClient,
         runtime: &tokio::runtime::Runtime,
     ) -> Result<()> {
-        let (tx, rx) = channel();
+        let (mut tx, mut rx) = mpsc::channel(100);
         {
             let id = self.id;
             let msg_count = self.config.message_fetch_count() as u64;
@@ -139,10 +137,10 @@ impl DiscordChannel {
                     .unwrap()
                     .await
                     .unwrap();
-                tx.send(messages).unwrap();
+                tx.send(messages).await.unwrap();
             });
         }
-        let messages = rx.recv().unwrap();
+        let messages = rx.recv().await.unwrap();
 
         for msg in messages.iter().rev() {
             self.channel_buffer

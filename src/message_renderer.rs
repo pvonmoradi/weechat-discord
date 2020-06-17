@@ -1,4 +1,4 @@
-use crate::format;
+use crate::{format, twilight_utils::ext::GuildChannelExt};
 use std::{cell::RefCell, sync::Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
@@ -20,6 +20,29 @@ impl MessageRender {
     }
 
     async fn print_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
+        let nick = {
+            // TODO: Hack - It seems every Message.guild_id is None
+            match cache
+                .guild_channel(msg.channel_id)
+                .await
+                .expect("InMemoryCache cannot fail")
+            {
+                Some(guild_channel) => {
+                    let member = cache
+                        .member(guild_channel.guild_id(), msg.author.id)
+                        .await
+                        .expect("InMemoryCache cannot fail");
+                    match member {
+                        Some(member) => {
+                            crate::utils::color::colorize_discord_member(cache, &member).await
+                        },
+                        None => msg.author.name.clone(),
+                    }
+                },
+                None => msg.author.name.clone(),
+            }
+        };
+
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
@@ -28,7 +51,7 @@ impl MessageRender {
                     .expect("Discord returned an invalid datetime")
                     .timestamp(),
                 &MessageRender::msg_tags(cache, msg, notify).await,
-                &format::discord_to_weechat(&msg.content),
+                &format!("{}\t{}", nick, format::discord_to_weechat(&msg.content)),
             );
     }
 

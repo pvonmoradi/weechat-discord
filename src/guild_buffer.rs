@@ -1,6 +1,6 @@
 use crate::{
     channel_buffer::DiscordChannel, config::Config, discord::discord_connection::DiscordConnection,
-    twilight_utils::ext::GuildChannelExt, Guilds,
+    twilight_utils::ext::ChannelExt, Guilds,
 };
 use anyhow::Result;
 use std::{

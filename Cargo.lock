@@ -1991,6 +1991,7 @@ dependencies = [
  "clap 3.0.0-beta.1",
  "dirs",
  "glob",
+ "lazy_static",
  "libc",
  "make_rs",
  "parsing",

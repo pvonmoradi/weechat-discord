@@ -1,4 +1,4 @@
-use crate::twilight_utils::ext::GuildChannelExt;
+use crate::twilight_utils::ext::{ChannelExt, GuildChannelExt};
 use async_trait::async_trait;
 use tracing::*;
 use twilight::{

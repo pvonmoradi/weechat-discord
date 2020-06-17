@@ -1,5 +1,5 @@
 use crate::{
-    discord::discord_connection::DiscordConnection, twilight_utils::ext::GuildChannelExt, utils,
+    discord::discord_connection::DiscordConnection, twilight_utils::ext::ChannelExt, utils,
 };
 use std::borrow::Cow;
 use weechat::{

@@ -25,6 +25,10 @@ impl Config {
     pub fn borrow_mut(&self) -> RefMut<'_, weechat::config::Config> {
         self.config.borrow_mut()
     }
+
+    pub fn borrow_inner_mut(&self) -> RefMut<'_, InnerConfig> {
+        self.inner.borrow_mut()
+    }
 }
 
 impl SectionReadCallback for Config {
@@ -63,10 +67,14 @@ impl SectionReadCallback for Config {
 
 #[derive(Clone)]
 pub struct InnerConfig {
-    token: Option<String>,
-    tracing_level: tracing::Level,
-    auto_open_tracing: bool,
-    message_fetch_count: i32,
+    pub token: Option<String>,
+    pub tracing_level: tracing::Level,
+    pub auto_open_tracing: bool,
+    pub message_fetch_count: i32,
+    pub nick_prefix: String,
+    pub nick_prefix_color: String,
+    pub nick_suffix: String,
+    pub nick_suffix_color: String,
 }
 
 impl InnerConfig {
@@ -76,6 +84,10 @@ impl InnerConfig {
             tracing_level: tracing::Level::WARN,
             auto_open_tracing: false,
             message_fetch_count: 50,
+            nick_prefix: "".to_string(),
+            nick_prefix_color: "".to_string(),
+            nick_suffix: "".to_string(),
+            nick_suffix_color: "".to_string(),
         }
     }
 }
@@ -205,6 +217,22 @@ impl Config {
 
     pub fn message_fetch_count(&self) -> i32 {
         self.inner.borrow().message_fetch_count
+    }
+
+    pub fn nick_prefix(&self) -> String {
+        self.inner.borrow().nick_prefix.clone()
+    }
+
+    pub fn nick_prefix_color(&self) -> String {
+        self.inner.borrow().nick_prefix_color.clone()
+    }
+
+    pub fn nick_suffix(&self) -> String {
+        self.inner.borrow().nick_suffix.clone()
+    }
+
+    pub fn nick_suffix_color(&self) -> String {
+        self.inner.borrow().nick_suffix_color.clone()
     }
 }
 

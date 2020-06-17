@@ -1,6 +1,9 @@
 use crate::{
-    config::Config, discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild,
-    message_renderer::MessageRender, twilight_utils::ext::GuildChannelExt,
+    config::Config,
+    discord::discord_connection::DiscordConnection,
+    guild_buffer::DiscordGuild,
+    message_renderer::MessageRender,
+    twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
 use anyhow::Result;
 use std::{borrow::Cow, sync::Arc};
@@ -26,13 +29,14 @@ pub struct ChannelBuffer {
 impl ChannelBuffer {
     pub fn new(
         connection: DiscordConnection,
+        config: &Config,
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
         nick: &str,
     ) -> Result<ChannelBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
-        let clean_channel_name = crate::utils::clean_name(channel.name());
+        let clean_channel_name = crate::utils::clean_name(&channel.name());
         let channel_id = channel.id();
         let buffer_handle = Weechat::buffer_new(
             BufferSettings::new(&format!(
@@ -91,7 +95,7 @@ impl ChannelBuffer {
         }
 
         Ok(ChannelBuffer {
-            renderer: MessageRender::new(buffer_handle),
+            renderer: MessageRender::new(buffer_handle, config),
         })
     }
 }
@@ -112,7 +116,8 @@ impl DiscordChannel {
         guild_name: &str,
         nick: &str,
     ) -> Result<DiscordChannel> {
-        let channel_buffer = ChannelBuffer::new(connection, guild, channel, guild_name, nick)?;
+        let channel_buffer =
+            ChannelBuffer::new(connection, config, guild, channel, guild_name, nick)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),

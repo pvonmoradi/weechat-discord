@@ -1,6 +1,6 @@
 use crate::{
     config::Config, discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild,
-    twilight_utils::ext::guild_channel_ext::GuildChannelExt, DiscordSession,
+    twilight_utils::ext::ChannelExt, DiscordSession,
 };
 use clap::{App, AppSettings, Arg, ArgMatches};
 use std::sync::Arc;

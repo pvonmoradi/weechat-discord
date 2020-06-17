@@ -13,7 +13,9 @@ use twilight::{
 };
 
 mod color;
+pub mod content;
 pub mod ext;
+use crate::twilight_utils::ext::ChannelExt;
 pub use color::*;
 
 pub async fn search_cached_striped_guild_name(
@@ -129,7 +131,7 @@ pub async fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> String {
         .expect("InMemoryCache cannot fail");
 
     let nick = if let Some(member) = member {
-        crate::utils::color::colorize_discord_member(cache, member.as_ref()).await
+        crate::utils::color::colorize_discord_member(cache, member.as_ref(), false).await
     } else {
         current_user.name.clone()
     };

@@ -148,12 +148,16 @@ impl DiscordGuild {
                 .expect("InMemoryCache cannot fail")
                 .expect("We have a connection, there must be a user");
 
-            let nick = cache
+            let member = cache
                 .member(guild.id, current_user.id)
                 .await
-                .expect("InMemoryCache cannot fail")
-                .and_then(|member| member.nick.clone())
-                .unwrap_or_else(|| current_user.name.clone());
+                .expect("InMemoryCache cannot fail");
+
+            let nick = if let Some(member) = member {
+                crate::utils::color::colorize_discord_member(cache, member.as_ref()).await
+            } else {
+                current_user.name.clone()
+            };
 
             for channel_id in inner.autojoin.clone() {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {

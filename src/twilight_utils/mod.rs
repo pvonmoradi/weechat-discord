@@ -12,7 +12,9 @@ use twilight::{
     },
 };
 
+mod color;
 pub mod ext;
+pub use color::*;
 
 pub async fn search_cached_striped_guild_name(
     cache: &Cache,

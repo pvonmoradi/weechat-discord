@@ -83,6 +83,7 @@ impl ChannelBuffer {
         buffer.set_localvar("nick", nick);
         buffer.set_localvar("type", "channel");
         buffer.set_localvar("server", &clean_guild_name);
+        buffer.set_localvar("channel", &clean_channel_name);
         if let Some(topic) = channel.topic() {
             buffer.set_title(&format!("#{} - {}", channel.name(), topic));
         } else {

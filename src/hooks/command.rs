@@ -191,6 +191,33 @@ impl DiscordCommand {
         }
     }
 
+    fn join_channel(&self, matches: &ArgMatches) {
+        if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
+            let connection = self.connection.clone();
+            Weechat::spawn(async move {
+                let conn = connection.borrow();
+                let conn = match conn.as_ref() {
+                    Some(conn) => conn,
+                    None => {
+                        Weechat::print("discord: Discord must be connected to join channels");
+                        return;
+                    },
+                };
+
+                weecord_guild
+                    .join_channel(
+                        &conn.cache,
+                        &conn.http,
+                        &conn.rt,
+                        connection.clone(),
+                        &guild,
+                        &channel,
+                    )
+                    .await;
+            });
+        }
+    }
+
     fn resolve_channel_and_guild(
         &self,
         matches: &ArgMatches,
@@ -265,6 +292,7 @@ impl DiscordCommand {
         match matches.subcommand() {
             ("autojoin", Some(matches)) => self.add_autojoin_channel(matches),
             ("noautojoin", Some(matches)) => self.remove_autojoin_channel(matches),
+            ("join", Some(matches)) => self.join_channel(matches),
             _ => {},
         }
     }
@@ -299,6 +327,11 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                     )
                     .subcommand(
                         App::new("noautojoin")
+                            .arg(Arg::with_name("guild_name").required(true))
+                            .arg(Arg::with_name("name").required(true)),
+                    )
+                    .subcommand(
+                        App::new("join")
                             .arg(Arg::with_name("guild_name").required(true))
                             .arg(Arg::with_name("name").required(true)),
                     ),
@@ -336,9 +369,9 @@ pub fn hook(
         CommandSettings::new("discord")
             .description("Discord integration for weechat")
             .add_argument("server add|remove|list <server-name>")
-            .add_argument("channel autojoin|noautojoin <server-name> <channel-name>")
+            .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_completion("server add|remove|list %(discord_guild)")
-            .add_completion("channel autojoin|noautojoin %(discord_guild) %(discord_channel)"),
+            .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)"),
         DiscordCommand {
             session,
             connection,

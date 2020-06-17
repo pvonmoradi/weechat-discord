@@ -112,3 +112,23 @@ pub async fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
         GuildChannel::Voice(_) => false,
     }
 }
+
+pub async fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> String {
+    let current_user = cache
+        .current_user()
+        .await
+        .expect("InMemoryCache cannot fail")
+        .expect("We have a connection, there must be a user");
+
+    let member = cache
+        .member(guild.id, current_user.id)
+        .await
+        .expect("InMemoryCache cannot fail");
+
+    let nick = if let Some(member) = member {
+        crate::utils::color::colorize_discord_member(cache, member.as_ref()).await
+    } else {
+        current_user.name.clone()
+    };
+    nick
+}

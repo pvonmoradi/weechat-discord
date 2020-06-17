@@ -8,11 +8,15 @@ use std::{
     collections::HashMap,
     rc::{Rc, Weak},
 };
+use tokio::runtime::Runtime;
 use tracing::*;
 use twilight::{
-    cache::InMemoryCache as Cache,
+    cache::{twilight_cache_inmemory::model::CachedGuild, InMemoryCache as Cache},
     http::Client as HttpClient,
-    model::id::{ChannelId, GuildId},
+    model::{
+        channel::GuildChannel,
+        id::{ChannelId, GuildId},
+    },
 };
 use weechat::{
     buffer::{Buffer, BufferHandle, BufferSettings},
@@ -148,54 +152,25 @@ impl DiscordGuild {
         guilds: Guilds,
     ) -> Result<()> {
         if let Some(guild) = cache.guild(self.id).await? {
-            let mut inner = self.inner.borrow_mut();
+            {
+                let mut inner = self.inner.borrow_mut();
 
-            if inner.guild_buffer.is_some() {
-                return Ok(());
+                if inner.guild_buffer.is_some() {
+                    return Ok(());
+                }
+
+                inner
+                    .guild_buffer
+                    .replace(GuildBuffer::new(guilds, self.id, &guild.name)?);
             }
 
-            inner
-                .guild_buffer
-                .replace(GuildBuffer::new(guilds, self.id, &guild.name)?);
-
-            let current_user = cache
-                .current_user()
-                .await
-                .expect("InMemoryCache cannot fail")
-                .expect("We have a connection, there must be a user");
-
-            let member = cache
-                .member(guild.id, current_user.id)
-                .await
-                .expect("InMemoryCache cannot fail");
-
-            let nick = if let Some(member) = member {
-                crate::utils::color::colorize_discord_member(cache, member.as_ref()).await
-            } else {
-                current_user.name.clone()
-            };
-
-            for channel_id in inner.autojoin.clone() {
+            let channels = self.inner.borrow().autojoin.clone();
+            for channel_id in channels {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {
                     if crate::twilight_utils::is_text_channel(&cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
-                        if let Ok(buf) = DiscordChannel::new(
-                            &self.config,
-                            connection.clone(),
-                            self.clone(),
-                            &channel,
-                            &guild.name,
-                            &nick,
-                        ) {
-                            if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
-                                warn!(
-                                    error = ?e,
-                                    channel = %channel.name(),
-                                    "Failed to load channel history",
-                                )
-                            }
-                            inner.buffers.insert(channel_id, buf);
-                        }
+                        self.join_channel(cache, http, rt, connection.clone(), &guild, &channel)
+                            .await;
                     }
                 }
             }
@@ -203,6 +178,42 @@ impl DiscordGuild {
             warn!(guild_id = self.id.0, "Unable to find cached guild");
         }
         Ok(())
+    }
+
+    pub async fn join_channel(
+        &self,
+        cache: &Cache,
+        http: &HttpClient,
+        rt: &Runtime,
+        connection: DiscordConnection,
+        guild: &CachedGuild,
+        channel: &GuildChannel,
+    ) -> Option<DiscordChannel> {
+        let nick = crate::twilight_utils::current_user_nick(&guild, cache).await;
+
+        if let Ok(buf) = DiscordChannel::new(
+            &self.config,
+            connection.clone(),
+            self.clone(),
+            &channel,
+            &guild.name,
+            &nick,
+        ) {
+            if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
+                warn!(
+                    error = ?e,
+                    channel = %channel.name(),
+                    "Failed to load channel history",
+                )
+            }
+            self.inner
+                .borrow_mut()
+                .buffers
+                .insert(channel.id(), buf.clone());
+            Some(buf)
+        } else {
+            None
+        }
     }
 
     pub fn autojoin(&self) -> Vec<ChannelId> {

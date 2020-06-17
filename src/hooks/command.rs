@@ -170,6 +170,29 @@ impl DiscordCommand {
             weecord_guild.write_config();
             tracing::info!(%weecord_guild.id, channel.id=%channel.id(), "Added channel to autojoin list");
             Weechat::print(&format!("Added channel {} to autojoin list", guild.name));
+
+            let connection = self.connection.clone();
+            Weechat::spawn(async move {
+                let conn = connection.borrow();
+                let conn = match conn.as_ref() {
+                    Some(conn) => conn,
+                    None => {
+                        Weechat::print("discord: Discord must be connected to join channels");
+                        return;
+                    },
+                };
+
+                weecord_guild
+                    .join_channel(
+                        &conn.cache,
+                        &conn.http,
+                        &conn.rt,
+                        connection.clone(),
+                        &guild,
+                        &channel,
+                    )
+                    .await;
+            });
         }
     }
 

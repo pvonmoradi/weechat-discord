@@ -31,6 +31,7 @@ impl ChannelBuffer {
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
+        nick: &str,
     ) -> Result<ChannelBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let clean_channel_name = crate::utils::clean_name(channel.name());
@@ -81,6 +82,7 @@ impl ChannelBuffer {
             .map_err(|_| anyhow::anyhow!("Unable to upgrade buffer that was just created"))?;
 
         buffer.set_short_name(&format!("#{}", channel.name()));
+        buffer.set_localvar("nick", nick);
         buffer.set_localvar("type", "channel");
         buffer.set_localvar("server", &clean_guild_name);
         if let Some(topic) = channel.topic() {
@@ -109,8 +111,9 @@ impl DiscordChannel {
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
+        nick: &str,
     ) -> Result<DiscordChannel> {
-        let channel_buffer = ChannelBuffer::new(connection, guild, channel, guild_name)?;
+        let channel_buffer = ChannelBuffer::new(connection, guild, channel, guild_name, nick)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),

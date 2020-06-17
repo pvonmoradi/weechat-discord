@@ -142,6 +142,19 @@ impl DiscordGuild {
                 .guild_buffer
                 .replace(GuildBuffer::new(guilds, self.id, &guild.name)?);
 
+            let current_user = cache
+                .current_user()
+                .await
+                .expect("InMemoryCache cannot fail")
+                .expect("We have a connection, there must be a user");
+
+            let nick = cache
+                .member(guild.id, current_user.id)
+                .await
+                .expect("InMemoryCache cannot fail")
+                .and_then(|member| member.nick.clone())
+                .unwrap_or_else(|| current_user.name.clone());
+
             for channel_id in inner.autojoin.clone() {
                 if let Some(channel) = cache.guild_channel(channel_id).await? {
                     if crate::twilight_utils::is_text_channel(&cache, &channel).await {
@@ -152,6 +165,7 @@ impl DiscordGuild {
                             self.clone(),
                             &channel,
                             &guild.name,
+                            &nick,
                         ) {
                             if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
                                 warn!(

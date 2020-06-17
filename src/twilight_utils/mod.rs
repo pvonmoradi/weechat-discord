@@ -69,6 +69,9 @@ pub async fn search_cached_stripped_guild_channel_name(
             .await
             .expect("InMemoryCache cannot fail")
         {
+            if !crate::twilight_utils::is_text_channel(cache, &channel).await {
+                continue;
+            }
             if utils::clean_name(&channel.name()) == utils::clean_name(target) {
                 return Some(channel);
             }

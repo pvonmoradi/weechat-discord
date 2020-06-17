@@ -16,7 +16,9 @@ use twilight::{
 };
 use weechat::{
     buffer::{Buffer, BufferHandle, BufferSettings},
-    config::{BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings},
+    config::{
+        BaseConfigOption, BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings,
+    },
     Weechat,
 };
 
@@ -105,12 +107,26 @@ impl DiscordGuild {
             .set_change_callback(move |_, option| {
                 let inner = inner_clone.upgrade().expect("Config has outlived guild");
 
-                inner.borrow_mut().autojoin = option
+                let mut channels: Vec<_> = option
                     .value()
                     .split(',')
                     .map(|ch| ch.parse().map(ChannelId))
                     .flatten()
                     .collect();
+
+                channels.sort();
+                channels.dedup();
+
+                option.set(
+                    &channels
+                        .iter()
+                        .map(|c| c.0.to_string())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    false,
+                );
+
+                inner.borrow_mut().autojoin = channels;
             });
         guild_section
             .new_string_option(autojoin_channels)

@@ -277,9 +277,10 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
         let app = App::new("/discord")
             .global_setting(AppSettings::DisableVersion)
             .global_setting(AppSettings::VersionlessSubcommands)
-            .global_setting(AppSettings::SubcommandRequiredElseHelp)
+            .setting(AppSettings::SubcommandRequiredElseHelp)
             .subcommand(
                 App::new("server")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(App::new("add").arg(Arg::with_name("name").required(true)))
                     .subcommand(
                         App::new("remove")
@@ -290,6 +291,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             )
             .subcommand(
                 App::new("channel")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(
                         App::new("autojoin")
                             .arg(Arg::with_name("guild_name").required(true))

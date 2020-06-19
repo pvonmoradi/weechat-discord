@@ -138,6 +138,16 @@ pub async fn render_msg(cache: &Cache, config: &Config, msg: &Message) -> (Strin
         if !msg_content.is_empty() {
             msg_content.push('\n');
         }
+        if let Some(ref provider) = embed.provider {
+            if let Some(name) = &provider.name {
+                msg_content.push('▎');
+                msg_content.push_str(name);
+                if let Some(url) = &provider.url {
+                    msg_content.push_str(&format!(" ({})", url));
+                }
+                msg_content.push('\n');
+            }
+        }
         if let Some(ref author) = embed.author {
             msg_content.push('▎');
             msg_content.push_str(&format!(

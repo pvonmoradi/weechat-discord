@@ -38,13 +38,14 @@ impl ChannelBuffer {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let clean_channel_name = crate::utils::clean_name(&channel.name());
         let channel_id = channel.id();
+        let cb_connection = connection.clone();
         let buffer_handle = Weechat::buffer_new(
             BufferSettings::new(&format!(
                 "discord.{}.{}",
                 clean_guild_name, clean_channel_name
             ))
             .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                if let Some(conn) = connection.borrow().as_ref() {
+                if let Some(conn) = cb_connection.borrow().as_ref() {
                     let http = conn.http.clone();
                     let input = input.to_string();
                     conn.rt.spawn(async move {
@@ -95,7 +96,7 @@ impl ChannelBuffer {
         }
 
         Ok(ChannelBuffer {
-            renderer: MessageRender::new(buffer_handle, config),
+            renderer: MessageRender::new(&connection, buffer_handle, config),
         })
     }
 }
@@ -148,12 +149,10 @@ impl DiscordChannel {
         }
         let messages = rx.recv().await.unwrap();
 
-        for msg in messages.iter().rev() {
-            self.channel_buffer
-                .renderer
-                .add_msg(cache, msg, false)
-                .await;
-        }
+        self.channel_buffer
+            .renderer
+            .add_bulk_msgs(cache, &messages)
+            .await;
         Ok(())
     }
 
@@ -170,5 +169,9 @@ impl DiscordChannel {
 
     pub async fn update_message(&self, cache: &Cache, update: MessageUpdate) {
         self.channel_buffer.renderer.update_msg(cache, update).await;
+    }
+
+    pub async fn redraw(&self, cache: &Cache) {
+        self.channel_buffer.renderer.redraw_buffer(cache).await;
     }
 }

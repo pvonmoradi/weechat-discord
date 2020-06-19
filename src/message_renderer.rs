@@ -1,31 +1,48 @@
 use crate::{
     config::Config,
+    discord::discord_connection::DiscordConnection,
     twilight_utils::ext::{GuildChannelExt, MessageExt},
 };
 use std::{cell::RefCell, sync::Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
-    model::{channel::Message, gateway::payload::MessageUpdate, id::MessageId},
+    model::{
+        channel::Message,
+        gateway::payload::{MessageUpdate, RequestGuildMembers},
+        id::{ChannelId, GuildId, MessageId, UserId},
+    },
 };
 use weechat::{buffer::BufferHandle, Weechat};
 
 pub struct MessageRender {
     pub buffer_handle: BufferHandle,
+    connection: DiscordConnection,
     config: Config,
     messages: Arc<RefCell<Vec<Message>>>,
 }
 
 impl MessageRender {
-    pub fn new(buffer_handle: BufferHandle, config: &Config) -> MessageRender {
+    pub fn new(
+        connection: &DiscordConnection,
+        buffer_handle: BufferHandle,
+        config: &Config,
+    ) -> MessageRender {
         MessageRender {
             buffer_handle,
+            connection: connection.clone(),
             config: config.clone(),
             messages: Arc::new(RefCell::new(Vec::new())),
         }
     }
 
-    async fn print_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
-        let (prefix, body) = render_msg(cache, &self.config, &msg).await;
+    async fn print_msg(
+        &self,
+        cache: &Cache,
+        msg: &Message,
+        notify: bool,
+        unknown_members: &mut Vec<UserId>,
+    ) {
+        let (prefix, body) = render_msg(cache, &self.config, &msg, unknown_members).await;
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
@@ -44,15 +61,42 @@ impl MessageRender {
             .upgrade()
             .expect("message renderer outlived buffer")
             .clear();
+        let mut unknown_members = Vec::new();
         for message in self.messages.borrow().iter() {
-            self.print_msg(cache, &message, false).await;
+            self.print_msg(cache, &message, false, &mut unknown_members)
+                .await;
+        }
+
+        if let Some(first_msg) = self.messages.borrow().first() {
+            self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
+                .await
+        }
+    }
+
+    pub async fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
+        let mut unknown_members = Vec::new();
+        for msg in msgs {
+            self.print_msg(cache, msg, false, &mut unknown_members)
+                .await;
+
+            self.messages.borrow_mut().push(msg.clone());
+        }
+
+        if let Some(first_msg) = msgs.first() {
+            self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
+                .await
         }
     }
 
     pub async fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
-        self.print_msg(cache, msg, notify).await;
+        let mut unknown_members = Vec::new();
+        self.print_msg(cache, msg, notify, &mut unknown_members)
+            .await;
 
         self.messages.borrow_mut().push(msg.clone());
+
+        self.fetch_guild_members(unknown_members, msg.channel_id, msg.guild_id)
+            .await
     }
 
     pub async fn remove_msg(&self, cache: &Cache, id: MessageId) {
@@ -109,9 +153,50 @@ impl MessageRender {
 
         tags
     }
+
+    async fn fetch_guild_members(
+        &self,
+        unknown_members: Vec<UserId>,
+        channel_id: ChannelId,
+        #[allow(unused_variables)] guild_id: Option<GuildId>,
+    ) {
+        if let Some(connection) = self.connection.borrow().as_ref() {
+            // TODO: Hack - twilight bug
+            let cache = &connection.cache;
+            if let Some(channel) = cache
+                .guild_channel(channel_id)
+                .await
+                .expect("InMemoryCache cannot fail")
+            {
+                // All messages should be the same guild and channel
+                let shard = &connection.shard;
+                if let Err(e) = shard
+                    .command(&RequestGuildMembers::new_multi_user_with_nonce(
+                        channel.guild_id(),
+                        unknown_members,
+                        Some(true),
+                        Some(channel_id.0.to_string()),
+                    ))
+                    .await
+                {
+                    tracing::warn!(
+                        guild.id = channel.guild_id().0,
+                        channel.id = channel.guild_id().0,
+                        "Failed to request guild member: {:#?}",
+                        e
+                    )
+                }
+            }
+        }
+    }
 }
 
-pub async fn render_msg(cache: &Cache, config: &Config, msg: &Message) -> (String, String) {
+pub async fn render_msg(
+    cache: &Cache,
+    config: &Config,
+    msg: &Message,
+    unknown_members: &mut Vec<UserId>,
+) -> (String, String) {
     // TODO: HACK - It seems every Message.guild_id is None
     let guild_channel = cache
         .guild_channel(msg.channel_id)
@@ -120,7 +205,8 @@ pub async fn render_msg(cache: &Cache, config: &Config, msg: &Message) -> (Strin
     let guild_id = guild_channel.map(|ch| ch.guild_id());
 
     let mut msg_content =
-        crate::twilight_utils::content::clean_all(cache, guild_id, &msg.content).await;
+        crate::twilight_utils::content::clean_all(cache, guild_id, &msg.content, unknown_members)
+            .await;
 
     if msg.edited_timestamp.is_some() {
         let edited_text = format!("{} (edited{}", Weechat::color("8"), Weechat::color("reset"));

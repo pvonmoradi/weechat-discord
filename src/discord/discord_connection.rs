@@ -18,12 +18,14 @@ use twilight::{
     cache::InMemoryCache as Cache,
     gateway::{Event as GatewayEvent, Shard, ShardConfig},
     http::Client as HttpClient,
+    model::id::ChannelId,
 };
 use weechat::Weechat;
 
 pub type DiscordConnection = Rc<RefCell<Option<RawDiscordConnection>>>;
 
 pub struct RawDiscordConnection {
+    pub(crate) shard: Arc<Shard>,
     pub(crate) rt: Runtime,
     pub(crate) cache: Arc<Cache>,
     pub(crate) http: HttpClient,
@@ -46,6 +48,8 @@ impl RawDiscordConnection {
                     return;
                 };
 
+                let shard = Arc::new(shard);
+
                 let cache = Arc::new(Cache::new());
 
                 info!("Connected to Discord");
@@ -53,7 +57,7 @@ impl RawDiscordConnection {
 
                 let http = shard.config().http_client();
                 cache_tx
-                    .send((cache.clone(), http.clone()))
+                    .send((shard.clone(), cache.clone(), http.clone()))
                     .map_err(|_| ())
                     .expect("Cache receiver closed before data could be sent");
 
@@ -73,10 +77,11 @@ impl RawDiscordConnection {
             });
         }
 
-        let (cache, http) = cache_rx
+        let (shard, cache, http) = cache_rx
             .await
             .map_err(|_| anyhow::anyhow!("The connection to discord failed"))?;
         Ok(RawDiscordConnection {
+            shard,
             rt: runtime,
             cache,
             http,
@@ -127,10 +132,12 @@ impl RawDiscordConnection {
                 },
                 PluginMessage::MessageCreate { message } => {
                     if let Some(guild_id) = message.guild_id {
-                        let guilds = session.guilds.borrow();
-                        let guild = match guilds.get(&guild_id) {
-                            Some(guild) => guild,
-                            None => continue,
+                        let guild = {
+                            let guilds = session.guilds.borrow();
+                            match guilds.get(&guild_id) {
+                                Some(guild) => guild.clone(),
+                                None => continue,
+                            }
                         };
 
                         let buffers = guild.channel_buffers();
@@ -154,10 +161,12 @@ impl RawDiscordConnection {
                         .await
                         .expect("InMemoryCache cannot fail")
                     {
-                        let guilds = session.guilds.borrow();
-                        let guild = match guilds.get(&guild_channel.guild_id()) {
-                            Some(guild) => guild,
-                            None => continue,
+                        let guild = {
+                            let guilds = session.guilds.borrow();
+                            match guilds.get(&guild_channel.guild_id()) {
+                                Some(guild) => guild.clone(),
+                                None => continue,
+                            }
                         };
 
                         let buffers = guild.channel_buffers();
@@ -175,10 +184,12 @@ impl RawDiscordConnection {
                         .await
                         .expect("InMemoryCache cannot fail")
                     {
-                        let guilds = session.guilds.borrow();
-                        let guild = match guilds.get(&guild_channel.guild_id()) {
-                            Some(guild) => guild,
-                            None => continue,
+                        let guild = {
+                            let guilds = session.guilds.borrow();
+                            match guilds.get(&guild_channel.guild_id()) {
+                                Some(guild) => guild.clone(),
+                                None => continue,
+                            }
                         };
 
                         let buffers = guild.channel_buffers();
@@ -188,6 +199,34 @@ impl RawDiscordConnection {
                         };
 
                         channel.update_message(cache.as_ref(), *message).await;
+                    }
+                },
+                PluginMessage::MemberChunk(member_chunk) => {
+                    let channel_id = member_chunk
+                        .nonce
+                        .and_then(|id| id.parse().ok().map(ChannelId));
+                    if let Some(channel_id) = channel_id {
+                        if let Some(guild_channel) = cache
+                            .guild_channel(channel_id)
+                            .await
+                            .expect("InMemoryCache cannot fail")
+                        {
+                            let guild = {
+                                let guilds = session.guilds.borrow();
+                                match guilds.get(&guild_channel.guild_id()) {
+                                    Some(guild) => guild.clone(),
+                                    None => continue,
+                                }
+                            };
+
+                            let buffers = guild.channel_buffers();
+                            let channel = match buffers.get(&channel_id) {
+                                Some(channel) => channel,
+                                None => continue,
+                            };
+
+                            channel.redraw(cache.as_ref()).await;
+                        }
                     }
                 },
             }
@@ -234,6 +273,11 @@ impl RawDiscordConnection {
             },
             GatewayEvent::MessageUpdate(message) => tx
                 .send(PluginMessage::MessageUpdate { message })
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+            GatewayEvent::MemberChunk(member_chunk) => tx
+                .send(PluginMessage::MemberChunk(member_chunk))
                 .await
                 .ok()
                 .expect("Receiving thread has died"),

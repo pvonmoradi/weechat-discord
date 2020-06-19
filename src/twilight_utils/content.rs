@@ -9,10 +9,15 @@ use twilight::{
     model::id::{ChannelId, EmojiId, GuildId, RoleId, UserId},
 };
 
-pub async fn clean_all(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub async fn clean_all(
+    cache: &Cache,
+    guild_id: Option<GuildId>,
+    input: &str,
+    unknown_members: &mut Vec<UserId>,
+) -> String {
     let mut out = clean_roles(cache, input).await;
     out = clean_channels(cache, &out).await;
-    out = clean_users(cache, guild_id, &out).await;
+    out = clean_users(cache, guild_id, &out, unknown_members).await;
     out = clean_emojis(cache, &out).await;
     out
 }
@@ -24,8 +29,7 @@ pub async fn clean_roles(cache: &Cache, input: &str) -> String {
         static ref ROLE_REGEX: Regex = Regex::new(r"<@&(\d+?)>").expect("valid regex");
     }
 
-    let roles = ROLE_REGEX.captures_iter(input);
-    for role_match in roles {
+    for role_match in ROLE_REGEX.captures_iter(input) {
         let id = role_match
             .get(1)
             .expect("Regex contains one required group");
@@ -44,6 +48,11 @@ pub async fn clean_roles(cache: &Cache, input: &str) -> String {
                     &Color::new(role.color).as_8bit().to_string(),
                 ),
             );
+        } else {
+            out = out.replace(
+                role_match.get(0).expect("match must exist").as_str(),
+                "@unknown-role",
+            )
         }
     }
 
@@ -57,7 +66,6 @@ pub async fn clean_channels(cache: &Cache, input: &str) -> String {
         static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+?)>").expect("valid regex");
     }
 
-    // let channels = CHANNEL_REGEX.captures_iter(input);
     for channel_match in CHANNEL_REGEX.captures_iter(input) {
         let id = channel_match
             .get(1)
@@ -79,6 +87,7 @@ pub async fn clean_channels(cache: &Cache, input: &str) -> String {
                 channel_match.get(0).expect("match must exist").as_str(),
                 &format!("#{}", channel.name()),
             );
+            continue;
         }
 
         if let Some(channel) = cache
@@ -90,6 +99,7 @@ pub async fn clean_channels(cache: &Cache, input: &str) -> String {
                 channel_match.get(0).expect("match must exist").as_str(),
                 &format!("#{}", channel.name()),
             );
+            continue;
         }
 
         if let Some(channel) = cache.group(id).await.expect("InMemoryCache cannot fail") {
@@ -97,21 +107,31 @@ pub async fn clean_channels(cache: &Cache, input: &str) -> String {
                 channel_match.get(0).expect("match must exist").as_str(),
                 &format!("#{}", channel.name()),
             );
+            continue;
         }
+
+        out = out.replace(
+            channel_match.get(0).expect("match must exist").as_str(),
+            "#unknown-channel",
+        )
     }
 
     out
 }
 
-pub async fn clean_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub async fn clean_users(
+    cache: &Cache,
+    guild_id: Option<GuildId>,
+    input: &str,
+    unknown_members: &mut Vec<UserId>,
+) -> String {
     let mut out = String::from(input);
 
     lazy_static! {
         static ref USER_REGEX: Regex = Regex::new(r"<@!?(\d+?)>").expect("valid regex");
     }
 
-    let users = USER_REGEX.captures_iter(input);
-    for user_match in users {
+    for user_match in USER_REGEX.captures_iter(input) {
         let id = user_match
             .get(1)
             .expect("Regex contains one required group");
@@ -144,6 +164,12 @@ pub async fn clean_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) 
                 user_match.get(0).expect("match must exist").as_str(),
                 &replacement,
             );
+        } else {
+            unknown_members.push(id);
+            out = out.replace(
+                user_match.get(0).expect("match must exist").as_str(),
+                "@unknown-user",
+            );
         }
     }
 
@@ -157,8 +183,7 @@ pub async fn clean_emojis(cache: &Cache, input: &str) -> String {
         static ref EMOJI_REGEX: Regex = Regex::new(r"<:.+?:(\d+?)>").expect("valid regex");
     }
 
-    let emojis = EMOJI_REGEX.captures_iter(input);
-    for emoji_match in emojis {
+    for emoji_match in EMOJI_REGEX.captures_iter(input) {
         let id = emoji_match
             .get(1)
             .expect("Regex contains two required groups");
@@ -176,6 +201,10 @@ pub async fn clean_emojis(cache: &Cache, input: &str) -> String {
             );
         } else {
             tracing::trace!(emoji.id=?id, "Emoji not in cache");
+            out = out.replace(
+                emoji_match.get(0).expect("match must exist").as_str(),
+                ":unknown-emoji:",
+            );
         }
     }
 

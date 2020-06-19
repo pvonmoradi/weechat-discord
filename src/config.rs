@@ -203,6 +203,18 @@ impl Config {
         Ok(self.config.borrow().read()?)
     }
 
+    pub fn write(&self) {
+        let config = self.config.borrow();
+        let general = config
+            .search_section("general")
+            .expect("general option section must exist");
+
+        general
+            .search_option("token")
+            .expect("token option must exist")
+            .set(&self.token().unwrap_or_default(), false);
+    }
+
     pub fn auto_open_tracing(&self) -> bool {
         self.inner.borrow().auto_open_tracing
     }

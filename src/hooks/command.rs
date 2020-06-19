@@ -436,6 +436,16 @@ impl DiscordCommand {
             _ => {},
         }
     }
+
+    fn token(&self, matches: &ArgMatches) {
+        let token = matches.value_of("token").expect("required by validation");
+
+        self.config.borrow_inner_mut().token = Some(token.to_string());
+        self.config.write();
+
+        Weechat::print("discord: Updated Discord token");
+        tracing::info!("updated discord token");
+    }
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
@@ -479,7 +489,8 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                             .arg(Arg::with_name("guild_name").required(true))
                             .arg(Arg::with_name("name").required(true)),
                     ),
-            );
+            )
+            .subcommand(App::new("token").arg(Arg::with_name("token").required(true)));
 
         let matches = match app.try_get_matches_from(args) {
             Ok(m) => {
@@ -498,6 +509,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
         match matches.subcommand() {
             ("server", Some(matches)) => self.process_server_matches(matches),
             ("channel", Some(matches)) => self.process_channel_matches(matches),
+            ("token", Some(matches)) => self.token(matches),
             _ => {},
         };
     }
@@ -512,8 +524,10 @@ pub fn hook(
     weechat.hook_command(
         CommandSettings::new("discord")
             .description("Discord integration for weechat")
+            .add_argument("token <token>")
             .add_argument("server add|remove|list|autoconnect|noautoconnect <server-name>")
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
+            .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)"),
         DiscordCommand {

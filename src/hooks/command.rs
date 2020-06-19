@@ -440,7 +440,7 @@ impl DiscordCommand {
     fn token(&self, matches: &ArgMatches) {
         let token = matches.value_of("token").expect("required by validation");
 
-        self.config.borrow_inner_mut().token = Some(token.to_string());
+        self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_string());
         self.config.write();
 
         Weechat::print("discord: Updated Discord token");

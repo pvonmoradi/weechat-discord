@@ -1,4 +1,7 @@
-use crate::{config::Config, twilight_utils::ext::GuildChannelExt};
+use crate::{
+    config::Config,
+    twilight_utils::ext::{GuildChannelExt, MessageExt},
+};
 use std::{cell::RefCell, sync::Arc};
 use twilight::{
     cache::InMemoryCache as Cache,
@@ -67,42 +70,7 @@ impl MessageRender {
             .iter_mut()
             .find(|it| it.id == update.id)
         {
-            old_msg.id = update.id;
-            old_msg.channel_id = update.channel_id;
-            old_msg.edited_timestamp = update.edited_timestamp;
-            for user in update.mentions.unwrap_or_default() {
-                old_msg.mentions.insert(user.id, user);
-            }
-            if let Some(attachments) = update.attachments {
-                old_msg.attachments = attachments
-            }
-            if let Some(author) = update.author {
-                old_msg.author = author
-            }
-            if let Some(content) = update.content {
-                old_msg.content = content
-            }
-            if let Some(embeds) = update.embeds {
-                old_msg.embeds = embeds
-            }
-            if let Some(kind) = update.kind {
-                old_msg.kind = kind
-            }
-            if let Some(mention_everyone) = update.mention_everyone {
-                old_msg.mention_everyone = mention_everyone
-            }
-            if let Some(mention_roles) = update.mention_roles {
-                old_msg.mention_roles = mention_roles
-            }
-            if let Some(pinned) = update.pinned {
-                old_msg.pinned = pinned
-            }
-            if let Some(timestamp) = update.timestamp {
-                old_msg.timestamp = timestamp
-            }
-            if let Some(tts) = update.tts {
-                old_msg.tts = tts
-            }
+            old_msg.update(update);
         }
 
         self.redraw_buffer(cache).await;

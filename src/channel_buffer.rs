@@ -151,7 +151,7 @@ impl DiscordChannel {
 
         self.channel_buffer
             .renderer
-            .add_bulk_msgs(cache, &messages)
+            .add_bulk_msgs(cache, &messages.into_iter().rev().collect::<Vec<_>>())
             .await;
         Ok(())
     }

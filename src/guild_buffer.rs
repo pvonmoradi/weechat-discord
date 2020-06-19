@@ -228,6 +228,10 @@ impl DiscordGuild {
         self.inner.borrow().autoconnect
     }
 
+    pub fn set_autoconnect(&self, autoconnect: bool) {
+        self.inner.borrow_mut().autoconnect = autoconnect;
+    }
+
     pub fn channel_buffers(&self) -> HashMap<ChannelId, DiscordChannel> {
         self.inner.borrow().buffers.clone()
     }
@@ -254,5 +258,10 @@ impl DiscordGuild {
                 .join(","),
             true,
         );
+
+        let autoconnect = section
+            .search_option(&format!("{}.autoconnect", self.id))
+            .expect("autoconnect option does not exist");
+        autoconnect.set(if self.autoconnect() { "on" } else { "off" }, false);
     }
 }

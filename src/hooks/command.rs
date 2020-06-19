@@ -19,6 +19,7 @@ pub struct DiscordCommand {
 
 impl DiscordCommand {
     fn add_guild(&self, matches: &ArgMatches) {
+        // TODO: Abstract guild resolution code
         let cache = match self.connection.borrow().as_ref() {
             Some(conn) => conn.cache.clone(),
             None => {
@@ -155,11 +156,127 @@ impl DiscordCommand {
         }
     }
 
+    fn autoconnect_guild(&self, matches: &ArgMatches) {
+        let guild_name = matches
+            .value_of("name")
+            .expect("name is required by verification")
+            .to_string();
+
+        let session = self.session.clone();
+        let connection = self.connection.clone();
+        Weechat::spawn(async move {
+            let conn = connection.borrow();
+            let conn = match conn.as_ref() {
+                Some(conn) => conn,
+                None => {
+                    Weechat::print(
+                        "discord: Discord must be connected to enable server autoconnect",
+                    );
+                    return;
+                },
+            };
+            let cache = conn.cache.clone();
+            let http = conn.http.clone();
+
+            match crate::twilight_utils::search_striped_guild_name(
+                cache.as_ref(),
+                session.guilds.borrow().keys().copied(),
+                &guild_name,
+            )
+            .await
+            {
+                Some(guild) => {
+                    if let Some(weechat_guild) = session.guilds.borrow().get(&guild.id) {
+                        tracing::info!(%guild.id, %guild.name, "Enabled autoconnect for guild");
+                        weechat_guild.set_autoconnect(true);
+                        weechat_guild.write_config();
+                        Weechat::print(&format!(
+                            "discord: Now autoconnecting to \"{}\"",
+                            guild.name
+                        ));
+                        let _ = weechat_guild
+                            .connect(
+                                &cache,
+                                &http,
+                                &conn.rt,
+                                connection.clone(),
+                                session.guilds.clone(),
+                            )
+                            .await;
+                    } else {
+                        tracing::info!(%guild.id, %guild.name, "Guild not added.");
+                        Weechat::print(&format!(
+                            "discord: Server \"{}\" not in config",
+                            guild.name
+                        ));
+                    }
+                },
+                None => {
+                    tracing::info!("Could not find guild: \"{}\"", guild_name);
+                    Weechat::print(&format!("Could not find guild: {}", guild_name));
+                },
+            };
+        });
+    }
+
+    fn noautoconnect_guild(&self, matches: &ArgMatches) {
+        let guild_name = matches
+            .value_of("name")
+            .expect("name is required by verification")
+            .to_string();
+
+        let session = self.session.clone();
+        let connection = self.connection.clone();
+        Weechat::spawn(async move {
+            let cache = match connection.borrow().as_ref() {
+                Some(conn) => conn.cache.clone(),
+                None => {
+                    Weechat::print(
+                        "discord: Discord must be connected to enable server autoconnect",
+                    );
+                    return;
+                },
+            };
+
+            match crate::twilight_utils::search_striped_guild_name(
+                cache.as_ref(),
+                session.guilds.borrow().keys().copied(),
+                &guild_name,
+            )
+            .await
+            {
+                Some(guild) => {
+                    if let Some(weechat_guild) = session.guilds.borrow().get(&guild.id) {
+                        tracing::info!(%guild.id, %guild.name, "Disabled autoconnect for guild");
+                        weechat_guild.set_autoconnect(false);
+                        weechat_guild.write_config();
+                        Weechat::print(&format!(
+                            "discord: No longer autoconnecting to \"{}\"",
+                            guild.name
+                        ));
+                    } else {
+                        tracing::info!(%guild.id, %guild.name, "Guild not added.");
+                        Weechat::print(&format!(
+                            "discord: Server \"{}\" not in config",
+                            guild.name
+                        ));
+                    }
+                },
+                None => {
+                    tracing::info!("Could not find guild: \"{}\"", guild_name);
+                    Weechat::print(&format!("Could not find guild: {}", guild_name));
+                },
+            };
+        });
+    }
+
     fn process_server_matches(&self, matches: &ArgMatches) {
         match matches.subcommand() {
             ("add", Some(matches)) => self.add_guild(matches),
             ("remove", Some(matches)) => self.remove_guild(matches),
             ("list", _) => self.list_guilds(),
+            ("autoconnect", Some(matches)) => self.autoconnect_guild(matches),
+            ("noautoconnect", Some(matches)) => self.noautoconnect_guild(matches),
             _ => unreachable!("Reached subcommand that does not exist in clap config"),
         }
     }
@@ -338,6 +455,10 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                             .arg(Arg::with_name("name").required(true))
                             .alias("rm"),
                     )
+                    .subcommand(App::new("autoconnect").arg(Arg::with_name("name").required(true)))
+                    .subcommand(
+                        App::new("noautoconnect").arg(Arg::with_name("name").required(true)),
+                    )
                     .subcommand(App::new("list")),
             )
             .subcommand(
@@ -391,9 +512,9 @@ pub fn hook(
     weechat.hook_command(
         CommandSettings::new("discord")
             .description("Discord integration for weechat")
-            .add_argument("server add|remove|list <server-name>")
+            .add_argument("server add|remove|list|autoconnect|noautoconnect <server-name>")
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
-            .add_completion("server add|remove|list %(discord_guild)")
+            .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)"),
         DiscordCommand {
             session,

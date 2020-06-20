@@ -38,6 +38,7 @@ impl ChannelBuffer {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let clean_channel_name = crate::utils::clean_name(&channel.name());
         let channel_id = channel.id();
+        let guild_id = channel.guild_id();
         let cb_connection = connection.clone();
         let buffer_handle = Weechat::buffer_new(
             BufferSettings::new(&format!(
@@ -47,8 +48,15 @@ impl ChannelBuffer {
             .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
                 if let Some(conn) = cb_connection.borrow().as_ref() {
                     let http = conn.http.clone();
+                    let cache = conn.cache.clone();
                     let input = input.to_string();
                     conn.rt.spawn(async move {
+                        let input = crate::twilight_utils::content::create_mentions(
+                            &cache,
+                            Some(guild_id),
+                            &input,
+                        )
+                        .await;
                         match http.create_message(channel_id).content(input) {
                             Ok(msg) => {
                                 if let Err(e) = msg.await {

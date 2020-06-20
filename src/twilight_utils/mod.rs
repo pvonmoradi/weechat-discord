@@ -15,8 +15,10 @@ use twilight::{
 mod color;
 pub mod content;
 pub mod ext;
+pub mod mention;
 use crate::twilight_utils::ext::ChannelExt;
 pub use color::*;
+pub use mention::*;
 
 pub async fn search_cached_striped_guild_name(
     cache: &Cache,

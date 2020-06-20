@@ -26,7 +26,7 @@ pub async fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: b
 
     color
         .map(|color| colorize_string(&nick, &color.as_8bit().to_string()))
-        .unwrap_or_else(|| member.user.name.clone())
+        .unwrap_or_else(|| format!("@{}", member.user.name.clone()))
 }
 
 #[allow(dead_code)]

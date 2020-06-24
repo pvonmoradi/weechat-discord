@@ -68,8 +68,10 @@ impl MessageRender {
         }
 
         if let Some(first_msg) = self.messages.borrow().first() {
-            self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
-                .await
+            if !unknown_members.is_empty() {
+                self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
+                    .await
+            }
         }
     }
 

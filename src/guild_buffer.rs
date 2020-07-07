@@ -1,5 +1,5 @@
 use crate::{
-    channel_buffer::DiscordChannel, config::Config, discord::discord_connection::DiscordConnection,
+    channel_buffer::DiscordChannel, config::Config, discord::discord_connection::ConnectionMeta,
     twilight_utils::ext::ChannelExt, Guilds,
 };
 use anyhow::Result;
@@ -8,11 +8,9 @@ use std::{
     collections::HashMap,
     rc::{Rc, Weak},
 };
-use tokio::runtime::Runtime;
 use tracing::*;
 use twilight::{
-    cache::{twilight_cache_inmemory::model::CachedGuild, InMemoryCache as Cache},
-    http::Client as HttpClient,
+    cache::twilight_cache_inmemory::model::CachedGuild,
     model::{
         channel::GuildChannel,
         id::{ChannelId, GuildId},
@@ -143,15 +141,8 @@ impl DiscordGuild {
         }
     }
 
-    pub async fn connect(
-        &self,
-        cache: &Cache,
-        http: &HttpClient,
-        rt: &tokio::runtime::Runtime,
-        connection: DiscordConnection,
-        guilds: Guilds,
-    ) -> Result<()> {
-        if let Some(guild) = cache.guild(self.id).await? {
+    pub async fn connect(&self, conn: &ConnectionMeta, guilds: Guilds) -> Result<()> {
+        if let Some(guild) = conn.cache.guild(self.id).await? {
             {
                 let mut inner = self.inner.borrow_mut();
 
@@ -166,11 +157,10 @@ impl DiscordGuild {
 
             let channels = self.inner.borrow().autojoin.clone();
             for channel_id in channels {
-                if let Some(channel) = cache.guild_channel(channel_id).await? {
-                    if crate::twilight_utils::is_text_channel(&cache, &channel).await {
+                if let Some(channel) = conn.cache.guild_channel(channel_id).await? {
+                    if crate::twilight_utils::is_text_channel(&conn.cache, &channel).await {
                         trace!(channel = %channel.name(), "Creating channel buffer");
-                        self.join_channel(cache, http, rt, connection.clone(), &guild, &channel)
-                            .await;
+                        self.join_channel(conn, &guild, &channel).await;
                     }
                 }
             }
@@ -182,24 +172,21 @@ impl DiscordGuild {
 
     pub async fn join_channel(
         &self,
-        cache: &Cache,
-        http: &HttpClient,
-        rt: &Runtime,
-        connection: DiscordConnection,
+        conn: &ConnectionMeta,
         guild: &CachedGuild,
         channel: &GuildChannel,
     ) -> Option<DiscordChannel> {
-        let nick = crate::twilight_utils::current_user_nick(&guild, cache).await;
+        let nick = crate::twilight_utils::current_user_nick(&guild, &conn.cache).await;
 
         if let Ok(buf) = DiscordChannel::new(
             &self.config,
-            connection.clone(),
+            conn,
             self.clone(),
             &channel,
             &guild.name,
             &nick,
         ) {
-            if let Err(e) = buf.load_history(cache, http.clone(), &rt).await {
+            if let Err(e) = buf.load_history(conn).await {
                 warn!(
                     error = ?e,
                     channel = %channel.name(),

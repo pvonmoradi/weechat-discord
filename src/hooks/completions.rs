@@ -77,7 +77,7 @@ impl Completions {
                     let (tx, rx) = std::sync::mpsc::channel();
                     connection.rt.spawn(async move {
                         match crate::twilight_utils::search_cached_striped_guild_name(
-                            cache.as_ref(),
+                            &cache,
                             &guild_name,
                         )
                             .await {

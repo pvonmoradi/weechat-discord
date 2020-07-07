@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    discord::discord_connection::DiscordConnection,
+    discord::discord_connection::ConnectionMeta,
     twilight_utils::ext::{GuildChannelExt, MessageExt},
 };
 use std::{cell::RefCell, sync::Arc};
@@ -16,20 +16,20 @@ use weechat::{buffer::BufferHandle, Weechat};
 
 pub struct MessageRender {
     pub buffer_handle: BufferHandle,
-    connection: DiscordConnection,
+    conn: ConnectionMeta,
     config: Config,
     messages: Arc<RefCell<Vec<Message>>>,
 }
 
 impl MessageRender {
     pub fn new(
-        connection: &DiscordConnection,
+        connection: &ConnectionMeta,
         buffer_handle: BufferHandle,
         config: &Config,
     ) -> MessageRender {
         MessageRender {
             buffer_handle,
-            connection: connection.clone(),
+            conn: connection.clone(),
             config: config.clone(),
             messages: Arc::new(RefCell::new(Vec::new())),
         }
@@ -162,32 +162,30 @@ impl MessageRender {
         channel_id: ChannelId,
         #[allow(unused_variables)] guild_id: Option<GuildId>,
     ) {
-        if let Some(connection) = self.connection.borrow().as_ref() {
-            // TODO: Hack - twilight bug
-            let cache = &connection.cache;
-            if let Some(channel) = cache
-                .guild_channel(channel_id)
+        // TODO: Hack - twilight bug
+        let cache = &self.conn.cache;
+        if let Some(channel) = cache
+            .guild_channel(channel_id)
+            .await
+            .expect("InMemoryCache cannot fail")
+        {
+            // All messages should be the same guild and channel
+            let shard = &self.conn.shard;
+            if let Err(e) = shard
+                .command(&RequestGuildMembers::new_multi_user_with_nonce(
+                    channel.guild_id(),
+                    unknown_members,
+                    Some(true),
+                    Some(channel_id.0.to_string()),
+                ))
                 .await
-                .expect("InMemoryCache cannot fail")
             {
-                // All messages should be the same guild and channel
-                let shard = &connection.shard;
-                if let Err(e) = shard
-                    .command(&RequestGuildMembers::new_multi_user_with_nonce(
-                        channel.guild_id(),
-                        unknown_members,
-                        Some(true),
-                        Some(channel_id.0.to_string()),
-                    ))
-                    .await
-                {
-                    tracing::warn!(
-                        guild.id = channel.guild_id().0,
-                        channel.id = channel.guild_id().0,
-                        "Failed to request guild member: {:#?}",
-                        e
-                    )
-                }
+                tracing::warn!(
+                    guild.id = channel.guild_id().0,
+                    channel.id = channel.guild_id().0,
+                    "Failed to request guild member: {:#?}",
+                    e
+                )
             }
         }
     }

@@ -225,7 +225,8 @@ pub async fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &s
         static ref CHANNEL_MENTION: Regex = Regex::new(r"#([a-z_\-\d]+)").unwrap();
     }
 
-    for channel_match in CHANNEL_MENTION.captures(input) {
+    let matches = CHANNEL_MENTION.captures_iter(&input).collect::<Vec<_>>();
+    for channel_match in matches {
         let channel_name = channel_match
             .get(1)
             .expect("Regex contains exactly one group")
@@ -267,7 +268,8 @@ pub async fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str)
         static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap();
     }
 
-    for user_match in USER_MENTION.captures(input) {
+    let matches = USER_MENTION.captures_iter(input).collect::<Vec<_>>();
+    for user_match in matches {
         let user_name = user_match
             .get(1)
             .expect("Regex contains exactly one group")
@@ -309,7 +311,8 @@ pub async fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str)
         static ref ROLE_MENTION: Regex = Regex::new(r"@([^\s]{1,32})").unwrap();
     }
 
-    for role_match in ROLE_MENTION.captures(input) {
+    let matches = ROLE_MENTION.captures_iter(input).collect::<Vec<_>>();
+    for role_match in matches {
         let role_name = role_match
             .get(1)
             .expect("Regex contains exactly one group")
@@ -347,7 +350,8 @@ pub async fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str
         static ref EMOJI_MENTIONS: Regex = Regex::new(r"(.?):(\w+):").unwrap();
     }
 
-    for emoji_match in EMOJI_MENTIONS.captures(input) {
+    let matches = EMOJI_MENTIONS.captures_iter(input).collect::<Vec<_>>();
+    for emoji_match in matches {
         let emoji_prefix = emoji_match
             .get(1)
             .expect("Regex contains two groups")

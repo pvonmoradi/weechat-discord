@@ -1,7 +1,4 @@
-use crate::{
-    discord::discord_connection::{DiscordConnection, RawDiscordConnection},
-    guild_buffer::DiscordGuild,
-};
+use crate::{discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
@@ -92,28 +89,16 @@ impl WeechatPlugin for Weecord {
             let _ = debug::Debug::create_buffer();
         }
 
-        let discord_connection = Rc::new(RefCell::new(None));
+        let discord_connection = DiscordConnection::new();
 
         if let Some(token) = config.token() {
             let (tx, rx) = channel(1000);
 
-            let discord_connection = Rc::clone(&discord_connection);
+            let discord_connection = discord_connection.clone();
             let session = session.clone();
             Weechat::spawn(async move {
-                if let Ok(connection) = RawDiscordConnection::start(&token, tx).await {
-                    let cache_clone = connection.cache.clone();
-                    let http_clone = connection.http.clone();
-
-                    discord_connection.borrow_mut().replace(connection);
-                    RawDiscordConnection::handle_events(
-                        rx,
-                        session,
-                        cache_clone,
-                        &http_clone,
-                        &discord_connection.borrow().as_ref().unwrap().rt,
-                        discord_connection.clone(),
-                    )
-                    .await;
+                if let Ok(connection) = discord_connection.start(&token, tx).await {
+                    DiscordConnection::handle_events(rx, session, &connection).await;
                 }
             });
         };

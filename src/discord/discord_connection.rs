@@ -4,7 +4,11 @@ use crate::{
     DiscordSession,
 };
 use anyhow::Result;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+    sync::Arc,
+};
 use tokio::{
     runtime::Runtime,
     stream::StreamExt,
@@ -22,19 +26,29 @@ use twilight::{
 };
 use weechat::Weechat;
 
-pub type DiscordConnection = Rc<RefCell<Option<RawDiscordConnection>>>;
-
-pub struct RawDiscordConnection {
-    pub(crate) shard: Arc<Shard>,
-    pub(crate) rt: Runtime,
-    pub(crate) cache: Arc<Cache>,
-    pub(crate) http: HttpClient,
+#[derive(Clone)]
+pub struct ConnectionMeta {
+    pub shard: Shard,
+    pub rt: Arc<Runtime>,
+    pub cache: Cache,
+    pub http: HttpClient,
 }
 
-impl RawDiscordConnection {
-    pub async fn start(token: &str, tx: Sender<PluginMessage>) -> Result<RawDiscordConnection> {
+#[derive(Clone)]
+pub struct DiscordConnection(Rc<RefCell<Option<ConnectionMeta>>>);
+
+impl DiscordConnection {
+    pub fn new() -> Self {
+        Self(Rc::new(RefCell::new(None)))
+    }
+
+    pub fn borrow(&self) -> Ref<'_, Option<ConnectionMeta>> {
+        self.0.borrow()
+    }
+
+    pub async fn start(&self, token: &str, tx: Sender<PluginMessage>) -> Result<ConnectionMeta> {
         let (cache_tx, cache_rx) = channel();
-        let runtime = Runtime::new().expect("Unable to create tokio runtime");
+        let runtime = Arc::new(Runtime::new().expect("Unable to create tokio runtime"));
         let token = token.to_owned();
         {
             let tx = tx.clone();
@@ -48,9 +62,9 @@ impl RawDiscordConnection {
                     return;
                 };
 
-                let shard = Arc::new(shard);
+                let shard = shard;
 
-                let cache = Arc::new(Cache::new());
+                let cache = Cache::new();
 
                 info!("Connected to Discord");
                 let mut events = shard.events().await;
@@ -67,12 +81,7 @@ impl RawDiscordConnection {
                         .await
                         .expect("InMemoryCache cannot error");
 
-                    tokio::spawn(Self::handle_gateway_event(
-                        event,
-                        cache.clone(),
-                        http.clone(),
-                        tx.clone(),
-                    ));
+                    tokio::spawn(Self::handle_gateway_event(event, tx.clone()));
                 }
             });
         }
@@ -80,21 +89,23 @@ impl RawDiscordConnection {
         let (shard, cache, http) = cache_rx
             .await
             .map_err(|_| anyhow::anyhow!("The connection to discord failed"))?;
-        Ok(RawDiscordConnection {
+
+        let meta = ConnectionMeta {
             shard,
             rt: runtime,
             cache,
             http,
-        })
+        };
+
+        self.0.borrow_mut().replace(meta.clone());
+
+        Ok(meta)
     }
 
     pub async fn handle_events(
         mut rx: Receiver<PluginMessage>,
         session: DiscordSession,
-        cache: Arc<Cache>,
-        http: &HttpClient,
-        rt: &Runtime,
-        connection: DiscordConnection,
+        conn: &ConnectionMeta,
     ) {
         loop {
             let event = match rx.recv().await {
@@ -115,16 +126,7 @@ impl RawDiscordConnection {
                     for (guild_id, guild) in session.guilds.borrow().iter() {
                         if guild.autoconnect() {
                             trace!(guild_id = guild_id.0, "Autoconnecting");
-                            if let Err(e) = guild
-                                .connect(
-                                    &cache,
-                                    &http,
-                                    rt,
-                                    connection.clone(),
-                                    session.guilds.clone(),
-                                )
-                                .await
-                            {
+                            if let Err(e) = guild.connect(conn, session.guilds.clone()).await {
                                 warn!(guild_id = guild_id.0, error=?e, "Error connecting guild");
                             }
                         }
@@ -147,16 +149,13 @@ impl RawDiscordConnection {
                         };
 
                         channel
-                            .add_message(
-                                cache.as_ref(),
-                                &message,
-                                message.is_own(cache.as_ref()).await,
-                            )
+                            .add_message(&conn.cache, &message, message.is_own(&conn.cache).await)
                             .await;
                     }
                 },
                 PluginMessage::MessageDelete { event } => {
-                    if let Some(guild_channel) = cache
+                    if let Some(guild_channel) = conn
+                        .cache
                         .guild_channel(event.channel_id)
                         .await
                         .expect("InMemoryCache cannot fail")
@@ -175,11 +174,12 @@ impl RawDiscordConnection {
                             None => continue,
                         };
 
-                        channel.remove_message(cache.as_ref(), event.id).await;
+                        channel.remove_message(&conn.cache, event.id).await;
                     }
                 },
                 PluginMessage::MessageUpdate { message } => {
-                    if let Some(guild_channel) = cache
+                    if let Some(guild_channel) = conn
+                        .cache
                         .guild_channel(message.channel_id)
                         .await
                         .expect("InMemoryCache cannot fail")
@@ -198,7 +198,7 @@ impl RawDiscordConnection {
                             None => continue,
                         };
 
-                        channel.update_message(cache.as_ref(), *message).await;
+                        channel.update_message(&conn.cache, *message).await;
                     }
                 },
                 PluginMessage::MemberChunk(member_chunk) => {
@@ -206,7 +206,8 @@ impl RawDiscordConnection {
                         .nonce
                         .and_then(|id| id.parse().ok().map(ChannelId));
                     if let Some(channel_id) = channel_id {
-                        if let Some(guild_channel) = cache
+                        if let Some(guild_channel) = conn
+                            .cache
                             .guild_channel(channel_id)
                             .await
                             .expect("InMemoryCache cannot fail")
@@ -225,7 +226,7 @@ impl RawDiscordConnection {
                                 None => continue,
                             };
 
-                            channel.redraw(cache.as_ref()).await;
+                            channel.redraw(&conn.cache).await;
                         }
                     }
                 },
@@ -233,12 +234,7 @@ impl RawDiscordConnection {
         }
     }
 
-    async fn handle_gateway_event(
-        event: GatewayEvent,
-        _cache: Arc<Cache>,
-        _http: HttpClient,
-        mut tx: Sender<PluginMessage>,
-    ) {
+    async fn handle_gateway_event(event: GatewayEvent, mut tx: Sender<PluginMessage>) {
         match event {
             GatewayEvent::Ready(ready) => {
                 tx.send(PluginMessage::Connected { user: ready.user })

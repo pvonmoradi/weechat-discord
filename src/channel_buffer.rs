@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    discord::discord_connection::DiscordConnection,
+    discord::discord_connection::ConnectionMeta,
     guild_buffer::DiscordGuild,
     message_renderer::MessageRender,
     twilight_utils::ext::{ChannelExt, GuildChannelExt},
@@ -10,7 +10,6 @@ use std::{borrow::Cow, sync::Arc};
 use tokio::sync::mpsc;
 use twilight::{
     cache::InMemoryCache as Cache,
-    http::Client as HttpClient,
     model::{
         channel::{GuildChannel, Message},
         gateway::payload::MessageUpdate,
@@ -28,7 +27,7 @@ pub struct ChannelBuffer {
 
 impl ChannelBuffer {
     pub fn new(
-        connection: DiscordConnection,
+        conn: &ConnectionMeta,
         config: &Config,
         guild: DiscordGuild,
         channel: &GuildChannel,
@@ -39,45 +38,43 @@ impl ChannelBuffer {
         let clean_channel_name = crate::utils::clean_name(&channel.name());
         let channel_id = channel.id();
         let guild_id = channel.guild_id();
-        let cb_connection = connection.clone();
+        let conn_clone = conn.clone();
         let buffer_handle = Weechat::buffer_new(
             BufferSettings::new(&format!(
                 "discord.{}.{}",
                 clean_guild_name, clean_channel_name
             ))
             .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                if let Some(conn) = cb_connection.borrow().as_ref() {
-                    let http = conn.http.clone();
-                    let cache = conn.cache.clone();
-                    let input = input.to_string();
-                    conn.rt.spawn(async move {
-                        let input = crate::twilight_utils::content::create_mentions(
-                            &cache,
-                            Some(guild_id),
-                            &input,
-                        )
-                        .await;
-                        match http.create_message(channel_id).content(input) {
-                            Ok(msg) => {
-                                if let Err(e) = msg.await {
-                                    tracing::error!("Failed to send message: {:#?}", e);
-                                    Weechat::spawn_from_thread(async move {
-                                        Weechat::print(&format!(
-                                            "An error occured sending message: {}",
-                                            e
-                                        ))
-                                    });
-                                };
-                            },
-                            Err(e) => {
-                                tracing::error!("Failed to create message: {:#?}", e);
-                                Weechat::spawn_from_thread(async {
-                                    Weechat::print("Message content's invalid")
-                                })
-                            },
-                        }
-                    });
-                }
+                let http = conn_clone.http.clone();
+                let cache = conn_clone.cache.clone();
+                let input = input.to_string();
+                conn_clone.rt.spawn(async move {
+                    let input = crate::twilight_utils::content::create_mentions(
+                        &cache,
+                        Some(guild_id),
+                        &input,
+                    )
+                    .await;
+                    match http.create_message(channel_id).content(input) {
+                        Ok(msg) => {
+                            if let Err(e) = msg.await {
+                                tracing::error!("Failed to send message: {:#?}", e);
+                                Weechat::spawn_from_thread(async move {
+                                    Weechat::print(&format!(
+                                        "An error occured sending message: {}",
+                                        e
+                                    ))
+                                });
+                            };
+                        },
+                        Err(e) => {
+                            tracing::error!("Failed to create message: {:#?}", e);
+                            Weechat::spawn_from_thread(async {
+                                Weechat::print("Message content's invalid")
+                            })
+                        },
+                    }
+                });
                 Ok(())
             })
             .close_callback(move |_: &Weechat, buffer: &Buffer| {
@@ -104,7 +101,7 @@ impl ChannelBuffer {
         }
 
         Ok(ChannelBuffer {
-            renderer: MessageRender::new(&connection, buffer_handle, config),
+            renderer: MessageRender::new(&conn, buffer_handle, config),
         })
     }
 }
@@ -119,14 +116,14 @@ pub struct DiscordChannel {
 impl DiscordChannel {
     pub fn new(
         config: &Config,
-        connection: DiscordConnection,
+        conn: &ConnectionMeta,
         guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
         nick: &str,
     ) -> Result<DiscordChannel> {
         let channel_buffer =
-            ChannelBuffer::new(connection, config, guild, channel, guild_name, nick)?;
+            ChannelBuffer::new(&conn.clone(), config, guild, channel, guild_name, nick)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),
@@ -134,19 +131,16 @@ impl DiscordChannel {
         })
     }
 
-    pub async fn load_history(
-        &self,
-        cache: &Cache,
-        http: HttpClient,
-        runtime: &tokio::runtime::Runtime,
-    ) -> Result<()> {
+    pub async fn load_history(&self, conn: &ConnectionMeta) -> Result<()> {
         let (mut tx, mut rx) = mpsc::channel(100);
+        let conn_clone = conn.clone();
         {
             let id = self.id;
             let msg_count = self.config.message_fetch_count() as u64;
 
-            runtime.spawn(async move {
-                let messages: Vec<Message> = http
+            conn.rt.spawn(async move {
+                let messages: Vec<Message> = conn_clone
+                    .http
                     .channel_messages(id)
                     .limit(msg_count)
                     .unwrap()
@@ -159,7 +153,7 @@ impl DiscordChannel {
 
         self.channel_buffer
             .renderer
-            .add_bulk_msgs(cache, &messages.into_iter().rev().collect::<Vec<_>>())
+            .add_bulk_msgs(&conn.cache, &messages.into_iter().rev().collect::<Vec<_>>())
             .await;
         Ok(())
     }

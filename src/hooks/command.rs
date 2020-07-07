@@ -36,11 +36,8 @@ impl DiscordCommand {
             let config = self.config.clone();
             let session = self.session.clone();
             Weechat::spawn(async move {
-                match crate::twilight_utils::search_cached_striped_guild_name(
-                    cache.as_ref(),
-                    &guild_name,
-                )
-                .await
+                match crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name)
+                    .await
                 {
                     Some(guild) => {
                         let mut config_borrow = config.borrow_mut();
@@ -88,7 +85,7 @@ impl DiscordCommand {
             let session = self.session.clone();
             Weechat::spawn(async move {
                 match crate::twilight_utils::search_striped_guild_name(
-                    cache.as_ref(),
+                    &cache,
                     session.guilds.borrow().keys().copied(),
                     &guild_name,
                 )
@@ -175,11 +172,9 @@ impl DiscordCommand {
                     return;
                 },
             };
-            let cache = conn.cache.clone();
-            let http = conn.http.clone();
 
             match crate::twilight_utils::search_striped_guild_name(
-                cache.as_ref(),
+                &conn.cache,
                 session.guilds.borrow().keys().copied(),
                 &guild_name,
             )
@@ -194,15 +189,7 @@ impl DiscordCommand {
                             "discord: Now autoconnecting to \"{}\"",
                             guild.name
                         ));
-                        let _ = weechat_guild
-                            .connect(
-                                &cache,
-                                &http,
-                                &conn.rt,
-                                connection.clone(),
-                                session.guilds.clone(),
-                            )
-                            .await;
+                        let _ = weechat_guild.connect(&conn, session.guilds.clone()).await;
                     } else {
                         tracing::info!(%guild.id, %guild.name, "Guild not added.");
                         Weechat::print(&format!(
@@ -239,7 +226,7 @@ impl DiscordCommand {
             };
 
             match crate::twilight_utils::search_striped_guild_name(
-                cache.as_ref(),
+                &cache,
                 session.guilds.borrow().keys().copied(),
                 &guild_name,
             )
@@ -299,16 +286,7 @@ impl DiscordCommand {
                     },
                 };
 
-                weecord_guild
-                    .join_channel(
-                        &conn.cache,
-                        &conn.http,
-                        &conn.rt,
-                        connection.clone(),
-                        &guild,
-                        &channel,
-                    )
-                    .await;
+                weecord_guild.join_channel(conn, &guild, &channel).await;
             });
         }
     }
@@ -344,16 +322,7 @@ impl DiscordCommand {
                     },
                 };
 
-                weecord_guild
-                    .join_channel(
-                        &conn.cache,
-                        &conn.http,
-                        &conn.rt,
-                        connection.clone(),
-                        &guild,
-                        &channel,
-                    )
-                    .await;
+                weecord_guild.join_channel(conn, &guild, &channel).await;
             });
         }
     }
@@ -385,13 +354,12 @@ impl DiscordCommand {
         let (tx, rx) = std::sync::mpsc::channel();
         connection.rt.spawn(async move {
             if let Some(guild) =
-                crate::twilight_utils::search_cached_striped_guild_name(cache.as_ref(), &guild_name)
-                    .await
+                crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name).await
             {
                 tracing::trace!(%guild.name, "Matched guild");
                 if let Some(channel) =
                     crate::twilight_utils::search_cached_stripped_guild_channel_name(
-                        cache.as_ref(),
+                        &cache,
                         guild.id,
                         &channel_name,
                     )

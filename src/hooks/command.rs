@@ -84,9 +84,10 @@ impl DiscordCommand {
         {
             let session = self.session.clone();
             Weechat::spawn(async move {
+                let guild_ids = session.guilds.borrow().keys().copied().collect::<Vec<_>>();
                 match crate::twilight_utils::search_striped_guild_name(
                     &cache,
-                    session.guilds.borrow().keys().copied(),
+                    guild_ids,
                     &guild_name,
                 )
                 .await

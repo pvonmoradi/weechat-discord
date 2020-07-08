@@ -1,10 +1,13 @@
 use crate::{
-    channel_buffer::DiscordChannel, config::Config, discord::discord_connection::ConnectionMeta,
-    twilight_utils::ext::ChannelExt, Guilds,
+    channel_buffer::DiscordChannel,
+    config::Config,
+    discord::discord_connection::ConnectionMeta,
+    refcell::{RefCell, RefMut},
+    twilight_utils::ext::ChannelExt,
+    Guilds,
 };
 use anyhow::Result;
 use std::{
-    cell::{RefCell, RefMut},
     collections::HashMap,
     rc::{Rc, Weak},
 };

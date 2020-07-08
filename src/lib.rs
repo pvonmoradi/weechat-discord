@@ -1,6 +1,9 @@
-use crate::{discord::discord_connection::DiscordConnection, guild_buffer::DiscordGuild};
+use crate::{
+    discord::discord_connection::DiscordConnection,
+    guild_buffer::DiscordGuild,
+    refcell::{Ref, RefCell, RefMut},
+};
 use std::{
-    cell::{Ref, RefCell, RefMut},
     collections::HashMap,
     rc::Rc,
     result::Result as StdResult,
@@ -19,6 +22,7 @@ mod format;
 mod guild_buffer;
 mod hooks;
 mod message_renderer;
+mod refcell;
 mod twilight_utils;
 mod utils;
 

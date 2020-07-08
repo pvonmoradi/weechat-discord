@@ -1,9 +1,10 @@
 use crate::{
     config::Config,
     discord::discord_connection::ConnectionMeta,
+    refcell::RefCell,
     twilight_utils::ext::{GuildChannelExt, MessageExt},
 };
-use std::{cell::RefCell, sync::Arc};
+use std::sync::Arc;
 use twilight::{
     cache::InMemoryCache as Cache,
     model::{

@@ -1,7 +1,9 @@
-use crate::{DiscordGuild, DiscordSession};
+use crate::{
+    refcell::{RefCell, RefMut},
+    DiscordGuild, DiscordSession,
+};
 use anyhow::Result;
 use std::{
-    cell::{RefCell, RefMut},
     rc::{Rc, Weak},
     str::FromStr,
 };

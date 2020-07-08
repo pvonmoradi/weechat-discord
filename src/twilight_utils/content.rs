@@ -2,7 +2,7 @@ use crate::{
     twilight_utils::{ext::ChannelExt, Color, Mentionable},
     utils::color::colorize_string,
 };
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use twilight::{
     cache::InMemoryCache as Cache,
@@ -25,9 +25,7 @@ pub async fn clean_all(
 pub async fn clean_roles(cache: &Cache, input: &str) -> String {
     let mut out = String::from(input);
 
-    lazy_static! {
-        static ref ROLE_REGEX: Regex = Regex::new(r"<@&(\d+?)>").expect("valid regex");
-    }
+    static ROLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<@&(\d+?)>").expect("valid regex"));
 
     for role_match in ROLE_REGEX.captures_iter(input) {
         let id = role_match
@@ -62,9 +60,8 @@ pub async fn clean_roles(cache: &Cache, input: &str) -> String {
 pub async fn clean_channels(cache: &Cache, input: &str) -> String {
     let mut out = String::from(input);
 
-    lazy_static! {
-        static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+?)>").expect("valid regex");
-    }
+    static CHANNEL_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"<#(\d+?)>").expect("valid regex"));
 
     for channel_match in CHANNEL_REGEX.captures_iter(input) {
         let id = channel_match
@@ -127,9 +124,7 @@ pub async fn clean_users(
 ) -> String {
     let mut out = String::from(input);
 
-    lazy_static! {
-        static ref USER_REGEX: Regex = Regex::new(r"<@!?(\d+?)>").expect("valid regex");
-    }
+    static USER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<@!?(\d+?)>").expect("valid regex"));
 
     for user_match in USER_REGEX.captures_iter(input) {
         let id = user_match
@@ -179,9 +174,8 @@ pub async fn clean_users(
 pub async fn clean_emojis(cache: &Cache, input: &str) -> String {
     let mut out = String::from(input);
 
-    lazy_static! {
-        static ref EMOJI_REGEX: Regex = Regex::new(r"<:.+?:(\d+?)>").expect("valid regex");
-    }
+    static EMOJI_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"<:.+?:(\d+?)>").expect("valid regex"));
 
     for emoji_match in EMOJI_REGEX.captures_iter(input) {
         let id = emoji_match
@@ -221,9 +215,7 @@ pub async fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &s
 
 pub async fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = String::from(input);
-    lazy_static! {
-        static ref CHANNEL_MENTION: Regex = Regex::new(r"#([a-z_\-\d]+)").unwrap();
-    }
+    static CHANNEL_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"#([a-z_\-\d]+)").unwrap());
 
     let matches = CHANNEL_MENTION.captures_iter(&input).collect::<Vec<_>>();
     for channel_match in matches {
@@ -264,9 +256,7 @@ pub async fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &s
 
 pub async fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = String::from(input);
-    lazy_static! {
-        static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap();
-    }
+    static USER_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap());
 
     let matches = USER_MENTION.captures_iter(input).collect::<Vec<_>>();
     for user_match in matches {
@@ -307,9 +297,7 @@ pub async fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str)
 
 pub async fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = String::from(input);
-    lazy_static! {
-        static ref ROLE_MENTION: Regex = Regex::new(r"@([^\s]{1,32})").unwrap();
-    }
+    static ROLE_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s]{1,32})").unwrap());
 
     let matches = ROLE_MENTION.captures_iter(input).collect::<Vec<_>>();
     for role_match in matches {
@@ -344,11 +332,10 @@ pub async fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str)
 
     out
 }
+
 pub async fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = String::from(input);
-    lazy_static! {
-        static ref EMOJI_MENTIONS: Regex = Regex::new(r"(.?):(\w+):").unwrap();
-    }
+    static EMOJI_MENTIONS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(.?):(\w+):").unwrap());
 
     let matches = EMOJI_MENTIONS.captures_iter(input).collect::<Vec<_>>();
     for emoji_match in matches {

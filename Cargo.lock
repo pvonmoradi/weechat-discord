@@ -966,7 +966,7 @@ checksum = "06de47b848347d8c4c94219ad8ecd35eb90231704b067e67e6ae2e36ee023510"
 name = "parsing"
 version = "0.1.0"
 dependencies = [
- "lazy_static",
+ "once_cell",
  "simple_ast",
 ]
 
@@ -1931,9 +1931,9 @@ dependencies = [
  "clap",
  "dirs",
  "glob",
- "lazy_static",
  "libc",
  "make_rs",
+ "once_cell",
  "parsing",
  "regex",
  "tokio",

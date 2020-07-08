@@ -1,4 +1,4 @@
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 pub use simple_ast::MarkdownNode;
 use simple_ast::{regex::Regex, Parser, Rule, Styled};
 
@@ -21,10 +21,8 @@ pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
     Parser::with_rules(rules).parse(str)
 }
 
-lazy_static! {
-    static ref LINE_SUB_REGEX: Regex =
-        Regex::new(r"^(\d)?s/(.*?(?<!\\))/(.*?(?<!\\))(?:/|$)(\w+)?").unwrap();
-}
+static LINE_SUB_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(\d)?s/(.*?(?<!\\))/(.*?(?<!\\))(?:/|$)(\w+)?").unwrap());
 
 #[derive(Debug)]
 pub enum LineEdit<'a> {

@@ -8,6 +8,7 @@ pub mod options;
 pub struct Hooks {
     _completions: completions::Completions,
     _command: Command,
+    _options: options::Options,
 }
 
 impl Hooks {
@@ -24,10 +25,12 @@ impl Hooks {
         tracing::trace!("Completions hooked");
 
         let _options = options::Options::hook_all(weechat, config);
+        tracing::trace!("Options hooked");
 
         Hooks {
             _completions,
             _command,
+            _options,
         }
     }
 }

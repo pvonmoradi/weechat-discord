@@ -7,10 +7,12 @@ use std::{
     collections::HashMap,
     rc::Rc,
     result::Result as StdResult,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tokio::sync::mpsc::channel;
-use tracing::__macro_support::Ordering;
 use twilight::model::id::GuildId;
 use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
 

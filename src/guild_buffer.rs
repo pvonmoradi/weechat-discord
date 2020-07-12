@@ -35,14 +35,15 @@ impl GuildBuffer {
     pub fn new(guilds: Guilds, guild_id: GuildId, guild_name: &str) -> Result<GuildBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let buffer_handle = Weechat::buffer_new(
-            BufferSettings::new(&format!("discord.{}", clean_guild_name))
-                .close_callback(move |_: &Weechat, buffer: &Buffer| {
-                    tracing::trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
+            BufferSettings::new(&format!("discord.{}", clean_guild_name)).close_callback(
+                move |_: &Weechat, buffer: &Buffer| {
+                    trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
                     guilds.borrow_mut().remove(&guild_id);
                     Ok(())
-                }),
+                },
+            ),
         )
-            .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
+        .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
 
         let buffer = buffer_handle
             .upgrade()

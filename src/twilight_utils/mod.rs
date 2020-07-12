@@ -3,6 +3,7 @@ use crate::{
     utils,
 };
 use std::sync::Arc;
+use tracing::*;
 use twilight::{
     cache::{twilight_cache_inmemory::model::CachedGuild, InMemoryCache as Cache},
     model::{
@@ -51,7 +52,7 @@ pub async fn search_striped_guild_name(
                 return Some(guild);
             }
         } else {
-            tracing::warn!("{:?} not found in cache", guild_id);
+            warn!("{:?} not found in cache", guild_id);
         }
     }
     None
@@ -80,7 +81,7 @@ pub async fn search_cached_stripped_guild_channel_name(
                 return Some(channel);
             }
         } else {
-            tracing::warn!("{:?} not found in cache", channel_id);
+            warn!("{:?} not found in cache", channel_id);
         }
     }
     None

@@ -1,4 +1,5 @@
 use crate::{config::Config, discord::discord_connection::DiscordConnection, DiscordSession};
+use tracing::trace;
 use weechat::{hooks::Command, Weechat};
 
 pub mod command;
@@ -19,13 +20,13 @@ impl Hooks {
         config: Config,
     ) -> Hooks {
         let _command = command::hook(weechat, discord_connection.clone(), session, config.clone());
-        tracing::trace!("Command hooked");
+        trace!("Command hooked");
 
         let _completions = completions::Completions::hook_all(weechat, discord_connection);
-        tracing::trace!("Completions hooked");
+        trace!("Completions hooked");
 
         let _options = options::Options::hook_all(weechat, config);
-        tracing::trace!("Options hooked");
+        trace!("Options hooked");
 
         Hooks {
             _completions,

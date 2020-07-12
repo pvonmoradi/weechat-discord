@@ -2,6 +2,7 @@ use crate::{
     discord::discord_connection::DiscordConnection, twilight_utils::ext::ChannelExt, utils,
 };
 use std::borrow::Cow;
+use tracing::*;
 use weechat::{
     buffer::Buffer,
     hooks::{Completion, CompletionHook},
@@ -98,14 +99,14 @@ impl Completions {
                                                     .expect("main thread panicked?");
                                             }
                                             None => {
-                                                tracing::trace!(id = %channel_id, "Unable to find channel in cache");
+                                               trace!(id = %channel_id, "Unable to find channel in cache");
                                             }
                                         }
                                     }
                                 }
                             }
                             None => {
-                                tracing::trace!(name = %guild_name, "Unable to find guild");
+                               trace!(name = %guild_name, "Unable to find guild");
                             }
                         }
                     });

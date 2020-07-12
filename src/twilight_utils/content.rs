@@ -4,6 +4,7 @@ use crate::{
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
+use tracing::*;
 use twilight::{
     cache::InMemoryCache as Cache,
     model::id::{ChannelId, EmojiId, GuildId, RoleId, UserId},
@@ -194,7 +195,7 @@ pub async fn clean_emojis(cache: &Cache, input: &str) -> String {
                 &format!(":{}:", emoji.name),
             );
         } else {
-            tracing::trace!(emoji.id=?id, "Emoji not in cache");
+            trace!(emoji.id=?id, "Emoji not in cache");
             out = out.replace(
                 emoji_match.get(0).expect("match must exist").as_str(),
                 ":unknown-emoji:",

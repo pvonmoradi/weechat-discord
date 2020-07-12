@@ -8,6 +8,7 @@ use crate::{
 use anyhow::Result;
 use std::{borrow::Cow, sync::Arc};
 use tokio::sync::mpsc;
+use tracing::*;
 use twilight::{
     cache::InMemoryCache as Cache,
     model::{
@@ -58,7 +59,7 @@ impl ChannelBuffer {
                     match http.create_message(channel_id).content(input) {
                         Ok(msg) => {
                             if let Err(e) = msg.await {
-                                tracing::error!("Failed to send message: {:#?}", e);
+                                error!("Failed to send message: {:#?}", e);
                                 Weechat::spawn_from_thread(async move {
                                     Weechat::print(&format!(
                                         "An error occured sending message: {}",
@@ -68,7 +69,7 @@ impl ChannelBuffer {
                             };
                         },
                         Err(e) => {
-                            tracing::error!("Failed to create message: {:#?}", e);
+                            error!("Failed to create message: {:#?}", e);
                             Weechat::spawn_from_thread(async {
                                 Weechat::print("Message content's invalid")
                             })
@@ -78,7 +79,7 @@ impl ChannelBuffer {
                 Ok(())
             })
             .close_callback(move |_: &Weechat, buffer: &Buffer| {
-                tracing::trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
+                trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
                 guild.channel_buffers_mut().remove(&channel_id);
                 Ok(())
             }),

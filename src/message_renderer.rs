@@ -5,6 +5,7 @@ use crate::{
     twilight_utils::ext::{GuildChannelExt, MessageExt},
 };
 use std::sync::Arc;
+use tracing::*;
 use twilight::{
     cache::InMemoryCache as Cache,
     model::{
@@ -181,7 +182,7 @@ impl MessageRender {
                 ))
                 .await
             {
-                tracing::warn!(
+                warn!(
                     guild.id = channel.guild_id().0,
                     channel.id = channel.guild_id().0,
                     "Failed to request guild member: {:#?}",

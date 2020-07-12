@@ -109,7 +109,7 @@ impl ChannelBuffer {
 #[derive(Clone)]
 pub struct DiscordChannel {
     channel_buffer: Arc<ChannelBuffer>,
-    id: ChannelId,
+    pub id: ChannelId,
     config: Config,
 }
 

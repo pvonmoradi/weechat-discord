@@ -84,6 +84,10 @@ pub struct DiscordGuild {
 }
 
 impl DiscordGuild {
+    pub fn debug_counts(&self) -> (usize, usize) {
+        (Rc::strong_count(&self.inner), Rc::weak_count(&self.inner))
+    }
+
     pub fn new(config: &Config, id: GuildId, guild_section: &mut ConfigSection) -> DiscordGuild {
         let inner = Rc::new(RefCell::new(InnerGuild::new()));
 

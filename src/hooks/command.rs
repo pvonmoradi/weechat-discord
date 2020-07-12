@@ -415,6 +415,22 @@ impl DiscordCommand {
         Weechat::print("discord: Updated Discord token");
         tracing::info!("updated discord token");
     }
+
+    fn process_debug_matches(&self, matches: &ArgMatches) {
+        match matches.subcommand() {
+            ("buffer", Some(_)) => {
+                for guild in self.session.guilds.guilds.borrow().values() {
+                    let (strng, weak) = guild.debug_counts();
+                    Weechat::print(&format!("Guild [{} {}]: {}", strng, weak, guild.id));
+
+                    for channel in guild.channel_buffers().values() {
+                        Weechat::print(&format!("  Channel: {}", channel.id));
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
@@ -459,6 +475,11 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                             .arg(Arg::with_name("name").required(true)),
                     ),
             )
+            .subcommand(
+                App::new("debug")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
+                    .subcommand(App::new("buffer")),
+            )
             .subcommand(App::new("token").arg(Arg::with_name("token").required(true)));
 
         let matches = match app.try_get_matches_from(args) {
@@ -479,6 +500,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             ("server", Some(matches)) => self.process_server_matches(matches),
             ("channel", Some(matches)) => self.process_channel_matches(matches),
             ("token", Some(matches)) => self.token(matches),
+            ("debug", Some(matches)) => self.process_debug_matches(matches),
             _ => {},
         };
     }
@@ -498,7 +520,8 @@ pub fn hook(
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
-            .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)"),
+            .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
+            .add_completion("debug buffer"),
         DiscordCommand {
             session,
             connection,

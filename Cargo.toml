@@ -43,7 +43,7 @@ git = "https://github.com/Noskcaj19/make_rs"
 
 [dependencies.tokio]
 version = "0.2.21"
-features = ["rt-threaded", "sync"]
+features = ["rt-threaded", "sync", "macros"]
 
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
@@ -63,4 +63,4 @@ features = ["std"]
 git = "https://github.com/terminal-discord/twilight"
 branch = "mk3"
 default_features = false
-features = ["builders", "cache", "gateway", "http", "model"]
+features = ["builders", "cache", "gateway", "http", "model", "rustls"]

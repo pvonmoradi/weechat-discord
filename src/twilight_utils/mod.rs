@@ -1,7 +1,4 @@
-use crate::{
-    twilight_utils::ext::{CachedGuildExt, GuildChannelExt},
-    utils,
-};
+use crate::{twilight_utils::ext::CachedGuildExt, utils};
 use std::sync::Arc;
 use tracing::*;
 use twilight::{
@@ -17,7 +14,6 @@ mod color;
 pub mod content;
 pub mod ext;
 pub mod mention;
-use crate::twilight_utils::ext::ChannelExt;
 pub use color::*;
 pub use mention::*;
 
@@ -98,7 +94,7 @@ pub async fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
     };
 
     let guild = match cache
-        .guild(channel.guild_id())
+        .guild(channel.guild_id().expect("GuildChannel must have guild id"))
         .await
         .expect("InMemoryCache cannot fail")
     {

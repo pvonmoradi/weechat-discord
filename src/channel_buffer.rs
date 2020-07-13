@@ -1,8 +1,6 @@
 use crate::{
-    config::Config,
-    discord::discord_connection::ConnectionMeta,
-    message_renderer::MessageRender,
-    twilight_utils::ext::{ChannelExt, GuildChannelExt},
+    config::Config, discord::discord_connection::ConnectionMeta, message_renderer::MessageRender,
+    twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
 use std::{borrow::Cow, sync::Arc};
@@ -60,12 +58,9 @@ impl ChannelBuffer {
                 let cache = conn_clone.cache.clone();
                 let input = input.to_string();
                 conn_clone.rt.spawn(async move {
-                    let input = crate::twilight_utils::content::create_mentions(
-                        &cache,
-                        Some(guild_id),
-                        &input,
-                    )
-                    .await;
+                    let input =
+                        crate::twilight_utils::content::create_mentions(&cache, guild_id, &input)
+                            .await;
                     match http.create_message(channel_id).content(input) {
                         Ok(msg) => {
                             if let Err(e) = msg.await {

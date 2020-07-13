@@ -3,7 +3,6 @@ use crate::{
     config::Config,
     discord::discord_connection::ConnectionMeta,
     refcell::{RefCell, RefMut},
-    twilight_utils::ext::ChannelExt,
     Guilds,
 };
 use anyhow::Result;

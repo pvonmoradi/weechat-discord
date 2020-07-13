@@ -1,6 +1,4 @@
-use crate::{
-    discord::discord_connection::DiscordConnection, twilight_utils::ext::ChannelExt, utils,
-};
+use crate::{discord::discord_connection::DiscordConnection, utils};
 use std::borrow::Cow;
 use tracing::*;
 use weechat::{

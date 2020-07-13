@@ -1,8 +1,6 @@
 use crate::{
-    config::Config,
-    discord::discord_connection::ConnectionMeta,
-    refcell::RefCell,
-    twilight_utils::ext::{GuildChannelExt, MessageExt},
+    config::Config, discord::discord_connection::ConnectionMeta, refcell::RefCell,
+    twilight_utils::ext::MessageExt,
 };
 use std::sync::Arc;
 use tracing::*;
@@ -173,9 +171,10 @@ impl MessageRender {
         {
             // All messages should be the same guild and channel
             let shard = &self.conn.shard;
+            let guild_id = channel.guild_id().expect("GuildChannel must have guild id");
             if let Err(e) = shard
                 .command(&RequestGuildMembers::new_multi_user_with_nonce(
-                    channel.guild_id(),
+                    guild_id,
                     unknown_members,
                     Some(true),
                     Some(channel_id.0.to_string()),
@@ -183,8 +182,8 @@ impl MessageRender {
                 .await
             {
                 warn!(
-                    guild.id = channel.guild_id().0,
-                    channel.id = channel.guild_id().0,
+                    guild.id = guild_id.0,
+                    channel.id = guild_id.0,
                     "Failed to request guild member: {:#?}",
                     e
                 )
@@ -204,7 +203,7 @@ pub async fn render_msg(
         .guild_channel(msg.channel_id)
         .await
         .expect("InMemoryCache cannot fail");
-    let guild_id = guild_channel.map(|ch| ch.guild_id());
+    let guild_id = guild_channel.and_then(|ch| ch.guild_id());
 
     let mut msg_content =
         crate::twilight_utils::content::clean_all(cache, guild_id, &msg.content, unknown_members)

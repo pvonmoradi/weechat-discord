@@ -1,7 +1,5 @@
 use crate::{
-    discord::plugin_message::PluginMessage,
-    twilight_utils::ext::{GuildChannelExt, MessageExt},
-    DiscordSession,
+    discord::plugin_message::PluginMessage, twilight_utils::ext::MessageExt, DiscordSession,
 };
 use anyhow::Result;
 use std::{
@@ -161,7 +159,11 @@ impl DiscordConnection {
                     {
                         let buffers = {
                             let guilds = session.guilds.borrow();
-                            match guilds.get(&guild_channel.guild_id()) {
+                            match guilds.get(
+                                &guild_channel
+                                    .guild_id()
+                                    .expect("GuildChannel must have guild id"),
+                            ) {
                                 Some(guild) => guild.channel_buffers(),
                                 None => continue,
                             }
@@ -184,7 +186,11 @@ impl DiscordConnection {
                     {
                         let buffers = {
                             let guilds = session.guilds.borrow();
-                            match guilds.get(&guild_channel.guild_id()) {
+                            match guilds.get(
+                                &guild_channel
+                                    .guild_id()
+                                    .expect("GuildChannel must have guild id"),
+                            ) {
                                 Some(guild) => guild.channel_buffers(),
                                 None => continue,
                             }
@@ -211,7 +217,11 @@ impl DiscordConnection {
                         {
                             let buffers = {
                                 let guilds = session.guilds.borrow();
-                                match guilds.get(&guild_channel.guild_id()) {
+                                match guilds.get(
+                                    &guild_channel
+                                        .guild_id()
+                                        .expect("GuildChannel must have guild id"),
+                                ) {
                                     Some(guild) => guild.channel_buffers(),
                                     None => continue,
                                 }

@@ -1,21 +1,9 @@
-use std::{
-    io,
-    sync::{
-        atomic::{AtomicBool, Ordering::SeqCst},
-        Arc,
-    },
-};
+use std::io;
 use weechat::{buffer::BufferSettings, Weechat};
 
-pub struct Debug {
-    alive: Arc<AtomicBool>,
-}
+pub struct Debug;
 
 impl Debug {
-    pub fn new(alive: Arc<AtomicBool>) -> Debug {
-        Debug { alive }
-    }
-
     pub fn create_buffer() {
         if let Ok(buffer) = Weechat::buffer_new(BufferSettings::new("weecord.tracing")) {
             if let Ok(buffer) = buffer.upgrade() {
@@ -37,7 +25,7 @@ impl Debug {
 
 impl io::Write for Debug {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.alive.load(SeqCst) {
+        if crate::ALIVE.alive() {
             Weechat::spawn_from_thread(Debug::write_to_buffer(buf.to_owned()));
         }
 

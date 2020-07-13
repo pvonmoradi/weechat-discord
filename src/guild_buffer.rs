@@ -38,7 +38,9 @@ impl GuildBuffer {
             BufferSettings::new(&format!("discord.{}", clean_guild_name)).close_callback(
                 move |_: &Weechat, buffer: &Buffer| {
                     trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
-                    guilds.borrow_mut().remove(&guild_id);
+                    if let Ok(mut guilds) = guilds.try_borrow_mut() {
+                        guilds.remove(&guild_id);
+                    }
                     Ok(())
                 },
             ),
@@ -64,6 +66,19 @@ pub struct InnerGuild {
     buffers: HashMap<ChannelId, DiscordChannel>,
     autoconnect: bool,
     autojoin: Vec<ChannelId>,
+}
+
+impl Drop for InnerGuild {
+    fn drop(&mut self) {
+        if !crate::ALIVE.alive() {
+            return;
+        }
+        if let Some(buffer) = self.guild_buffer.as_ref() {
+            if let Ok(buffer) = buffer._buffer_handle.upgrade() {
+                buffer.close();
+            }
+        }
+    }
 }
 
 impl InnerGuild {
@@ -196,7 +211,9 @@ impl DiscordGuild {
             &nick,
             move |_| {
                 if let Some(inner) = weak_inner.upgrade() {
-                    inner.borrow_mut().buffers.remove(&channel_id);
+                    if let Ok(mut inner) = inner.try_borrow_mut() {
+                        inner.buffers.remove(&channel_id);
+                    }
                 }
             },
         ) {

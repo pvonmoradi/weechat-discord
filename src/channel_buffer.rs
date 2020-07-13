@@ -25,6 +25,17 @@ pub struct ChannelBuffer {
     renderer: MessageRender,
 }
 
+impl Drop for ChannelBuffer {
+    fn drop(&mut self) {
+        if !crate::ALIVE.alive() {
+            return;
+        }
+        if let Ok(buffer) = self.renderer.buffer_handle.upgrade() {
+            buffer.close();
+        }
+    }
+}
+
 impl ChannelBuffer {
     pub fn new(
         conn: &ConnectionMeta,

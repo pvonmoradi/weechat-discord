@@ -4,17 +4,18 @@ use crate::{
     refcell::{Ref, RefCell, RefMut},
 };
 use std::{
+    cell::BorrowMutError,
     collections::HashMap,
     rc::Rc,
     result::Result as StdResult,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicBool, Ordering},
 };
 use tokio::sync::mpsc::channel;
+use tracing::*;
 use twilight::model::id::GuildId;
 use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
+
+pub static ALIVE: Liveness = Liveness::new();
 
 mod channel_buffer;
 mod config;
@@ -36,6 +37,12 @@ pub struct Guilds {
 impl Guilds {
     pub fn borrow(&self) -> Ref<'_, HashMap<GuildId, DiscordGuild>> {
         self.guilds.borrow()
+    }
+
+    pub fn try_borrow_mut(
+        &self,
+    ) -> Result<RefMut<'_, HashMap<GuildId, DiscordGuild>>, BorrowMutError> {
+        self.guilds.try_borrow_mut()
     }
 
     pub fn borrow_mut(&self) -> RefMut<'_, HashMap<GuildId, DiscordGuild>> {
@@ -69,7 +76,6 @@ pub struct Weecord {
     _discord_connection: DiscordConnection,
     _config: config::Config,
     _hooks: hooks::Hooks,
-    alive: Arc<AtomicBool>,
 }
 
 impl WeechatPlugin for Weecord {
@@ -82,11 +88,8 @@ impl WeechatPlugin for Weecord {
             return Err(());
         }
 
-        let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
-
-        let ac = Arc::clone(&alive);
         let _ = tracing_subscriber::fmt()
-            .with_writer(move || debug::Debug::new(ac.clone()))
+            .with_writer(move || debug::Debug)
             .without_time()
             .with_max_level(config.tracing_level())
             .try_init();
@@ -121,14 +124,34 @@ impl WeechatPlugin for Weecord {
             _discord_connection: discord_connection,
             _config: config,
             _hooks,
-            alive,
         })
     }
 }
 
 impl Drop for Weecord {
     fn drop(&mut self) {
-        self.alive.store(false, Ordering::Relaxed)
+        ALIVE.set_dead();
+        trace!("Plugin unloaded");
+    }
+}
+
+pub struct Liveness {
+    state: AtomicBool,
+}
+
+impl Liveness {
+    pub const fn new() -> Liveness {
+        Liveness {
+            state: AtomicBool::new(true),
+        }
+    }
+
+    pub fn alive(&self) -> bool {
+        self.state.load(Ordering::Relaxed)
+    }
+
+    pub fn set_dead(&self) {
+        self.state.store(false, Ordering::Relaxed);
     }
 }
 

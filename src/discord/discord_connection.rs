@@ -134,15 +134,14 @@ impl DiscordConnection {
                 },
                 PluginMessage::MessageCreate { message } => {
                     if let Some(guild_id) = message.guild_id {
-                        let guild = {
+                        let buffers = {
                             let guilds = session.guilds.borrow();
                             match guilds.get(&guild_id) {
-                                Some(guild) => guild.clone(),
+                                Some(guild) => guild.channel_buffers(),
                                 None => continue,
                             }
                         };
 
-                        let buffers = guild.channel_buffers();
                         let channel = match buffers.get(&message.channel_id) {
                             Some(channel) => channel,
                             None => continue,
@@ -160,15 +159,14 @@ impl DiscordConnection {
                         .await
                         .expect("InMemoryCache cannot fail")
                     {
-                        let guild = {
+                        let buffers = {
                             let guilds = session.guilds.borrow();
                             match guilds.get(&guild_channel.guild_id()) {
-                                Some(guild) => guild.clone(),
+                                Some(guild) => guild.channel_buffers(),
                                 None => continue,
                             }
                         };
 
-                        let buffers = guild.channel_buffers();
                         let channel = match buffers.get(&event.channel_id) {
                             Some(channel) => channel,
                             None => continue,
@@ -184,15 +182,14 @@ impl DiscordConnection {
                         .await
                         .expect("InMemoryCache cannot fail")
                     {
-                        let guild = {
+                        let buffers = {
                             let guilds = session.guilds.borrow();
                             match guilds.get(&guild_channel.guild_id()) {
-                                Some(guild) => guild.clone(),
+                                Some(guild) => guild.channel_buffers(),
                                 None => continue,
                             }
                         };
 
-                        let buffers = guild.channel_buffers();
                         let channel = match buffers.get(&message.channel_id) {
                             Some(channel) => channel,
                             None => continue,
@@ -212,15 +209,14 @@ impl DiscordConnection {
                             .await
                             .expect("InMemoryCache cannot fail")
                         {
-                            let guild = {
+                            let buffers = {
                                 let guilds = session.guilds.borrow();
                                 match guilds.get(&guild_channel.guild_id()) {
-                                    Some(guild) => guild.clone(),
+                                    Some(guild) => guild.channel_buffers(),
                                     None => continue,
                                 }
                             };
 
-                            let buffers = guild.channel_buffers();
                             let channel = match buffers.get(&channel_id) {
                                 Some(channel) => channel,
                                 None => continue,

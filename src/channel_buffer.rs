@@ -1,7 +1,6 @@
 use crate::{
     config::Config,
     discord::discord_connection::ConnectionMeta,
-    guild_buffer::DiscordGuild,
     message_renderer::MessageRender,
     twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
@@ -30,10 +29,10 @@ impl ChannelBuffer {
     pub fn new(
         conn: &ConnectionMeta,
         config: &Config,
-        guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
         nick: &str,
+        mut close_cb: impl FnMut(&Buffer) + 'static,
     ) -> Result<ChannelBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
         let clean_channel_name = crate::utils::clean_name(&channel.name());
@@ -80,7 +79,7 @@ impl ChannelBuffer {
             })
             .close_callback(move |_: &Weechat, buffer: &Buffer| {
                 trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
-                guild.channel_buffers_mut().remove(&channel_id);
+                close_cb(buffer);
                 Ok(())
             }),
         )
@@ -118,13 +117,13 @@ impl DiscordChannel {
     pub fn new(
         config: &Config,
         conn: &ConnectionMeta,
-        guild: DiscordGuild,
         channel: &GuildChannel,
         guild_name: &str,
         nick: &str,
+        close_cb: impl FnMut(&Buffer) + 'static,
     ) -> Result<DiscordChannel> {
         let channel_buffer =
-            ChannelBuffer::new(&conn.clone(), config, guild, channel, guild_name, nick)?;
+            ChannelBuffer::new(&conn.clone(), config, channel, guild_name, nick, close_cb)?;
         Ok(DiscordChannel {
             config: config.clone(),
             id: channel.id(),

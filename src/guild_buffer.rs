@@ -186,13 +186,19 @@ impl DiscordGuild {
     ) -> Option<DiscordChannel> {
         let nick = crate::twilight_utils::current_user_nick(&guild, &conn.cache).await;
 
+        let weak_inner = Rc::downgrade(&self.inner);
+        let channel_id = channel.id();
         if let Ok(buf) = DiscordChannel::new(
             &self.config,
             conn,
-            self.clone(),
             &channel,
             &guild.name,
             &nick,
+            move |_| {
+                if let Some(inner) = weak_inner.upgrade() {
+                    inner.borrow_mut().buffers.remove(&channel_id);
+                }
+            },
         ) {
             if let Err(e) = buf.load_history(conn).await {
                 warn!(
@@ -229,10 +235,6 @@ impl DiscordGuild {
 
     pub fn channel_buffers(&self) -> HashMap<ChannelId, DiscordChannel> {
         self.inner.borrow().buffers.clone()
-    }
-
-    pub fn channel_buffers_mut(&self) -> RefMut<HashMap<ChannelId, DiscordChannel>> {
-        RefMut::map(self.inner.borrow_mut(), |i| &mut i.buffers)
     }
 
     pub fn write_config(&self) {

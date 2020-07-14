@@ -208,6 +208,12 @@ impl DiscordConnection {
                     let channel_id = member_chunk
                         .nonce
                         .and_then(|id| id.parse().ok().map(ChannelId));
+                    if !member_chunk.not_found.is_empty() {
+                        warn!(
+                            "Member chunk included unknown users: {:?}",
+                            member_chunk.not_found
+                        );
+                    }
                     if let Some(channel_id) = channel_id {
                         if let Some(guild_channel) = conn
                             .cache
@@ -232,7 +238,7 @@ impl DiscordConnection {
                                 None => continue,
                             };
 
-                            channel.redraw(&conn.cache).await;
+                            channel.redraw(&conn.cache, &member_chunk.not_found).await;
                         }
                     }
                 },

@@ -11,7 +11,7 @@ use twilight::{
     model::{
         channel::{GuildChannel, Message},
         gateway::payload::MessageUpdate,
-        id::{ChannelId, MessageId},
+        id::{ChannelId, MessageId, UserId},
     },
 };
 use weechat::{
@@ -192,7 +192,10 @@ impl DiscordChannel {
         self.channel_buffer.renderer.update_msg(cache, update).await;
     }
 
-    pub async fn redraw(&self, cache: &Cache) {
-        self.channel_buffer.renderer.redraw_buffer(cache).await;
+    pub async fn redraw(&self, cache: &Cache, ignore_users: &[UserId]) {
+        self.channel_buffer
+            .renderer
+            .redraw_buffer(cache, ignore_users)
+            .await;
     }
 }

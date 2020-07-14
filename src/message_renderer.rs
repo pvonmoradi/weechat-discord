@@ -56,7 +56,7 @@ impl MessageRender {
     }
 
     /// Clear the buffer and reprint all messages
-    pub async fn redraw_buffer(&self, cache: &Cache) {
+    pub async fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
@@ -65,6 +65,14 @@ impl MessageRender {
         for message in self.messages.borrow().iter() {
             self.print_msg(cache, &message, false, &mut unknown_members)
                 .await;
+        }
+
+        for user in ignore_users {
+            // TODO: Vec::remove_item when it stabilizes
+            // TODO: Make unknown_members a hashset?
+            if let Some(pos) = unknown_members.iter().position(|x| x == user) {
+                unknown_members.remove(pos);
+            }
         }
 
         if let Some(first_msg) = self.messages.borrow().first() {
@@ -112,7 +120,7 @@ impl MessageRender {
         if let Some(index) = index {
             self.messages.borrow_mut().remove(index);
         }
-        self.redraw_buffer(cache).await;
+        self.redraw_buffer(cache, &[]).await;
     }
 
     pub async fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
@@ -125,7 +133,7 @@ impl MessageRender {
             old_msg.update(update);
         }
 
-        self.redraw_buffer(cache).await;
+        self.redraw_buffer(cache, &[]).await;
     }
 
     async fn msg_tags(cache: &Cache, msg: &Message, notify: bool) -> Vec<&'static str> {

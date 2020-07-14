@@ -69,8 +69,10 @@ impl MessageRender {
 
         if let Some(first_msg) = self.messages.borrow().first() {
             if !unknown_members.is_empty() {
-                self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
-                    .await
+                if let Some(guild_id) = first_msg.guild_id {
+                    self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id)
+                        .await
+                }
             }
         }
     }
@@ -85,8 +87,10 @@ impl MessageRender {
         }
 
         if let Some(first_msg) = msgs.first() {
-            self.fetch_guild_members(unknown_members, first_msg.channel_id, first_msg.guild_id)
-                .await
+            if let Some(guild_id) = first_msg.guild_id {
+                self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id)
+                    .await;
+            }
         }
     }
 
@@ -97,8 +101,10 @@ impl MessageRender {
 
         self.messages.borrow_mut().push(msg.clone());
 
-        self.fetch_guild_members(unknown_members, msg.channel_id, msg.guild_id)
-            .await
+        if let Some(guild_id) = msg.guild_id {
+            self.fetch_guild_members(unknown_members, msg.channel_id, guild_id)
+                .await
+        }
     }
 
     pub async fn remove_msg(&self, cache: &Cache, id: MessageId) {
@@ -160,34 +166,30 @@ impl MessageRender {
         &self,
         unknown_members: Vec<UserId>,
         channel_id: ChannelId,
-        #[allow(unused_variables)] guild_id: Option<GuildId>,
+        guild_id: GuildId,
     ) {
-        // TODO: Hack - twilight bug
-        let cache = &self.conn.cache;
-        if let Some(channel) = cache
-            .guild_channel(channel_id)
+        // All messages should be the same guild and channel
+        let shard = &self.conn.shard;
+        match shard
+            .command(&RequestGuildMembers::new_multi_user_with_nonce(
+                guild_id,
+                unknown_members,
+                Some(true),
+                Some(channel_id.0.to_string()),
+            ))
             .await
-            .expect("InMemoryCache cannot fail")
         {
-            // All messages should be the same guild and channel
-            let shard = &self.conn.shard;
-            let guild_id = channel.guild_id().expect("GuildChannel must have guild id");
-            if let Err(e) = shard
-                .command(&RequestGuildMembers::new_multi_user_with_nonce(
-                    guild_id,
-                    unknown_members,
-                    Some(true),
-                    Some(channel_id.0.to_string()),
-                ))
-                .await
-            {
-                warn!(
-                    guild.id = guild_id.0,
-                    channel.id = guild_id.0,
-                    "Failed to request guild member: {:#?}",
-                    e
-                )
-            }
+            Err(e) => warn!(
+                guild.id = guild_id.0,
+                channel.id = guild_id.0,
+                "Failed to request guild member: {:#?}",
+                e
+            ),
+            Ok(_) => trace!(
+                guild.id = guild_id.0,
+                channel.id = guild_id.0,
+                "Requested guild members"
+            ),
         }
     }
 }
@@ -198,16 +200,13 @@ pub async fn render_msg(
     msg: &Message,
     unknown_members: &mut Vec<UserId>,
 ) -> (String, String) {
-    // TODO: HACK - It seems every Message.guild_id is None
-    let guild_channel = cache
-        .guild_channel(msg.channel_id)
-        .await
-        .expect("InMemoryCache cannot fail");
-    let guild_id = guild_channel.and_then(|ch| ch.guild_id());
-
-    let mut msg_content =
-        crate::twilight_utils::content::clean_all(cache, guild_id, &msg.content, unknown_members)
-            .await;
+    let mut msg_content = crate::twilight_utils::content::clean_all(
+        cache,
+        msg.guild_id,
+        &msg.content,
+        unknown_members,
+    )
+    .await;
 
     if msg.edited_timestamp.is_some() {
         let edited_text = format!("{} (edited{}", Weechat::color("8"), Weechat::color("reset"));
@@ -294,7 +293,7 @@ pub async fn render_msg(
     ));
 
     let author = (|| async {
-        let guild_id = guild_id?;
+        let guild_id = msg.guild_id?;
 
         let member = cache
             .member(guild_id, msg.author.id)

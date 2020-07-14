@@ -145,13 +145,26 @@ impl DiscordChannel {
             let msg_count = self.config.message_fetch_count() as u64;
 
             conn.rt.spawn(async move {
-                let messages: Vec<Message> = conn_clone
+                let mut messages: Vec<Message> = conn_clone
                     .http
                     .channel_messages(id)
                     .limit(msg_count)
                     .unwrap()
                     .await
                     .unwrap();
+
+                // This is a bit of a hack because the returned messages have no guild id, even if
+                // they are from a guild channel
+                if let Some(guild_channel) = conn_clone
+                    .cache
+                    .guild_channel(id)
+                    .await
+                    .expect("InMemoryCache cannot fail")
+                {
+                    for msg in messages.iter_mut() {
+                        msg.guild_id = guild_channel.guild_id()
+                    }
+                }
                 tx.send(messages).await.unwrap();
             });
         }

@@ -15,7 +15,7 @@ use twilight::{
     },
 };
 use weechat::{
-    buffer::{Buffer, BufferSettings},
+    buffer::{Buffer, BufferBuilder},
     Weechat,
 };
 
@@ -48,47 +48,42 @@ impl ChannelBuffer {
         let channel_id = channel.id();
         let guild_id = channel.guild_id();
         let conn_clone = conn.clone();
-        let buffer_handle = Weechat::buffer_new(
-            BufferSettings::new(&format!(
-                "discord.{}.{}",
-                clean_guild_name, clean_channel_name
-            ))
-            .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                let http = conn_clone.http.clone();
-                let cache = conn_clone.cache.clone();
-                let input = input.to_string();
-                conn_clone.rt.spawn(async move {
-                    let input =
-                        crate::twilight_utils::content::create_mentions(&cache, guild_id, &input)
-                            .await;
-                    match http.create_message(channel_id).content(input) {
-                        Ok(msg) => {
-                            if let Err(e) = msg.await {
-                                error!("Failed to send message: {:#?}", e);
-                                Weechat::spawn_from_thread(async move {
-                                    Weechat::print(&format!(
-                                        "An error occured sending message: {}",
-                                        e
-                                    ))
-                                });
-                            };
-                        },
-                        Err(e) => {
-                            error!("Failed to create message: {:#?}", e);
-                            Weechat::spawn_from_thread(async {
-                                Weechat::print("Message content's invalid")
-                            })
-                        },
-                    }
-                });
-                Ok(())
-            })
-            .close_callback(move |_: &Weechat, buffer: &Buffer| {
-                trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
-                close_cb(buffer);
-                Ok(())
-            }),
-        )
+        let buffer_handle = BufferBuilder::new(&format!(
+            "discord.{}.{}",
+            clean_guild_name, clean_channel_name
+        ))
+        .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
+            let http = conn_clone.http.clone();
+            let cache = conn_clone.cache.clone();
+            let input = input.to_string();
+            conn_clone.rt.spawn(async move {
+                let input =
+                    crate::twilight_utils::content::create_mentions(&cache, guild_id, &input).await;
+                match http.create_message(channel_id).content(input) {
+                    Ok(msg) => {
+                        if let Err(e) = msg.await {
+                            error!("Failed to send message: {:#?}", e);
+                            Weechat::spawn_from_thread(async move {
+                                Weechat::print(&format!("An error occured sending message: {}", e))
+                            });
+                        };
+                    },
+                    Err(e) => {
+                        error!("Failed to create message: {:#?}", e);
+                        Weechat::spawn_from_thread(async {
+                            Weechat::print("Message content's invalid")
+                        })
+                    },
+                }
+            });
+            Ok(())
+        })
+        .close_callback(move |_: &Weechat, buffer: &Buffer| {
+            trace!(%channel_id, buffer.name=%buffer.name(), "Buffer close");
+            close_cb(buffer);
+            Ok(())
+        })
+        .build()
         .map_err(|_| anyhow::anyhow!("Unable to create channel buffer"))?;
 
         let buffer = buffer_handle

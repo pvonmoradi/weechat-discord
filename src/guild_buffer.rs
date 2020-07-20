@@ -19,7 +19,7 @@ use twilight::{
     },
 };
 use weechat::{
-    buffer::{Buffer, BufferHandle, BufferSettings},
+    buffer::{Buffer, BufferBuilder, BufferHandle},
     config::{
         BaseConfigOption, BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings,
     },
@@ -33,18 +33,16 @@ pub struct GuildBuffer {
 impl GuildBuffer {
     pub fn new(guilds: Guilds, guild_id: GuildId, guild_name: &str) -> Result<GuildBuffer> {
         let clean_guild_name = crate::utils::clean_name(guild_name);
-        let buffer_handle = Weechat::buffer_new(
-            BufferSettings::new(&format!("discord.{}", clean_guild_name)).close_callback(
-                move |_: &Weechat, buffer: &Buffer| {
-                    trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
-                    if let Ok(mut guilds) = guilds.try_borrow_mut() {
-                        guilds.remove(&guild_id);
-                    }
-                    Ok(())
-                },
-            ),
-        )
-        .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
+        let buffer_handle = BufferBuilder::new(&format!("discord.{}", clean_guild_name))
+            .close_callback(move |_: &Weechat, buffer: &Buffer| {
+                trace!(buffer.id=%guild_id, buffer.name=%buffer.name(), "Buffer close");
+                if let Ok(mut guilds) = guilds.try_borrow_mut() {
+                    guilds.remove(&guild_id);
+                }
+                Ok(())
+            })
+            .build()
+            .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
 
         let buffer = buffer_handle
             .upgrade()

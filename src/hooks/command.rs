@@ -9,7 +9,7 @@ use twilight::{cache::twilight_cache_inmemory::model::CachedGuild, model::channe
 use weechat::{
     buffer::Buffer,
     hooks::{Command, CommandSettings},
-    ArgsWeechat, Weechat,
+    Args, Weechat,
 };
 
 pub struct DiscordCommand {
@@ -435,7 +435,7 @@ impl DiscordCommand {
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
-    fn callback(&mut self, _: &Weechat, _: &Buffer, arguments: ArgsWeechat) {
+    fn callback(&mut self, _: &Weechat, _: &Buffer, arguments: Args) {
         let args = arguments.collect::<Vec<_>>();
 
         let app = App::new("/discord")
@@ -507,13 +507,8 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
     }
 }
 
-pub fn hook(
-    weechat: &Weechat,
-    connection: DiscordConnection,
-    session: DiscordSession,
-    config: Config,
-) -> Command {
-    weechat.hook_command(
+pub fn hook(connection: DiscordConnection, session: DiscordSession, config: Config) -> Command {
+    Command::new(
         CommandSettings::new("discord")
             .description("Discord integration for weechat")
             .add_argument("token <token>")
@@ -529,4 +524,5 @@ pub fn hook(
             config,
         },
     )
+    .expect("Failed to create command")
 }

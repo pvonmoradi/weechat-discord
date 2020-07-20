@@ -1,11 +1,11 @@
 use std::io;
-use weechat::{buffer::BufferSettings, Weechat};
+use weechat::{buffer::BufferBuilder, Weechat};
 
 pub struct Debug;
 
 impl Debug {
     pub fn create_buffer() {
-        if let Ok(buffer) = Weechat::buffer_new(BufferSettings::new("weecord.tracing")) {
+        if let Ok(buffer) = BufferBuilder::new("weecord.tracing").build() {
             if let Ok(buffer) = buffer.upgrade() {
                 buffer.set_title("Tracing events for weecord");
             }

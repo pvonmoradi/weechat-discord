@@ -13,7 +13,7 @@ use std::{
 use tokio::sync::mpsc::channel;
 use tracing::*;
 use twilight::model::id::GuildId;
-use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin};
+use weechat::{weechat_plugin, Args, Plugin, Weechat};
 
 pub static ALIVE: Liveness = Liveness::new();
 
@@ -78,8 +78,8 @@ pub struct Weecord {
     _hooks: hooks::Hooks,
 }
 
-impl WeechatPlugin for Weecord {
-    fn init(weechat: &Weechat, _args: ArgsWeechat) -> StdResult<Self, ()> {
+impl Plugin for Weecord {
+    fn init(weechat: &Weechat, _args: Args) -> StdResult<Self, ()> {
         let session = DiscordSession::new();
 
         let config = config::Config::new(&session);

@@ -10,8 +10,9 @@ use std::{
 use twilight::model::id::GuildId;
 use weechat::{
     config::{
-        BooleanOptionSettings, Conf, ConfigSection, ConfigSectionSettings, IntegerOptionSettings,
-        OptionChanged, SectionReadCallback, StringOption, StringOptionSettings,
+        BooleanOptionSettings, Conf, Config as WeechatConfig, ConfigSection, ConfigSectionSettings,
+        IntegerOptionSettings, OptionChanged, SectionReadCallback, StringOption,
+        StringOptionSettings,
     },
     Weechat,
 };
@@ -97,7 +98,7 @@ impl InnerConfig {
 impl Config {
     pub fn new(session: &DiscordSession) -> Config {
         let config = Rc::new(RefCell::new(
-            Weechat::config_new("weecord").expect("Can't create new config"),
+            WeechatConfig::new("weecord").expect("Can't create new config"),
         ));
         let inner = Rc::new(RefCell::new(InnerConfig::new()));
 

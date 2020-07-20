@@ -48,7 +48,7 @@ features = ["rt-threaded", "sync", "macros"]
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
 branch = "mk3"
-features = ["async-executor", "unstable"]
+features = ["async", "unsound"]
 
 [dependencies.weechat-sys]
 git = "https://github.com/terminal-discord/rust-weechat"

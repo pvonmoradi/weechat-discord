@@ -13,50 +13,49 @@ pub struct Completions {
 }
 
 impl Completions {
-    pub fn hook_all(weechat: &Weechat, connection: DiscordConnection) -> Completions {
+    pub fn hook_all(connection: DiscordConnection) -> Completions {
         let connection_clone = connection.clone();
-        let _guild_completion_hook = weechat
-            .hook_completion(
-                "discord_guild",
-                "Completion for Discord servers",
-                move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
-                    // `list` should not have any completion items
-                    if completion.arguments().splitn(3, ' ').nth(1) == Some("list") {
-                        return Ok(());
-                    }
+        let _guild_completion_hook = CompletionHook::new(
+            "discord_guild",
+            "Completion for Discord servers",
+            move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
+                // `list` should not have any completion items
+                if completion.arguments().splitn(3, ' ').nth(1) == Some("list") {
+                    return Ok(());
+                }
 
-                    if let Some(connection) = connection_clone.borrow().as_ref() {
-                        let cache = connection.cache.clone();
-                        let (tx, rx) = std::sync::mpsc::channel();
-                        connection.rt.spawn(async move {
-                            let guilds = cache
-                                .guild_ids()
+                if let Some(connection) = connection_clone.borrow().as_ref() {
+                    let cache = connection.cache.clone();
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    connection.rt.spawn(async move {
+                        let guilds = cache
+                            .guild_ids()
+                            .await
+                            .expect("InMemoryCache cannot fail")
+                            .expect("guild_ids never fails");
+                        for guild_id in guilds {
+                            if let Some(guild) = cache
+                                .guild(guild_id)
                                 .await
                                 .expect("InMemoryCache cannot fail")
-                                .expect("guild_ids never fails");
-                            for guild_id in guilds {
-                                if let Some(guild) = cache
-                                    .guild(guild_id)
-                                    .await
-                                    .expect("InMemoryCache cannot fail")
-                                {
-                                    tx.send(utils::clean_name(&guild.name))
-                                        .expect("main thread panicked?");
-                                }
+                            {
+                                tx.send(utils::clean_name(&guild.name))
+                                    .expect("main thread panicked?");
                             }
-                        });
-                        while let Ok(cmp) = rx.recv() {
-                            completion.add(&cmp);
                         }
+                    });
+                    while let Ok(cmp) = rx.recv() {
+                        completion.add(&cmp);
                     }
-                    Ok(())
-                },
-            )
-            .expect("Unable to hook discord guild completion");
+                }
+                Ok(())
+            },
+        )
+        .expect("Unable to hook discord guild completion");
 
         let connection_clone = connection;
-        let _channel_completion_hook = weechat
-            .hook_completion(
+        let _channel_completion_hook =
+            CompletionHook::new(
                 "discord_channel",
                 "Completion for Discord channels",
                 move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
@@ -97,14 +96,14 @@ impl Completions {
                                                     .expect("main thread panicked?");
                                             }
                                             None => {
-                                               trace!(id = %channel_id, "Unable to find channel in cache");
+                                                trace!(id = %channel_id, "Unable to find channel in cache");
                                             }
                                         }
                                     }
                                 }
                             }
                             None => {
-                               trace!(name = %guild_name, "Unable to find guild");
+                                trace!(name = %guild_name, "Unable to find guild");
                             }
                         }
                     });
@@ -114,7 +113,7 @@ impl Completions {
                     Ok(())
                 },
             )
-            .expect("Unable to hook discord channel completion");
+                .expect("Unable to hook discord channel completion");
 
         Completions {
             _guild_completion_hook,

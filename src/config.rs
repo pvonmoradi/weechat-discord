@@ -3,10 +3,8 @@ use crate::{
     DiscordGuild, DiscordSession,
 };
 use anyhow::Result;
-use std::{
-    rc::{Rc, Weak},
-    str::FromStr,
-};
+use std::rc::{Rc, Weak};
+use tracing_subscriber::EnvFilter;
 use twilight::model::id::GuildId;
 use weechat::{
     config::{
@@ -71,7 +69,7 @@ impl SectionReadCallback for Config {
 #[derive(Clone)]
 pub struct InnerConfig {
     pub token: Option<String>,
-    pub tracing_level: tracing::Level,
+    pub log_directive: String,
     pub auto_open_tracing: bool,
     pub message_fetch_count: i32,
     pub nick_prefix: String,
@@ -84,7 +82,7 @@ impl InnerConfig {
     pub fn new() -> InnerConfig {
         InnerConfig {
             token: None,
-            tracing_level: tracing::Level::WARN,
+            log_directive: "".to_string(),
             auto_open_tracing: false,
             message_fetch_count: 50,
             nick_prefix: "".to_string(),
@@ -147,23 +145,18 @@ impl Config {
 
             let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
-                StringOptionSettings::new("tracing_level")
-                    .description("Tracing level for debugging")
-                    .default_value("warn")
+                StringOptionSettings::new("log_directive")
+                    .description("Directive to configure plugin logging")
+                    .default_value("weecord=warn")
                     .set_change_callback(move |_, option| {
                         let inner = inner_clone
                             .upgrade()
                             .expect("Outer config has outlived inner config");
 
-                        inner.borrow_mut().tracing_level =
-                            tracing::Level::from_str(&option.value())
-                                .unwrap_or(tracing::Level::WARN);
+                        inner.borrow_mut().log_directive = option.value().to_string();
                     })
                     .set_check_callback(|_: &Weechat, _: &StringOption, value| {
-                        match value.as_ref() {
-                            "error" | "warn" | "info" | "debug" | "trace" => true,
-                            _ => false,
-                        }
+                        EnvFilter::try_new(value.as_ref()).is_ok()
                     }),
             )
             .expect("Unable to create tracing level option");
@@ -226,8 +219,8 @@ impl Config {
         self.inner.borrow().token.clone()
     }
 
-    pub fn tracing_level(&self) -> tracing::Level {
-        self.inner.borrow().tracing_level.clone()
+    pub fn log_directive(&self) -> String {
+        self.inner.borrow().log_directive.clone()
     }
 
     pub fn message_fetch_count(&self) -> i32 {

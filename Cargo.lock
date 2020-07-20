@@ -781,6 +781,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "matchers"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f099785f7595cc4b4553a174ce30dd7589ef93391ff414dbb67f62392b9e0ce1"
+dependencies = [
+ "regex-automata",
+]
+
+[[package]]
 name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1172,6 +1181,16 @@ dependencies = [
  "memchr",
  "regex-syntax",
  "thread_local",
+]
+
+[[package]]
+name = "regex-automata"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae1ded71d66a4a97f5e961fd0cb25a5f366a42a41570d16a763a69c092c26ae4"
+dependencies = [
+ "byteorder",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -1571,6 +1590,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4f5dd7095c2481b7b3cbed71c8de53085fb3542bc3c2b4c73cba43e8f11c7ba"
 dependencies = [
  "ansi_term",
+ "lazy_static",
+ "matchers",
+ "regex",
  "sharded-slab",
  "smallvec",
  "tracing-core",

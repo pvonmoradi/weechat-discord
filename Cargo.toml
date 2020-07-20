@@ -36,7 +36,7 @@ path = "parsing"
 [dependencies.tracing-subscriber]
 version = "0.2.7"
 default_features = false
-features = ["fmt", "ansi", "smallvec"]
+features = ["fmt", "ansi", "smallvec", "env-filter"]
 
 [dependencies.make_rs]
 git = "https://github.com/Noskcaj19/make_rs"

@@ -12,6 +12,7 @@ use std::{
 };
 use tokio::sync::mpsc::channel;
 use tracing::*;
+use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 use twilight::model::id::GuildId;
 use weechat::{weechat_plugin, Args, Plugin, Weechat};
 
@@ -89,9 +90,13 @@ impl Plugin for Weecord {
         }
 
         let _ = tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::new(config.log_directive())
+                    // Set the default log level to warn
+                    .add_directive(LevelFilter::WARN.into()),
+            )
             .with_writer(move || debug::Debug)
             .without_time()
-            .with_max_level(config.tracing_level())
             .try_init();
 
         if config.auto_open_tracing() {

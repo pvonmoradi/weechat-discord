@@ -27,7 +27,7 @@ use weechat::{
 };
 
 pub struct GuildBuffer {
-    _buffer_handle: BufferHandle,
+    buffer_handle: BufferHandle,
 }
 
 impl GuildBuffer {
@@ -52,9 +52,7 @@ impl GuildBuffer {
         buffer.set_localvar("type", "server");
         buffer.set_localvar("server", &clean_guild_name);
 
-        Ok(GuildBuffer {
-            _buffer_handle: buffer_handle,
-        })
+        Ok(GuildBuffer { buffer_handle })
     }
 }
 
@@ -71,7 +69,7 @@ impl Drop for InnerGuild {
             return;
         }
         if let Some(buffer) = self.guild_buffer.as_ref() {
-            if let Ok(buffer) = buffer._buffer_handle.upgrade() {
+            if let Ok(buffer) = buffer.buffer_handle.upgrade() {
                 buffer.close();
             }
         }

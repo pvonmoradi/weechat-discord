@@ -80,7 +80,7 @@ pub struct Weecord {
 }
 
 impl Plugin for Weecord {
-    fn init(weechat: &Weechat, _args: Args) -> StdResult<Self, ()> {
+    fn init(weechat: &Weechat, _: Args) -> StdResult<Self, ()> {
         let session = DiscordSession::new();
 
         let config = config::Config::new(&session);

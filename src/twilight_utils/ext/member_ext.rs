@@ -1,10 +1,16 @@
 use crate::twilight_utils::color::Color;
 use async_trait::async_trait;
-use twilight::cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache};
+use std::sync::Arc;
+use twilight::{
+    cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache},
+    model::guild::Role,
+};
 
 #[async_trait]
 pub trait MemberExt {
     async fn color(&self, cache: &Cache) -> Option<Color>;
+    fn display_name(&self) -> &str;
+    async fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>>;
 }
 
 #[async_trait]
@@ -30,5 +36,36 @@ impl MemberExt for CachedMember {
             .iter()
             .find(|role| role.color != default)
             .map(|role| Color::new(role.color))
+    }
+
+    fn display_name(&self) -> &str {
+        self.nick.as_ref().unwrap_or(&self.user.name)
+    }
+
+    async fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>> {
+        let mut highest: Option<(Arc<Role>, i64)> = None;
+
+        for role_id in &self.roles {
+            if let Some(role) = cache
+                .role(*role_id)
+                .await
+                .expect("InMemoryCache cannot fail")
+            {
+                // Skip this role if this role in iteration has:
+                //
+                // - a position less than the recorded highest
+                // - a position equal to the recorded, but a higher ID
+                if let Some((ref highest_role, pos)) = highest {
+                    if role.position < pos || (role.position == pos && role.id > highest_role.id) {
+                        continue;
+                    }
+                }
+
+                let pos = role.position;
+                highest = Some((role, pos));
+            }
+        }
+
+        highest.map(|h| h.0)
     }
 }

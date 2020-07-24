@@ -219,6 +219,13 @@ impl DiscordGuild {
                     "Failed to load channel history",
                 )
             }
+            if let Err(e) = buf.load_users(conn).await {
+                warn!(
+                    error = ?e,
+                    channel = %channel.name(),
+                    "Failed to load channel members"
+                )
+            };
             self.inner
                 .borrow_mut()
                 .buffers

@@ -26,6 +26,7 @@ mod format;
 mod guild_buffer;
 mod hooks;
 mod message_renderer;
+mod nicklist;
 mod refcell;
 mod twilight_utils;
 mod utils;

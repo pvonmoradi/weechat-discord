@@ -1,13 +1,13 @@
 use crate::{
     config::Config, discord::discord_connection::ConnectionMeta, message_renderer::MessageRender,
-    twilight_utils::ext::GuildChannelExt,
+    nicklist::Nicklist, twilight_utils::ext::GuildChannelExt,
 };
 use anyhow::Result;
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
 use tracing::*;
 use twilight::{
-    cache::InMemoryCache as Cache,
+    cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache},
     model::{
         channel::{GuildChannel, Message},
         gateway::payload::MessageUpdate,
@@ -21,6 +21,7 @@ use weechat::{
 
 pub struct ChannelBuffer {
     renderer: MessageRender,
+    nicklist: Nicklist,
 }
 
 impl Drop for ChannelBuffer {
@@ -95,15 +96,25 @@ impl ChannelBuffer {
         buffer.set_localvar("type", "channel");
         buffer.set_localvar("server", &clean_guild_name);
         buffer.set_localvar("channel", &clean_channel_name);
+
+        buffer.enable_nicklist();
+
         if let Some(topic) = channel.topic() {
             buffer.set_title(&format!("#{} - {}", channel.name(), topic));
         } else {
             buffer.set_title(&format!("#{}", channel.name()));
         }
 
+        let buffer_handle = Rc::new(buffer_handle);
+
         Ok(ChannelBuffer {
-            renderer: MessageRender::new(&conn, buffer_handle, config),
+            renderer: MessageRender::new(&conn, buffer_handle.clone(), config),
+            nicklist: Nicklist::new(&conn, buffer_handle),
         })
+    }
+
+    pub async fn add_members(&self, member: &[Arc<CachedMember>]) {
+        self.nicklist.add_members(member).await;
     }
 }
 
@@ -169,6 +180,19 @@ impl DiscordChannel {
             .renderer
             .add_bulk_msgs(&conn.cache, &messages.into_iter().rev().collect::<Vec<_>>())
             .await;
+        Ok(())
+    }
+
+    pub async fn load_users(&self, conn: &ConnectionMeta) -> Result<(), ()> {
+        if let Some(channel) = conn
+            .cache
+            .guild_channel(self.id)
+            .await
+            .expect("InMemoryCache cannot fail")
+        {
+            let members = channel.members(&conn.cache).await.unwrap();
+            self.channel_buffer.add_members(&members).await;
+        };
         Ok(())
     }
 

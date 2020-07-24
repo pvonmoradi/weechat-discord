@@ -1,10 +1,23 @@
-use twilight::model::channel::{permission_overwrite::PermissionOverwrite, GuildChannel};
+use crate::twilight_utils::ext::CachedGuildExt;
+use async_trait::async_trait;
+use futures::StreamExt;
+use std::sync::Arc;
+use twilight::{
+    cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache},
+    model::{
+        channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
+        guild::Permissions,
+    },
+};
 
+#[async_trait]
 pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
+    async fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()>;
 }
 
+#[async_trait]
 impl GuildChannelExt for GuildChannel {
     fn permission_overwrites(&self) -> &[PermissionOverwrite] {
         match self {
@@ -19,6 +32,44 @@ impl GuildChannelExt for GuildChannel {
             GuildChannel::Category(_) => None,
             GuildChannel::Text(c) => c.topic.clone(),
             GuildChannel::Voice(_) => None,
+        }
+    }
+
+    async fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()> {
+        match self {
+            GuildChannel::Category(_) => Err(()),
+            GuildChannel::Voice(_) => Err(()),
+            GuildChannel::Text(channel) => {
+                let guild = cache
+                    .guild(channel.guild_id.ok_or(())?)
+                    .await
+                    .expect("InMemoryCache cannot fail")
+                    .ok_or(())?;
+
+                let members = cache
+                    .members(channel.guild_id.ok_or(())?)
+                    .await
+                    .expect("InMemoryCache cannot fail")
+                    .ok_or(())?;
+
+                Ok(futures::stream::iter(members.iter())
+                    .filter_map(|member| {
+                        let guild = Arc::clone(&guild);
+                        async move {
+                            if guild
+                                .permissions_in(cache, channel.id, member.user.id)
+                                .await
+                                .contains(Permissions::READ_MESSAGE_HISTORY)
+                            {
+                                Some(Arc::clone(member))
+                            } else {
+                                None
+                            }
+                        }
+                    })
+                    .collect::<Vec<Arc<CachedMember>>>()
+                    .await)
+            },
         }
     }
 }

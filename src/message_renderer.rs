@@ -2,7 +2,7 @@ use crate::{
     config::Config, discord::discord_connection::ConnectionMeta, refcell::RefCell,
     twilight_utils::ext::MessageExt,
 };
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 use tracing::*;
 use twilight::{
     cache::InMemoryCache as Cache,
@@ -15,7 +15,7 @@ use twilight::{
 use weechat::{buffer::BufferHandle, Weechat};
 
 pub struct MessageRender {
-    pub buffer_handle: BufferHandle,
+    pub buffer_handle: Rc<BufferHandle>,
     conn: ConnectionMeta,
     config: Config,
     messages: Arc<RefCell<Vec<Message>>>,
@@ -24,7 +24,7 @@ pub struct MessageRender {
 impl MessageRender {
     pub fn new(
         connection: &ConnectionMeta,
-        buffer_handle: BufferHandle,
+        buffer_handle: Rc<BufferHandle>,
         config: &Config,
     ) -> MessageRender {
         MessageRender {

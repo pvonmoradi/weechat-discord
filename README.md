@@ -21,14 +21,14 @@ Use at your own risk, using this program could get your account or ip disabled, 
 
 ### Installation
 
-Binaries are automatically compiled for macOS and linux on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?redirect)
+Binaries are automatically compiled for macOS and linux on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?repo=weechat-discord&workflow=1329556&redirect)
 
 #### Building
 
 Dependencies:
 
 * Weechat developer libraries. Usually called `weechat-dev`, or sometimes just `weechat` includes them.
-* [Rust](https://www.rust-lang.org)
+* [Rust](https://www.rust-lang.org). Ensure you have the latest version.
 
 Then just run `make install`
 

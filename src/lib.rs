@@ -57,8 +57,9 @@ impl WeechatPlugin for Discord {
 
 impl Discord {
     fn connect(&self) {
-        if unsafe { &crate::discord::CONTEXT }.is_some() {
+        if crate::discord::DISCORD.lock().is_some() {
             plugin_print("Already connected");
+            return;
         }
 
         let token = self.config.token.value().into_owned();

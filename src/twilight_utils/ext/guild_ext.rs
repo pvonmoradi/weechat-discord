@@ -1,8 +1,6 @@
 use crate::twilight_utils::ext::{ChannelExt, GuildChannelExt};
-use async_trait::async_trait;
-use tracing::*;
 use twilight::{
-    cache::{twilight_cache_inmemory::model::CachedGuild, InMemoryCache as Cache},
+    cache_inmemory::{model::CachedGuild, InMemoryCache as Cache},
     model::{
         channel::{permission_overwrite::PermissionOverwriteType, ChannelType},
         guild::Permissions,
@@ -10,38 +8,22 @@ use twilight::{
     },
 };
 
-#[async_trait]
 pub trait CachedGuildExt {
-    async fn permissions_in(
-        &self,
-        cache: &Cache,
-        channel_id: ChannelId,
-        user_id: UserId,
-    ) -> Permissions;
+    fn permissions_in(&self, cache: &Cache, channel_id: ChannelId, user_id: UserId) -> Permissions;
 }
 
-#[async_trait]
 impl CachedGuildExt for CachedGuild {
-    async fn permissions_in(
-        &self,
-        cache: &Cache,
-        channel_id: ChannelId,
-        user_id: UserId,
-    ) -> Permissions {
+    fn permissions_in(&self, cache: &Cache, channel_id: ChannelId, user_id: UserId) -> Permissions {
         // The owner has all permissions in all cases.
         if user_id == self.owner_id {
             return Permissions::all();
         }
 
         // Start by retrieving the @everyone role's permissions.
-        let everyone = match cache
-            .role(RoleId(self.id.0))
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
+        let everyone = match cache.role(RoleId(self.id.0)) {
             Some(everyone) => everyone,
             None => {
-                error!("@everyone role ({}) missing in '{}'", self.id, self.name);
+                tracing::error!("@everyone role ({}) missing in '{}'", self.id, self.name);
 
                 return Permissions::empty();
             },
@@ -50,22 +32,20 @@ impl CachedGuildExt for CachedGuild {
         // Create a base set of permissions, starting with `@everyone`s.
         let mut permissions = everyone.permissions;
 
-        let member = match cache
-            .member(self.id, user_id)
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
+        let member = match cache.member(self.id, user_id) {
             Some(member) => member,
             None => return everyone.permissions,
         };
 
         for &role in &member.roles {
-            if let Some(role) = cache.role(role).await.expect("InMemoryCache cannot fail") {
+            if let Some(role) = cache.role(role) {
                 permissions |= role.permissions;
             } else {
-                warn!(
+                tracing::warn!(
                     "{} on {} has non-existent role {:?}",
-                    member.user.id, self.id, role
+                    member.user.id,
+                    self.id,
+                    role
                 );
             }
         }
@@ -75,11 +55,7 @@ impl CachedGuildExt for CachedGuild {
             return Permissions::all();
         }
 
-        if let Some(channel) = cache
-            .guild_channel(channel_id)
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
+        if let Some(channel) = cache.guild_channel(channel_id) {
             // If this is a text channel, then throw out voice permissions.
             if channel.kind() == ChannelType::GuildText {
                 permissions &= !(Permissions::CONNECT
@@ -106,7 +82,7 @@ impl CachedGuildExt for CachedGuild {
                         continue;
                     }
 
-                    if let Some(role) = cache.role(role).await.expect("InMemoryCache cannot fail") {
+                    if let Some(role) = cache.role(role) {
                         data.push((role.position, overwrite.deny, overwrite.allow));
                     }
                 }
@@ -127,7 +103,7 @@ impl CachedGuildExt for CachedGuild {
                 permissions = (permissions & !overwrite.deny) | overwrite.allow;
             }
         } else {
-            warn!("Guild {} does not contain channel {}", self.id, channel_id);
+            tracing::warn!("Guild {} does not contain channel {}", self.id, channel_id);
         }
 
         // The default channel is always readable.

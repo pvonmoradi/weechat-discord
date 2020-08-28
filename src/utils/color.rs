@@ -1,5 +1,5 @@
 use crate::twilight_utils::ext::MemberExt;
-use twilight::cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache};
+use twilight::cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
 use weechat::Weechat;
 
 pub fn colorize_string(text: &str, color: &str) -> String {
@@ -15,8 +15,8 @@ pub fn colorize_string(text: &str, color: &str) -> String {
     }
 }
 
-pub async fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -> String {
-    let color = member.color(cache).await;
+pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -> String {
+    let color = member.color(cache);
     let nick = member
         .nick
         .clone()

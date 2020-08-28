@@ -3,7 +3,7 @@
 [![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)](https://github.com/terminal-discord/weechat-discord/actions)
 
 
-A plugin that adds Discord to [Weechat](https://weechat.org/)
+A plugin that adds Discord support to [Weechat](https://weechat.org/)
 
 ---
 
@@ -16,13 +16,12 @@ This client makes use of the Discord "user api" and is can be viewed as a "self-
 This client does not abuse the api, however it is still a violation of the TOS and makes use of undocumented "client only" 
 apis.
 
-Use at your own risk: using this program could get your account or ip disabled, banned, etc.
+Use at your own risk: Using this program could get your account or ip disabled, banned, etc.
 
 ---
 
-### Table of Contents
-
 * [Installation](#installation)
+  * [Building](#building)
 * [Setup](#setup)
 * [Configuration](#configuration)
   * [Typing indicator](#typing-indicator)
@@ -33,11 +32,11 @@ Use at your own risk: using this program could get your account or ip disabled, 
 
 ### Installation
 
-Binaries are automatically compiled for macOS and linux and archived on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?repo=weechat-discord&workflow=1329556&redirect)
+Binaries are automatically compiled for macOS and linux and archived on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?repo=weechat-discord&workflow=1329556&branch=mk3&redirect)
 
-On macOS you will need to [adjust the Weechat plugin extensions](#macos)
+On macOS you will need to [adjust the Weechat plugin file extensions](#macos)
 
-### Building
+#### Building
 
 In order to build weechat-discord yourself you will need:
 

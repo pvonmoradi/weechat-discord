@@ -1,6 +1,5 @@
 use crate::{discord::discord_connection::DiscordConnection, utils};
 use std::borrow::Cow;
-use tracing::*;
 use weechat::{
     buffer::Buffer,
     hooks::{Completion, CompletionHook},
@@ -28,17 +27,9 @@ impl Completions {
                     let cache = connection.cache.clone();
                     let (tx, rx) = std::sync::mpsc::channel();
                     connection.rt.spawn(async move {
-                        let guilds = cache
-                            .guild_ids()
-                            .await
-                            .expect("InMemoryCache cannot fail")
-                            .expect("guild_ids never fails");
+                        let guilds = cache.guild_ids().expect("guild_ids never fails");
                         for guild_id in guilds {
-                            if let Some(guild) = cache
-                                .guild(guild_id)
-                                .await
-                                .expect("InMemoryCache cannot fail")
-                            {
+                            if let Some(guild) = cache.guild(guild_id) {
                                 tx.send(utils::clean_name(&guild.name))
                                     .expect("main thread panicked?");
                             }
@@ -78,32 +69,27 @@ impl Completions {
                             &cache,
                             &guild_name,
                         )
-                            .await {
+                             {
                             Some(guild) => {
                                 if let Some(channels) = cache
                                     .channel_ids_in_guild(guild.id)
-                                    .await
-                                    .expect("InMemoryCache cannot fail")
                                 {
                                     for channel_id in channels {
-                                        match cache
-                                            .guild_channel(channel_id)
-                                            .await
-                                            .expect("InMemoryCache cannot fail") {
+                                        match cache.guild_channel(channel_id) {
                                             Some(channel) => {
-                                                if !crate::twilight_utils::is_text_channel(&cache, channel.as_ref()).await { continue; }
+                                                if !crate::twilight_utils::is_text_channel(&cache, channel.as_ref()) { continue; }
                                                 tx.send(utils::clean_name(&channel.name()))
                                                     .expect("main thread panicked?");
                                             }
                                             None => {
-                                                trace!(id = %channel_id, "Unable to find channel in cache");
+                                                tracing::trace!(id = %channel_id, "Unable to find channel in cache");
                                             }
                                         }
                                     }
                                 }
                             }
                             None => {
-                                trace!(name = %guild_name, "Unable to find guild");
+                                tracing::trace!(name = %guild_name, "Unable to find guild");
                             }
                         }
                     });

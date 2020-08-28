@@ -1,24 +1,17 @@
-use async_trait::async_trait;
 use twilight::{
-    cache::{InMemoryCache as Cache, InMemoryCache},
+    cache_inmemory::InMemoryCache as Cache,
     model::{channel::Message, gateway::payload::MessageUpdate},
 };
 
-#[async_trait]
 pub trait MessageExt {
-    async fn is_own(&self, cache: &Cache) -> bool;
+    fn is_own(&self, cache: &Cache) -> bool;
 
     fn update(&mut self, update: MessageUpdate);
 }
 
-#[async_trait]
 impl MessageExt for Message {
-    async fn is_own(&self, cache: &InMemoryCache) -> bool {
-        let current_user = match cache
-            .current_user()
-            .await
-            .expect("InMemoryCache cannot fail")
-        {
+    fn is_own(&self, cache: &Cache) -> bool {
+        let current_user = match cache.current_user() {
             Some(current_user) => current_user,
             None => return false,
         };

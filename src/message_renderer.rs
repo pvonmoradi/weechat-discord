@@ -1,11 +1,10 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionMeta, refcell::RefCell,
+    config::Config, discord::discord_connection::ConnectionInner, refcell::RefCell,
     twilight_utils::ext::MessageExt,
 };
 use std::{rc::Rc, sync::Arc};
-use tracing::*;
 use twilight::{
-    cache::InMemoryCache as Cache,
+    cache_inmemory::InMemoryCache as Cache,
     model::{
         channel::Message,
         gateway::payload::{MessageUpdate, RequestGuildMembers},
@@ -16,14 +15,14 @@ use weechat::{buffer::BufferHandle, Weechat};
 
 pub struct MessageRender {
     pub buffer_handle: Rc<BufferHandle>,
-    conn: ConnectionMeta,
+    conn: ConnectionInner,
     config: Config,
     messages: Arc<RefCell<Vec<Message>>>,
 }
 
 impl MessageRender {
     pub fn new(
-        connection: &ConnectionMeta,
+        connection: &ConnectionInner,
         buffer_handle: Rc<BufferHandle>,
         config: &Config,
     ) -> MessageRender {
@@ -35,14 +34,14 @@ impl MessageRender {
         }
     }
 
-    async fn print_msg(
+    fn print_msg(
         &self,
         cache: &Cache,
         msg: &Message,
         notify: bool,
         unknown_members: &mut Vec<UserId>,
     ) {
-        let (prefix, body) = render_msg(cache, &self.config, &msg, unknown_members).await;
+        let (prefix, body) = render_msg(cache, &self.config, &msg, unknown_members);
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
@@ -50,21 +49,20 @@ impl MessageRender {
                 chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
                     .expect("Discord returned an invalid datetime")
                     .timestamp(),
-                &MessageRender::msg_tags(cache, msg, notify).await,
+                &MessageRender::msg_tags(cache, msg, notify),
                 &format!("{}\t{}", prefix, body),
             );
     }
 
     /// Clear the buffer and reprint all messages
-    pub async fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
+    pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
             .clear();
         let mut unknown_members = Vec::new();
         for message in self.messages.borrow().iter() {
-            self.print_msg(cache, &message, false, &mut unknown_members)
-                .await;
+            self.print_msg(cache, &message, false, &mut unknown_members);
         }
 
         for user in ignore_users {
@@ -78,52 +76,47 @@ impl MessageRender {
         if let Some(first_msg) = self.messages.borrow().first() {
             if !unknown_members.is_empty() {
                 if let Some(guild_id) = first_msg.guild_id {
-                    self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id)
-                        .await
+                    self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
                 }
             }
         }
     }
 
-    pub async fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
+    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
         let mut unknown_members = Vec::new();
         for msg in msgs {
-            self.print_msg(cache, msg, false, &mut unknown_members)
-                .await;
+            self.print_msg(cache, msg, false, &mut unknown_members);
 
             self.messages.borrow_mut().push(msg.clone());
         }
 
         if let Some(first_msg) = msgs.first() {
             if let Some(guild_id) = first_msg.guild_id {
-                self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id)
-                    .await;
+                self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
             }
         }
     }
 
-    pub async fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
+    pub fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
         let mut unknown_members = Vec::new();
-        self.print_msg(cache, msg, notify, &mut unknown_members)
-            .await;
+        self.print_msg(cache, msg, notify, &mut unknown_members);
 
         self.messages.borrow_mut().push(msg.clone());
 
         if let Some(guild_id) = msg.guild_id {
-            self.fetch_guild_members(unknown_members, msg.channel_id, guild_id)
-                .await
+            self.fetch_guild_members(unknown_members, msg.channel_id, guild_id);
         }
     }
 
-    pub async fn remove_msg(&self, cache: &Cache, id: MessageId) {
+    pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
         let index = self.messages.borrow().iter().position(|it| it.id == id);
         if let Some(index) = index {
             self.messages.borrow_mut().remove(index);
         }
-        self.redraw_buffer(cache, &[]).await;
+        self.redraw_buffer(cache, &[]);
     }
 
-    pub async fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
+    pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
         if let Some(old_msg) = self
             .messages
             .borrow_mut()
@@ -133,20 +126,14 @@ impl MessageRender {
             old_msg.update(update);
         }
 
-        self.redraw_buffer(cache, &[]).await;
+        self.redraw_buffer(cache, &[]);
     }
 
-    async fn msg_tags(cache: &Cache, msg: &Message, notify: bool) -> Vec<&'static str> {
-        let private = cache
-            .private_channel(msg.channel_id)
-            .await
-            .expect("InMemoryCache cannot fail")
-            .is_some();
+    fn msg_tags(cache: &Cache, msg: &Message, notify: bool) -> Vec<&'static str> {
+        let private = cache.private_channel(msg.channel_id).is_some();
 
         let mentioned = cache
             .current_user()
-            .await
-            .expect("InMemoryCache cannot fail")
             .map(|user| msg.mentions.contains_key(&user.id))
             .unwrap_or(false);
 
@@ -170,39 +157,42 @@ impl MessageRender {
         tags
     }
 
-    async fn fetch_guild_members(
+    fn fetch_guild_members(
         &self,
         unknown_members: Vec<UserId>,
         channel_id: ChannelId,
         guild_id: GuildId,
     ) {
         // All messages should be the same guild and channel
-        let shard = &self.conn.shard;
-        match shard
-            .command(&RequestGuildMembers::new_multi_user_with_nonce(
-                guild_id,
-                unknown_members,
-                Some(true),
-                Some(channel_id.0.to_string()),
-            ))
-            .await
-        {
-            Err(e) => warn!(
-                guild.id = guild_id.0,
-                channel.id = guild_id.0,
-                "Failed to request guild member: {:#?}",
-                e
-            ),
-            Ok(_) => trace!(
-                guild.id = guild_id.0,
-                channel.id = guild_id.0,
-                "Requested guild members"
-            ),
-        }
+        let shard = self.conn.shard.clone();
+        self.conn.rt.spawn(async move {
+            match shard
+                .command(
+                    &RequestGuildMembers::builder(guild_id)
+                        .presences(true)
+                        .nonce(channel_id.0.to_string())
+                        .user_ids(unknown_members.into_iter().take(100).collect::<Vec<_>>())
+                        .expect("input is limited to 100 members"),
+                )
+                .await
+            {
+                Err(e) => tracing::warn!(
+                    guild.id = guild_id.0,
+                    channel.id = guild_id.0,
+                    "Failed to request guild member: {:#?}",
+                    e
+                ),
+                Ok(_) => tracing::trace!(
+                    guild.id = guild_id.0,
+                    channel.id = guild_id.0,
+                    "Requested guild members"
+                ),
+            }
+        });
     }
 }
 
-pub async fn render_msg(
+fn render_msg(
     cache: &Cache,
     config: &Config,
     msg: &Message,
@@ -213,11 +203,14 @@ pub async fn render_msg(
         msg.guild_id,
         &msg.content,
         unknown_members,
-    )
-    .await;
+    );
 
     if msg.edited_timestamp.is_some() {
-        let edited_text = format!("{} (edited{}", Weechat::color("8"), Weechat::color("reset"));
+        let edited_text = format!(
+            "{} (edited){}",
+            Weechat::color("8"),
+            Weechat::color("reset")
+        );
         msg_content.push_str(&edited_text);
     }
 
@@ -278,7 +271,7 @@ pub async fn render_msg(
                 &field
                     .value
                     .lines()
-                    .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
+                    .fold(String::new(), |acc, x| format!("{}: {}\n", acc, x)),
             );
             msg_content.push('\n');
         }
@@ -300,17 +293,15 @@ pub async fn render_msg(
         &config.nick_prefix_color(),
     ));
 
-    let author = (|| async {
+    let author = (|| {
         let guild_id = msg.guild_id?;
 
-        let member = cache
-            .member(guild_id, msg.author.id)
-            .await
-            .expect("InMemoryCache cannot fail")?;
+        let member = cache.member(guild_id, msg.author.id)?;
 
-        Some(crate::utils::color::colorize_discord_member(cache, &member, false).await)
+        Some(crate::utils::color::colorize_discord_member(
+            cache, &member, false,
+        ))
     })()
-    .await
     .unwrap_or_else(|| msg.author.name.clone());
 
     prefix.push_str(&author);
@@ -322,7 +313,7 @@ pub async fn render_msg(
 
     use twilight::model::channel::message::MessageType::*;
     if let Regular = msg.kind {
-        (prefix, crate::format::discord_to_weechat(&msg_content))
+        (prefix, crate::utils::discord_to_weechat(&msg_content))
     } else {
         let (prefix, body) = match msg.kind {
             RecipientAdd | GuildMemberJoin => ("join", format!("{} joined the group.", author)),

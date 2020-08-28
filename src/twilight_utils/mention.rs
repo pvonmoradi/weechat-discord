@@ -1,5 +1,5 @@
 use twilight::{
-    cache::twilight_cache_inmemory::model::CachedEmoji,
+    cache_inmemory::model::CachedEmoji,
     model::id::{ChannelId, RoleId, UserId},
 };
 

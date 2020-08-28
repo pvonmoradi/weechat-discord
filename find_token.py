@@ -50,21 +50,24 @@ def main():
 
     token_candidates = set()
     for database in discord_databases:
-        for candidate in strings(database, 40):
-            if " " in candidate:
-                continue
-            parts = candidate.split(".", maxsplit=3)
-            if len(parts) != 3:
-                continue
-            if len(parts[1]) < 6:
-                continue
-            token_candidates.add(candidate[1:-1])
+        for candidates in map(lambda s: s.split(), strings(database, 40)):
+            for candidate in candidates:
+                if len(candidate) < 15:
+                    continue
+                if " " in candidate:
+                    continue
+                parts = candidate.split(".")
+                if len(parts) != 3:
+                    continue
+                if len(parts[1]) < 6:
+                    continue
+                token_candidates.add(candidate[1:-1])
 
     if len(token_candidates) == 0:
         print("No Discord tokens found")
         return
 
-    print("Likely Discord tokens are:\n")
+    print("Possible Discord tokens found:\n")
     for token in token_candidates:
         print(token)
 

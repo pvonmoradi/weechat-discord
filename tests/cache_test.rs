@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use twilight::{
-    cache::InMemoryCache as Cache,
+    cache_inmemory::InMemoryCache as Cache,
     model::{
-        channel::{ChannelType, GuildChannel, TextChannel},
+        channel::{Channel, ChannelType, GuildChannel, TextChannel},
+        gateway::payload::{ChannelCreate, GuildCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
         guild::{
             DefaultMessageNotificationLevel, Emoji, ExplicitContentFilter, Guild, Member, MfaLevel,
             Permissions, Role, SystemChannelFlags, VerificationLevel,
@@ -15,9 +17,9 @@ use twilight::{
 async fn guild_emojis_updates() {
     let cache = Cache::new();
     let guild_id = GuildId(1);
-    cache.cache_guild(fake_guild(guild_id)).await;
+    cache.update(&GuildCreate(fake_guild(guild_id)));
 
-    assert!(cache.emojis(guild_id).await.unwrap().unwrap().is_empty());
+    assert!(cache.emojis(guild_id).unwrap().is_empty());
     let emoji = Emoji {
         animated: false,
         available: false,
@@ -28,50 +30,42 @@ async fn guild_emojis_updates() {
         roles: vec![],
         user: None,
     };
-    cache.cache_emoji(guild_id, emoji).await;
+    let mut emojis = HashMap::new();
+    emojis.insert(emoji.id, emoji);
+    cache.update(&GuildEmojisUpdate { emojis, guild_id });
 
-    assert!(cache
-        .emojis(guild_id)
-        .await
-        .unwrap()
-        .unwrap()
-        .contains(&EmojiId(1)));
+    assert!(cache.emojis(guild_id).unwrap().contains(&EmojiId(1)));
 }
 
 #[tokio::test]
 async fn guild_roles_updates() {
     let cache = Cache::new();
     let guild_id = GuildId(1);
-    cache.cache_guild(fake_guild(guild_id)).await;
+    cache.update(&GuildCreate(fake_guild(guild_id)));
 
-    assert!(cache.roles(guild_id).await.unwrap().unwrap().is_empty());
+    assert!(cache.roles(guild_id).unwrap().is_empty());
     let role = Role {
         color: 0,
         hoist: false,
         id: RoleId(1),
         managed: false,
         mentionable: false,
-        name: "".to_string(),
+        name: "foo".to_string(),
         permissions: Permissions::CREATE_INVITE,
         position: 0,
     };
-    cache.cache_role(guild_id, role).await;
+    cache.update(&RoleCreate { guild_id, role });
 
-    assert!(cache
-        .roles(guild_id)
-        .await
-        .unwrap()
-        .unwrap()
-        .contains(&RoleId(1)));
+    assert!(dbg!(cache.roles(guild_id).unwrap()).contains(&RoleId(1)));
 }
 
 #[tokio::test]
 async fn guild_members_updates() {
     let cache = Cache::new();
     let guild_id = GuildId(1);
-    cache.cache_guild(fake_guild(guild_id)).await;
+    cache.update(&GuildCreate(fake_guild(guild_id)));
 
-    assert!(cache.members(guild_id).await.unwrap().unwrap().is_empty());
+    assert!(cache.members(guild_id).unwrap().is_empty());
     let member = Member {
         deaf: false,
         guild_id,
@@ -97,18 +91,18 @@ async fn guild_members_updates() {
             verified: None,
         },
     };
-    cache.cache_member(guild_id, member).await;
+    cache.update(&MemberAdd(member));
 
-    assert_eq!(cache.members(guild_id).await.unwrap().unwrap().len(), 1);
+    assert_eq!(cache.members(guild_id).unwrap().len(), 1);
 }
 
 #[tokio::test]
 async fn guild_channels_updates() {
     let cache = Cache::new();
     let guild_id = GuildId(1);
-    cache.cache_guild(fake_guild(guild_id)).await;
+    cache.update(&GuildCreate(fake_guild(guild_id)));
 
-    assert!(cache.guild_channel_ids().await.unwrap().unwrap().is_empty());
+    assert!(cache.guild_channel_ids().unwrap().is_empty());
     let channel = GuildChannel::Text(TextChannel {
         guild_id: Some(guild_id),
         id: Default::default(),
@@ -123,9 +117,9 @@ async fn guild_channels_updates() {
         rate_limit_per_user: None,
         topic: None,
     });
-    cache.cache_guild_channel(guild_id, channel).await;
+    cache.update(&ChannelCreate(Channel::Guild(channel)));
 
-    assert_eq!(cache.guild_channel_ids().await.unwrap().unwrap().len(), 1);
+    assert_eq!(cache.guild_channel_ids().unwrap().len(), 1);
 }
 
 fn fake_guild(guild_id: GuildId) -> Guild {

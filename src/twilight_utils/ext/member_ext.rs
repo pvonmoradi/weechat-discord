@@ -1,24 +1,21 @@
 use crate::twilight_utils::color::Color;
-use async_trait::async_trait;
 use std::sync::Arc;
 use twilight::{
-    cache::{twilight_cache_inmemory::model::CachedMember, InMemoryCache as Cache},
+    cache_inmemory::{model::CachedMember, InMemoryCache as Cache},
     model::guild::Role,
 };
 
-#[async_trait]
 pub trait MemberExt {
-    async fn color(&self, cache: &Cache) -> Option<Color>;
+    fn color(&self, cache: &Cache) -> Option<Color>;
     fn display_name(&self) -> &str;
-    async fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>>;
+    fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>>;
 }
 
-#[async_trait]
 impl MemberExt for CachedMember {
-    async fn color(&self, cache: &Cache) -> Option<Color> {
+    fn color(&self, cache: &Cache) -> Option<Color> {
         let mut roles = Vec::new();
         for role in &self.roles {
-            if let Some(role) = cache.role(*role).await.expect("InMemoryCache cannot fail") {
+            if let Some(role) = cache.role(*role) {
                 roles.push(role);
             }
         }
@@ -42,15 +39,11 @@ impl MemberExt for CachedMember {
         self.nick.as_ref().unwrap_or(&self.user.name)
     }
 
-    async fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>> {
+    fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>> {
         let mut highest: Option<(Arc<Role>, i64)> = None;
 
         for role_id in &self.roles {
-            if let Some(role) = cache
-                .role(*role_id)
-                .await
-                .expect("InMemoryCache cannot fail")
-            {
+            if let Some(role) = cache.role(*role_id) {
                 // Skip this role if this role in iteration has:
                 //
                 // - a position less than the recorded highest

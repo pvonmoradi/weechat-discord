@@ -1,10 +1,12 @@
-use crate::{config::Config, discord::discord_connection::DiscordConnection, DiscordSession};
-use tracing::trace;
-use weechat::{hooks::Command, Weechat};
+use crate::{config::Config, discord::discord_connection::DiscordConnection, instance::Instance};
+use weechat::Weechat;
 
-pub mod command;
-pub mod completions;
-pub mod options;
+mod command;
+mod completions;
+mod options;
+pub use completions::Completions;
+pub use options::Options;
+pub use weechat::hooks::Command;
 
 pub struct Hooks {
     _completions: completions::Completions,
@@ -16,17 +18,17 @@ impl Hooks {
     pub fn hook_all(
         weechat: &Weechat,
         discord_connection: DiscordConnection,
-        session: DiscordSession,
+        instance: Instance,
         config: Config,
     ) -> Hooks {
-        let _command = command::hook(discord_connection.clone(), session, config.clone());
-        trace!("Command hooked");
+        let _command = command::hook(discord_connection.clone(), instance, config.clone());
+        tracing::trace!("Command hooked");
 
         let _completions = completions::Completions::hook_all(discord_connection);
-        trace!("Completions hooked");
+        tracing::trace!("Completions hooked");
 
         let _options = options::Options::hook_all(weechat, config);
-        trace!("Options hooked");
+        tracing::trace!("Options hooked");
 
         Hooks {
             _completions,

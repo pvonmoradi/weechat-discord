@@ -25,7 +25,7 @@ impl Debug {
 
 impl io::Write for Debug {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if crate::ALIVE.alive() {
+        if !crate::SHUTTING_DOWN.triggered() {
             Weechat::spawn_from_thread(Debug::write_to_buffer(buf.to_owned()));
         }
 

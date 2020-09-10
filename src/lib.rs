@@ -88,7 +88,7 @@ impl Plugin for Weecord {
 impl Drop for Weecord {
     fn drop(&mut self) {
         // Ensure all buffers are cleared
-        self.instance.borrow_mut().clear();
+        self.instance.borrow_guilds_mut().clear();
         SHUTTING_DOWN.trigger();
         tracing::trace!("Plugin unloaded");
     }

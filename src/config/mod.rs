@@ -7,7 +7,7 @@ use std::{
     rc::{Rc, Weak},
 };
 use tracing_subscriber::EnvFilter;
-use twilight::model::id::GuildId;
+use twilight::model::id::{ChannelId, GuildId};
 use weechat::{
     config::{
         BooleanOptionSettings, Conf, Config as WeechatConfig, ConfigSection, ConfigSectionSettings,
@@ -19,6 +19,7 @@ use weechat::{
 mod guild;
 
 pub use guild::{GuildConfig, GuildConfigInner};
+use weechat::config::BaseConfigOption;
 
 #[derive(Clone)]
 pub struct Config {
@@ -43,6 +44,7 @@ pub struct InnerConfig {
     pub nick_suffix: String,
     pub nick_suffix_color: String,
     pub guilds: HashMap<GuildId, GuildConfig>,
+    pub autojoin_private: Vec<ChannelId>,
 }
 
 impl InnerConfig {
@@ -57,6 +59,7 @@ impl InnerConfig {
             nick_suffix: "".to_string(),
             nick_suffix_color: "".to_string(),
             guilds: HashMap::new(),
+            autojoin_private: Vec::new(),
         }
     }
 }
@@ -132,6 +135,39 @@ impl Config {
                     }),
             )
             .expect("Unable to create tracing window option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_string_option(
+                StringOptionSettings::new("autojoin_private")
+                    .description("List of private channels to autojoin")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+
+                        let mut channels: Vec<_> = option
+                            .value()
+                            .split(',')
+                            .map(|ch| ch.parse().map(ChannelId))
+                            .flatten()
+                            .collect();
+
+                        channels.sort();
+                        channels.dedup();
+
+                        option.set(
+                            &channels
+                                .iter()
+                                .map(|c| c.0.to_string())
+                                .collect::<Vec<_>>()
+                                .join(","),
+                            false,
+                        );
+
+                        inner.borrow_mut().autojoin_private = channels;
+                    }),
+            )
+            .expect("Unable to create autojoin private option");
         }
 
         {
@@ -224,6 +260,10 @@ impl Config {
 
     pub fn guilds(&self) -> HashMap<GuildId, GuildConfig> {
         self.inner.borrow().guilds.clone()
+    }
+
+    pub fn autojoin_private(&self) -> Vec<ChannelId> {
+        self.inner.borrow().autojoin_private.clone()
     }
 }
 

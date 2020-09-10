@@ -3,7 +3,7 @@ use crate::{
     discord::plugin_message::PluginMessage,
     instance::Instance,
     refcell::{Ref, RefCell},
-    twilight_utils::ext::MessageExt,
+    twilight_utils::ext::{MessageExt, UserExt},
 };
 use anyhow::Result;
 use std::sync::Arc;
@@ -119,11 +119,8 @@ impl DiscordConnection {
 
             match event {
                 PluginMessage::Connected { user } => {
-                    Weechat::print(&format!(
-                        "discord: ready as: {}#{:04}",
-                        user.name, user.discriminator
-                    ));
-                    tracing::info!("Ready as {}#{:04}", user.name, user.discriminator);
+                    Weechat::print(&format!("discord: ready as: {}", user.tag()));
+                    tracing::info!("Ready as {}", user.tag());
 
                     for (guild_id, guild_config) in config.guilds() {
                         let guild = crate::guild::Guild::new(
@@ -137,12 +134,30 @@ impl DiscordConnection {
                                 tracing::warn!("Unable to connect guild: {}", e);
                             };
                         }
-                        instance.borrow_mut().insert(guild_id, guild);
+                        instance.borrow_guilds_mut().insert(guild_id, guild);
+                    }
+
+                    for channel_id in config.autojoin_private() {
+                        if let Some(channel) = conn.cache.private_channel(channel_id) {
+                            if let Ok(channel) =
+                                crate::channel::Channel::private(&channel, &conn, &config, |_| {})
+                            {
+                                if let Err(e) = channel.load_history().await {
+                                    tracing::warn!("Error occurred joining private channel: {}", e)
+                                }
+
+                                instance
+                                    .borrow_private_channels_mut()
+                                    .insert(channel_id, channel);
+                            }
+                        } else {
+                            tracing::warn!("Unable to find channel: {}", channel_id)
+                        }
                     }
                 },
                 PluginMessage::MessageCreate { message } => {
                     if let Some(guild_id) = message.guild_id {
-                        let channels = match instance.borrow().get(&guild_id) {
+                        let channels = match instance.borrow_guilds().get(&guild_id) {
                             Some(guild) => guild.channels(),
                             None => continue,
                         };
@@ -152,12 +167,20 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.add_message(&conn.cache, &message, message.is_own(&conn.cache));
+                        channel.add_message(&conn.cache, &message, !message.is_own(&conn.cache));
+                    } else {
+                        let private_channels = instance.borrow_private_channels_mut();
+                        let channel = match private_channels.get(&message.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.add_message(&conn.cache, &message, !message.is_own(&conn.cache));
                     }
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {
-                        let channels = match instance.borrow().get(&guild_id) {
+                        let channels = match instance.borrow_guilds().get(&guild_id) {
                             Some(guild) => guild.channels(),
                             None => continue,
                         };
@@ -168,16 +191,32 @@ impl DiscordConnection {
                         };
 
                         channel.remove_message(&conn.cache, event.id);
+                    } else {
+                        let private_channels = instance.borrow_private_channels_mut();
+                        let channel = match private_channels.get(&event.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.remove_message(&conn.cache, event.id);
                     }
                 },
                 PluginMessage::MessageUpdate { message } => {
                     if let Some(guild_id) = message.guild_id {
-                        let channels = match instance.borrow().get(&guild_id) {
+                        let channels = match instance.borrow_guilds().get(&guild_id) {
                             Some(guild) => guild.channels(),
                             None => continue,
                         };
 
                         let channel = match channels.get(&message.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.update_message(&conn.cache, *message);
+                    } else {
+                        let private_channels = instance.borrow_private_channels_mut();
+                        let channel = match private_channels.get(&message.channel_id) {
                             Some(channel) => channel,
                             None => continue,
                         };
@@ -196,7 +235,7 @@ impl DiscordConnection {
                         );
                     }
                     if let Some(channel_id) = channel_id {
-                        let channels = match instance.borrow().get(&member_chunk.guild_id) {
+                        let channels = match instance.borrow_guilds().get(&member_chunk.guild_id) {
                             Some(guild) => guild.channels(),
                             None => continue,
                         };

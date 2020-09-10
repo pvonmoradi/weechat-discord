@@ -1,3 +1,4 @@
+use crate::twilight_utils::ext::UserExt;
 use twilight::model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
     id::ChannelId,
@@ -37,11 +38,14 @@ impl ChannelExt for GuildChannel {
 
 impl ChannelExt for PrivateChannel {
     fn name(&self) -> String {
-        let recipient = self
-            .recipients
-            .first()
-            .expect("private channel must have exactly one recipient");
-        format!("DM with {}#{:04}", recipient.name, recipient.discriminator)
+        format!(
+            "DM with {}",
+            self.recipients
+                .iter()
+                .map(UserExt::tag)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 
     fn id(&self) -> ChannelId {
@@ -59,9 +63,9 @@ impl ChannelExt for Group {
             "DM with {}",
             self.recipients
                 .iter()
-                .map(|recip| format!("{}#{:04}", recip.name, recip.discriminator))
+                .map(UserExt::tag)
                 .collect::<Vec<_>>()
-                .join(",")
+                .join(", ")
         )
     }
 

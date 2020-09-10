@@ -1,6 +1,10 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionInner, message_renderer::MessageRender,
-    nicklist::Nicklist, refcell::RefCell, twilight_utils::ext::GuildChannelExt,
+    config::Config,
+    discord::discord_connection::ConnectionInner,
+    message_renderer::MessageRender,
+    nicklist::Nicklist,
+    refcell::RefCell,
+    twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
@@ -10,9 +14,12 @@ use twilight::{
         InMemoryCache as Cache,
     },
     model::{
-        channel::{GuildChannel as TwilightChannel, Message},
+        channel::{
+            GuildChannel as TwilightGuildChannel, Message, PrivateChannel as TwilightPrivateChannel,
+        },
         gateway::payload::MessageUpdate,
         id::{ChannelId, GuildId, MessageId, UserId},
+        user::User,
     },
 };
 use weechat::{
@@ -20,12 +27,12 @@ use weechat::{
     Weechat,
 };
 
-pub struct ChannelBuffer {
+pub struct GuildChannelBuffer {
     renderer: MessageRender,
     nicklist: Nicklist,
 }
 
-impl ChannelBuffer {
+impl GuildChannelBuffer {
     pub fn new(
         name: &str,
         nick: &str,
@@ -38,38 +45,17 @@ impl ChannelBuffer {
     ) -> anyhow::Result<Self> {
         let clean_guild_name = crate::utils::clean_name(&guild_name);
         let clean_channel_name = crate::utils::clean_name(&name);
-        let conn_clone = conn.clone();
         // TODO: Check for existing buffer before creating one
         let handle = BufferBuilder::new(&format!(
             "discord.{}.{}",
             clean_guild_name, clean_channel_name
         ))
-        .input_callback(move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-            let input = crate::twilight_utils::content::create_mentions(
-                &conn_clone.cache.clone(),
-                Some(guild_id),
-                &input,
-            );
-            let http = conn_clone.http.clone();
-            conn_clone.rt.spawn(async move {
-                match http.create_message(id).content(input) {
-                    Ok(msg) => {
-                        if let Err(e) = msg.await {
-                            tracing::error!("Failed to send message: {:#?}", e);
-                            Weechat::spawn_from_thread(async move {
-                                Weechat::print(&format!("An error occurred sending message: {}", e))
-                            });
-                        };
-                    },
-                    Err(e) => {
-                        tracing::error!("Failed to create message: {:#?}", e);
-                        Weechat::spawn_from_thread(async {
-                            Weechat::print("Message content's invalid")
-                        })
-                    },
-                }
-            });
-            Ok(())
+        .input_callback({
+            let conn = conn.clone();
+            move |_: &Weechat, _: &Buffer, input: Cow<str>| {
+                send_message(id, Some(guild_id), &conn, &input);
+                Ok(())
+            }
         })
         .close_callback({
             let name = name.to_string();
@@ -98,20 +84,165 @@ impl ChannelBuffer {
         buffer.enable_nicklist();
 
         let handle = Rc::new(handle);
-        Ok(ChannelBuffer {
+        Ok(Self {
             renderer: MessageRender::new(conn, Rc::clone(&handle), config),
             nicklist: Nicklist::new(conn, handle),
         })
     }
 
-    pub async fn add_members(&self, member: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(member).await;
+    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
+        self.nicklist.add_members(members).await;
+    }
+}
+
+pub struct PrivateChannelBuffer {
+    renderer: MessageRender,
+    nicklist: Nicklist,
+}
+
+impl PrivateChannelBuffer {
+    pub fn new(
+        channel: &TwilightPrivateChannel,
+        conn: &ConnectionInner,
+        config: &Config,
+        mut close_cb: impl FnMut(&Buffer) + 'static,
+    ) -> anyhow::Result<Self> {
+        let id = channel.id;
+
+        let short_name = PrivateChannelBuffer::short_name(&channel.recipients);
+        let buffer_id = PrivateChannelBuffer::buffer_id(&channel.recipients);
+
+        let handle = BufferBuilder::new(&buffer_id)
+            .input_callback({
+                let conn = conn.clone();
+                move |_: &Weechat, _: &Buffer, input: Cow<str>| {
+                    send_message(id, None, &conn, &input);
+                    Ok(())
+                }
+            })
+            .close_callback({
+                let short_name = short_name.to_string();
+                move |_: &Weechat, buffer: &Buffer| {
+                    tracing::trace!(buffer.id=%id, buffer.name=%short_name, "Buffer close");
+                    close_cb(buffer);
+                    Ok(())
+                }
+            })
+            .build()
+            .map_err(|_| anyhow::anyhow!("Unable to create channel buffer"))?;
+
+        let buffer = handle
+            .upgrade()
+            .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
+
+        buffer.set_localvar("nick", &PrivateChannelBuffer::nick(&conn.cache));
+
+        let full_name = channel.name();
+
+        buffer.set_short_name(&short_name);
+        buffer.set_full_name(&full_name);
+        buffer.set_title(&full_name);
+        // This causes the buffer to be indented, what are the implications for not setting it?
+        // buffer.set_localvar("type", "private");
+        buffer.set_localvar("channel_id", &id.0.to_string());
+
+        let handle = Rc::new(handle);
+        Ok(Self {
+            renderer: MessageRender::new(&conn, Rc::clone(&handle), config),
+            nicklist: Nicklist::new(conn, handle),
+        })
+    }
+
+    fn nick(cache: &Cache) -> String {
+        format!(
+            "@{}",
+            cache
+                .current_user()
+                .map(|u| u.name.clone())
+                .expect("No current user?")
+        )
+    }
+
+    fn short_name(recipients: &[User]) -> String {
+        format!(
+            "DM with {}",
+            recipients
+                .iter()
+                .map(|u| u.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+
+    fn buffer_id(recipients: &[User]) -> String {
+        format!(
+            "discord.dm.{}",
+            &recipients
+                .iter()
+                .map(|u| crate::utils::clean_name(&u.name))
+                .collect::<Vec<_>>()
+                .join(".")
+        )
+    }
+
+    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
+        self.nicklist.add_members(members).await;
+    }
+}
+
+enum ChannelBufferVariants {
+    GuildChannel(GuildChannelBuffer),
+    PrivateChannel(PrivateChannelBuffer),
+}
+
+impl ChannelBufferVariants {
+    fn renderer(&self) -> &MessageRender {
+        use ChannelBufferVariants::*;
+        let renderer = match self {
+            GuildChannel(buffer) => &buffer.renderer,
+            PrivateChannel(buffer) => &buffer.renderer,
+        };
+        renderer
+    }
+
+    pub fn close(&self) {
+        if let Ok(buffer) = self.renderer().buffer_handle.upgrade() {
+            buffer.close();
+        }
+    }
+
+    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
+        self.renderer().add_bulk_msgs(cache, msgs)
+    }
+
+    pub fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
+        self.renderer().add_msg(cache, msg, notify)
+    }
+
+    pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
+        self.renderer().remove_msg(cache, id)
+    }
+
+    pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
+        self.renderer().update_msg(cache, update)
+    }
+
+    pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
+        self.renderer().redraw_buffer(cache, ignore_users)
+    }
+
+    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
+        use ChannelBufferVariants::*;
+        match self {
+            GuildChannel(buffer) => buffer.add_members(members).await,
+            PrivateChannel(buffer) => buffer.add_members(members).await,
+        }
     }
 }
 
 struct ChannelInner {
     conn: ConnectionInner,
-    buffer: ChannelBuffer,
+    buffer: ChannelBufferVariants,
     closed: bool,
 }
 
@@ -122,14 +253,13 @@ impl Drop for ChannelInner {
         if self.closed {
             return;
         }
-        if let Ok(buffer) = self.buffer.renderer.buffer_handle.upgrade() {
-            buffer.close();
-        }
+
+        self.buffer.close();
     }
 }
 
 impl ChannelInner {
-    pub fn new(conn: ConnectionInner, buffer: ChannelBuffer) -> Self {
+    pub fn new(conn: ConnectionInner, buffer: ChannelBufferVariants) -> Self {
         Self {
             conn,
             buffer,
@@ -141,14 +271,18 @@ impl ChannelInner {
 #[derive(Clone)]
 pub struct Channel {
     pub(crate) id: ChannelId,
-    guild_id: GuildId,
+    guild_id: Option<GuildId>,
     inner: Rc<RefCell<ChannelInner>>,
     config: Config,
 }
 
 impl Channel {
-    pub fn new(
-        channel: &TwilightChannel,
+    pub fn debug_counts(&self) -> (usize, usize) {
+        (Rc::strong_count(&self.inner), Rc::weak_count(&self.inner))
+    }
+
+    pub fn guild(
+        channel: &TwilightGuildChannel,
         guild: &TwilightGuild,
         conn: &ConnectionInner,
         config: &Config,
@@ -158,7 +292,7 @@ impl Channel {
             "@{}",
             crate::twilight_utils::current_user_nick(&guild, &conn.cache)
         );
-        let channel_buffer = ChannelBuffer::new(
+        let channel_buffer = GuildChannelBuffer::new(
             channel.name(),
             &nick,
             &guild.name,
@@ -170,11 +304,30 @@ impl Channel {
         )?;
         let inner = Rc::new(RefCell::new(ChannelInner::new(
             conn.clone(),
-            channel_buffer,
+            ChannelBufferVariants::GuildChannel(channel_buffer),
         )));
         Ok(Channel {
             id: channel.id(),
-            guild_id: guild.id,
+            guild_id: Some(guild.id),
+            inner,
+            config: config.clone(),
+        })
+    }
+
+    pub fn private(
+        channel: &TwilightPrivateChannel,
+        conn: &ConnectionInner,
+        config: &Config,
+        close_cb: impl FnMut(&Buffer) + 'static,
+    ) -> anyhow::Result<Self> {
+        let channel_buffer = PrivateChannelBuffer::new(&channel, conn, config, close_cb)?;
+        let inner = Rc::new(RefCell::new(ChannelInner::new(
+            conn.clone(),
+            ChannelBufferVariants::PrivateChannel(channel_buffer),
+        )));
+        Ok(Channel {
+            id: channel.id,
+            guild_id: None,
             inner,
             config: config.clone(),
         })
@@ -212,7 +365,6 @@ impl Channel {
         self.inner
             .borrow()
             .buffer
-            .renderer
             .add_bulk_msgs(&conn.cache, &messages.into_iter().rev().collect::<Vec<_>>());
         Ok(())
     }
@@ -224,44 +376,31 @@ impl Channel {
                 self.inner.borrow().buffer.add_members(&members).await;
                 Ok(())
             } else {
-                tracing::error!(guild.id=%self.guild_id, channel.id=%self.id, "unable to load members for nicklist");
+                tracing::error!(guild.id=?self.guild_id, channel.id=%self.id, "unable to load members for nicklist");
                 Err(anyhow::anyhow!("unable to load members for nicklist"))
             }
         } else {
-            tracing::warn!(guild.id=%self.guild_id, channel.id=%self.id, "unable to find channel in cache");
+            tracing::warn!(guild.id=?self.guild_id, channel.id=%self.id, "unable to find channel in cache");
             Err(anyhow::anyhow!("unable to load members for nicklist"))
         }
     }
 
     pub fn add_message(&self, cache: &Cache, msg: &Message, notify: bool) {
-        self.inner
-            .borrow()
-            .buffer
-            .renderer
-            .add_msg(cache, msg, notify);
+        self.inner.borrow().buffer.add_msg(cache, msg, notify);
     }
 
     pub fn remove_message(&self, cache: &Cache, msg_id: MessageId) {
-        self.inner
-            .borrow()
-            .buffer
-            .renderer
-            .remove_msg(cache, msg_id);
+        self.inner.borrow().buffer.remove_msg(cache, msg_id);
     }
 
     pub fn update_message(&self, cache: &Cache, update: MessageUpdate) {
-        self.inner
-            .borrow()
-            .buffer
-            .renderer
-            .update_msg(cache, update);
+        self.inner.borrow().buffer.update_msg(cache, update);
     }
 
     pub fn redraw(&self, cache: &Cache, ignore_users: &[UserId]) {
         self.inner
             .borrow()
             .buffer
-            .renderer
             .redraw_buffer(cache, ignore_users);
     }
 
@@ -271,4 +410,26 @@ impl Channel {
             .try_borrow_mut()
             .map(|mut inner| inner.closed = true);
     }
+}
+
+fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner, input: &str) {
+    let input =
+        crate::twilight_utils::content::create_mentions(&conn.cache.clone(), guild_id, &input);
+    let http = conn.http.clone();
+    conn.rt.spawn(async move {
+        match http.create_message(id).content(input) {
+            Ok(msg) => {
+                if let Err(e) = msg.await {
+                    tracing::error!("Failed to send message: {:#?}", e);
+                    Weechat::spawn_from_thread(async move {
+                        Weechat::print(&format!("An error occurred sending message: {}", e))
+                    });
+                };
+            },
+            Err(e) => {
+                tracing::error!("Failed to create message: {:#?}", e);
+                Weechat::spawn_from_thread(async { Weechat::print("Message content's invalid") })
+            },
+        }
+    });
 }

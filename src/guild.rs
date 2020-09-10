@@ -29,7 +29,7 @@ impl GuildBuffer {
                 let name = name.to_string();
                 move |_: &Weechat, _: &Buffer| {
                     tracing::trace!(buffer.id=%id, buffer.name=%name, "Buffer close");
-                    if let Ok(mut instance) = instance.try_borrow_mut() {
+                    if let Ok(mut instance) = instance.try_borrow_guilds_mut() {
                         if let Some(x) = instance.remove(&id) {
                             x.inner.borrow_mut().closed = true;
                         }
@@ -147,8 +147,12 @@ impl Guild {
     ) -> anyhow::Result<()> {
         let weak_inner = Rc::downgrade(&self.inner);
         let channel_id = channel.id();
-        let channel =
-            crate::channel::Channel::new(&channel, &guild, &inner.conn, &self.config, move |_| {
+        let channel = crate::channel::Channel::guild(
+            &channel,
+            &guild,
+            &inner.conn,
+            &self.config,
+            move |_| {
                 if let Some(inner) = weak_inner.upgrade() {
                     if let Ok(mut inner) = inner.try_borrow_mut() {
                         if let Some(channel) = inner.channels.remove(&channel_id) {
@@ -156,7 +160,8 @@ impl Guild {
                         }
                     }
                 }
-            })?;
+            },
+        )?;
 
         channel.load_history().await?;
 

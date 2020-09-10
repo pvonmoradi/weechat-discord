@@ -74,7 +74,6 @@ pub fn clean_channels(cache: &Cache, input: &str) -> String {
                 .expect("Match contains only digits"),
         );
 
-        // TODO: Other channel types
         if let Some(channel) = cache.guild_channel(id) {
             out = out.replace(
                 channel_match.get(0).expect("match must exist").as_str(),

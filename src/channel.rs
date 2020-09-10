@@ -6,6 +6,7 @@ use crate::{
     refcell::RefCell,
     twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
+use parsing::LineEdit;
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
 use twilight::{
@@ -13,6 +14,7 @@ use twilight::{
         model::{CachedGuild as TwilightGuild, CachedMember},
         InMemoryCache as Cache,
     },
+    http::Client as HttpClient,
     model::{
         channel::{
             GuildChannel as TwilightGuildChannel, Message, PrivateChannel as TwilightPrivateChannel,
@@ -413,23 +415,90 @@ impl Channel {
 }
 
 fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner, input: &str) {
-    let input =
-        crate::twilight_utils::content::create_mentions(&conn.cache.clone(), guild_id, &input);
+    let cache = conn.cache.clone();
+    let input = crate::twilight_utils::content::create_mentions(&cache, guild_id, &input);
     let http = conn.http.clone();
     conn.rt.spawn(async move {
-        match http.create_message(id).content(input) {
-            Ok(msg) => {
-                if let Err(e) = msg.await {
-                    tracing::error!("Failed to send message: {:#?}", e);
+        let current_user_id = cache.current_user().expect("No current user?").id;
+        match parsing::parse_line_edit(&input) {
+            Some(LineEdit::Sub {
+                line,
+                old,
+                new,
+                options,
+            }) => {
+                if let Some(msg) = get_users_nth_message(current_user_id, &http, id, line).await {
+                    let orig = msg.content.clone();
+
+                    let e = http.update_message(id, msg.id);
+                    let future = if options.map(|o| o.contains('g')).unwrap_or_default() {
+                        e.content(orig.replace(old, new))
+                    } else {
+                        e.content(orig.replacen(old, new, 1))
+                    }
+                    .expect("new content is always Some");
+
+                    if let Err(e) = future.await {
+                        tracing::error!("Unable to update message: {}", e);
+                    } else {
+                        tracing::trace!("Successfully updated message {}", msg.id);
+                    };
+                } else {
+                    tracing::warn!("Unable to find message n {}", line);
                     Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("An error occurred sending message: {}", e))
-                    });
+                        Weechat::print(&format!("Unable to locate message n = {}", line))
+                    })
                 };
             },
-            Err(e) => {
-                tracing::error!("Failed to create message: {:#?}", e);
-                Weechat::spawn_from_thread(async { Weechat::print("Message content's invalid") })
+            Some(LineEdit::Delete { line }) => {
+                if let Some(msg) = get_users_nth_message(current_user_id, &http, id, line).await {
+                    if let Err(e) = http.delete_message(id, msg.id).await {
+                        tracing::error!("Unable to delete message: {}", e);
+                    } else {
+                        tracing::trace!("Successfully deleted message {}", msg.id);
+                    };
+                } else {
+                    tracing::warn!("Unable to find message n {}", line);
+                    Weechat::spawn_from_thread(async move {
+                        Weechat::print(&format!("Unable to locate message n = {}", line))
+                    })
+                };
             },
-        }
+            None => match http.create_message(id).content(input) {
+                Ok(msg) => {
+                    if let Err(e) = msg.await {
+                        tracing::error!("Failed to send message: {:#?}", e);
+                        Weechat::spawn_from_thread(async move {
+                            Weechat::print(&format!("An error occurred sending message: {}", e))
+                        });
+                    };
+                },
+                Err(e) => {
+                    tracing::error!("Failed to create message: {:#?}", e);
+                    Weechat::spawn_from_thread(async {
+                        Weechat::print("Message content's invalid")
+                    })
+                },
+            },
+        };
     });
+}
+
+async fn get_users_nth_message(
+    user: UserId,
+    http: &HttpClient,
+    channel_id: ChannelId,
+    n: usize,
+) -> Option<Message> {
+    if n > 100 {
+        tracing::warn!("n exceeds message fetch limit, retrieval will be unsuccessful");
+    }
+    http.channel_messages(channel_id)
+        .await
+        .ok()
+        .and_then(|msgs| {
+            msgs.into_iter()
+                .filter(|msg| msg.author.id == user)
+                .nth(n - 1)
+        })
 }

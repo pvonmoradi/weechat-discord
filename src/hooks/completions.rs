@@ -25,18 +25,11 @@ impl Completions {
 
                 if let Some(connection) = connection_clone.borrow().as_ref() {
                     let cache = connection.cache.clone();
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    connection.rt.spawn(async move {
-                        let guilds = cache.guild_ids().expect("guild_ids never fails");
-                        for guild_id in guilds {
-                            if let Some(guild) = cache.guild(guild_id) {
-                                tx.send(utils::clean_name(&guild.name))
-                                    .expect("main thread panicked?");
-                            }
+                    let guilds = cache.guild_ids().expect("guild_ids never fails");
+                    for guild_id in guilds {
+                        if let Some(guild) = cache.guild(guild_id) {
+                            completion.add(&utils::clean_name(&guild.name));
                         }
-                    });
-                    while let Ok(cmp) = rx.recv() {
-                        completion.add(&cmp);
                     }
                 }
                 Ok(())
@@ -63,38 +56,31 @@ impl Completions {
 
                     let cache = connection.cache.clone();
 
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    connection.rt.spawn(async move {
-                        match crate::twilight_utils::search_cached_striped_guild_name(
-                            &cache,
-                            &guild_name,
-                        )
-                             {
-                            Some(guild) => {
-                                if let Some(channels) = cache
-                                    .channel_ids_in_guild(guild.id)
-                                {
-                                    for channel_id in channels {
-                                        match cache.guild_channel(channel_id) {
-                                            Some(channel) => {
-                                                if !crate::twilight_utils::is_text_channel(&cache, channel.as_ref()) { continue; }
-                                                tx.send(utils::clean_name(&channel.name()))
-                                                    .expect("main thread panicked?");
-                                            }
-                                            None => {
-                                                tracing::trace!(id = %channel_id, "Unable to find channel in cache");
-                                            }
+                    match crate::twilight_utils::search_cached_striped_guild_name(
+                        &cache,
+                        &guild_name,
+                    )
+                    {
+                        Some(guild) => {
+                            if let Some(channels) = cache
+                                .channel_ids_in_guild(guild.id)
+                            {
+                                for channel_id in channels {
+                                    match cache.guild_channel(channel_id) {
+                                        Some(channel) => {
+                                            if !crate::twilight_utils::is_text_channel(&cache, channel.as_ref()) { continue; }
+                                            completion.add(&utils::clean_name(&channel.name()));
+                                        }
+                                        None => {
+                                            tracing::trace!(id = %channel_id, "Unable to find channel in cache");
                                         }
                                     }
                                 }
                             }
-                            None => {
-                                tracing::trace!(name = %guild_name, "Unable to find guild");
-                            }
                         }
-                    });
-                    while let Ok(cmp) = rx.recv() {
-                        completion.add(&cmp);
+                        None => {
+                            tracing::trace!(name = %guild_name, "Unable to find guild");
+                        }
                     }
                     Ok(())
                 },

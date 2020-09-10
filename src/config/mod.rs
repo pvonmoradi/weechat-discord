@@ -38,6 +38,7 @@ pub struct InnerConfig {
     pub token: Option<String>,
     pub log_directive: String,
     pub auto_open_tracing: bool,
+    pub show_unknown_user_ids: bool,
     pub message_fetch_count: i32,
     pub nick_prefix: String,
     pub nick_prefix_color: String,
@@ -53,6 +54,7 @@ impl InnerConfig {
             token: None,
             log_directive: "".to_string(),
             auto_open_tracing: false,
+            show_unknown_user_ids: false,
             message_fetch_count: 50,
             nick_prefix: "".to_string(),
             nick_prefix_color: "".to_string(),
@@ -135,6 +137,21 @@ impl Config {
                     }),
             )
             .expect("Unable to create tracing window option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_boolean_option(
+                BooleanOptionSettings::new("show_unknown_user_ids")
+                    .description(
+                        "Should unknown users be shown as @<user-id> instead of @unknown-user",
+                    )
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().show_unknown_user_ids = option.value();
+                    }),
+            )
+            .expect("Unable to create show unknown user ids option");
 
             let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
@@ -228,6 +245,10 @@ impl Config {
 
     pub fn auto_open_tracing(&self) -> bool {
         self.inner.borrow().auto_open_tracing
+    }
+
+    pub fn show_unknown_user_ids(&self) -> bool {
+        self.inner.borrow().show_unknown_user_ids
     }
 
     pub fn token(&self) -> Option<String> {

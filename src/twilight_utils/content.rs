@@ -13,11 +13,12 @@ pub fn clean_all(
     cache: &Cache,
     guild_id: Option<GuildId>,
     input: &str,
+    show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
 ) -> String {
     let mut out = clean_roles(cache, input);
     out = clean_channels(cache, &out);
-    out = clean_users(cache, guild_id, &out, unknown_members);
+    out = clean_users(cache, guild_id, &out, show_unknown_ids, unknown_members);
     out = clean_emojis(cache, &out);
     out
 }
@@ -111,6 +112,7 @@ pub fn clean_users(
     cache: &Cache,
     guild_id: Option<GuildId>,
     input: &str,
+    show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
 ) -> String {
     let mut out = String::from(input);
@@ -148,7 +150,11 @@ pub fn clean_users(
             unknown_members.push(id);
             out = out.replace(
                 user_match.get(0).expect("match must exist").as_str(),
-                "@unknown-user",
+                &if show_unknown_ids {
+                    format!("@{}", id.0)
+                } else {
+                    "@unknown-user".into()
+                },
             );
         }
     }

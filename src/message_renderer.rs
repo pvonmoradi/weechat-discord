@@ -202,6 +202,7 @@ fn render_msg(
         cache,
         msg.guild_id,
         &msg.content,
+        config.show_unknown_user_ids(),
         unknown_members,
     );
 

@@ -430,9 +430,19 @@ impl DiscordCommand {
                 let config = self.config.clone();
                 let conn = conn.clone();
                 let instance = self.instance.clone();
+                let instance_async = self.instance.clone();
+                let channel_id = channel.id;
                 Weechat::spawn(async move {
                     if let Ok(channel) =
-                        crate::channel::Channel::private(&channel, &conn, &config, |_| {})
+                        crate::channel::Channel::private(&channel, &conn, &config, move |_| {
+                            if let Ok(mut channels) =
+                                instance_async.try_borrow_private_channels_mut()
+                            {
+                                if let Some(channel) = channels.remove(&channel_id) {
+                                    channel.set_closed();
+                                }
+                            }
+                        })
                     {
                         if let Err(e) = channel.load_history().await {
                             tracing::warn!("Error occurred joining private channel: {}", e)

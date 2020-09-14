@@ -41,4 +41,10 @@ impl Instance {
     pub fn borrow_private_channels_mut(&self) -> RefMut<'_, HashMap<ChannelId, Channel>> {
         self.private_channels.borrow_mut()
     }
+
+    pub fn try_borrow_private_channels_mut(
+        &self,
+    ) -> Result<RefMut<'_, HashMap<ChannelId, Channel>>, BorrowMutError> {
+        self.private_channels.try_borrow_mut()
+    }
 }

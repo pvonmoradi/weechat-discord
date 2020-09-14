@@ -138,9 +138,21 @@ impl DiscordConnection {
 
                     for channel_id in config.autojoin_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
-                            if let Ok(channel) =
-                                crate::channel::Channel::private(&channel, &conn, &config, |_| {})
-                            {
+                            let instance_async = instance.clone();
+                            if let Ok(channel) = crate::channel::Channel::private(
+                                &channel,
+                                &conn,
+                                &config,
+                                move |_| {
+                                    if let Ok(mut channels) =
+                                        instance_async.try_borrow_private_channels_mut()
+                                    {
+                                        if let Some(channel) = channels.remove(&channel_id) {
+                                            channel.set_closed();
+                                        }
+                                    }
+                                },
+                            ) {
                                 if let Err(e) = channel.load_history().await {
                                     tracing::warn!("Error occurred joining private channel: {}", e)
                                 }

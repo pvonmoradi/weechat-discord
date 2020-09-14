@@ -1,4 +1,4 @@
-use crate::{discord::discord_connection::DiscordConnection, utils};
+use crate::{discord::discord_connection::DiscordConnection, twilight_utils::ext::UserExt, utils};
 use std::borrow::Cow;
 use weechat::{
     buffer::Buffer,
@@ -9,6 +9,7 @@ use weechat::{
 pub struct Completions {
     _guild_completion_hook: CompletionHook,
     _channel_completion_hook: CompletionHook,
+    _dm_completion_hook: CompletionHook,
 }
 
 impl Completions {
@@ -37,7 +38,7 @@ impl Completions {
         )
         .expect("Unable to hook discord guild completion");
 
-        let connection_clone = connection;
+        let connection_clone = connection.clone();
         let _channel_completion_hook =
             CompletionHook::new(
                 "discord_channel",
@@ -87,9 +88,32 @@ impl Completions {
             )
                 .expect("Unable to hook discord channel completion");
 
+        let connection_clone = connection;
+        let _dm_completion_hook = CompletionHook::new(
+            "discord_dm",
+            "Completion for Discord private channels",
+            move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
+                if let Some(connection) = connection_clone.borrow().as_ref() {
+                    for channel in &connection.cache.private_channels().expect("is always Some") {
+                        completion.add(
+                            &channel
+                                .recipients
+                                .iter()
+                                .map(|u| crate::utils::clean_name_with_case(&u.tag()))
+                                .collect::<Vec<_>>()
+                                .join(","),
+                        );
+                    }
+                }
+                Ok(())
+            },
+        )
+        .expect("Unable to hook discord guild completion");
+
         Completions {
             _guild_completion_hook,
             _channel_completion_hook,
+            _dm_completion_hook,
         }
     }
 }

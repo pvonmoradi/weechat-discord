@@ -3,6 +3,7 @@ use crate::{
     discord::discord_connection::DiscordConnection,
     guild::Guild,
     instance::Instance,
+    twilight_utils::ext::UserExt,
 };
 use clap::{App, AppSettings, Arg, ArgMatches};
 use std::sync::Arc;
@@ -405,6 +406,48 @@ impl DiscordCommand {
         tracing::info!("updated discord token");
     }
 
+    fn query(&self, matches: &ArgMatches) {
+        let user = matches.value_of("user").expect("enforced by validation");
+
+        let conn = self.connection.borrow();
+        let conn = match conn.as_ref() {
+            Some(conn) => conn,
+            None => {
+                Weechat::print("discord: Discord must be connected to join channels");
+                return;
+            },
+        };
+
+        for channel in conn.cache.private_channels().expect("always returns Some") {
+            let name = channel
+                .recipients
+                .iter()
+                .map(|u| crate::utils::clean_name_with_case(&u.tag()))
+                .collect::<Vec<_>>()
+                .join(",");
+
+            if name == user {
+                let config = self.config.clone();
+                let conn = conn.clone();
+                let instance = self.instance.clone();
+                Weechat::spawn(async move {
+                    if let Ok(channel) =
+                        crate::channel::Channel::private(&channel, &conn, &config, |_| {})
+                    {
+                        if let Err(e) = channel.load_history().await {
+                            tracing::warn!("Error occurred joining private channel: {}", e)
+                        }
+
+                        instance
+                            .borrow_private_channels_mut()
+                            .insert(channel.id, channel);
+                    }
+                });
+                return;
+            }
+        }
+    }
+
     fn process_debug_matches(&self, matches: &ArgMatches) {
         match matches.subcommand() {
             ("buffer", Some(_)) => {
@@ -477,6 +520,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                             .arg(Arg::with_name("name").required(true)),
                     ),
             )
+            .subcommand(App::new("query").arg(Arg::with_name("user").required(true)))
             .subcommand(
                 App::new("debug")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -503,6 +547,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             ("server", Some(matches)) => self.process_server_matches(matches),
             ("channel", Some(matches)) => self.process_channel_matches(matches),
             ("token", Some(matches)) => self.token(matches),
+            ("query", Some(matches)) => self.query(matches),
             ("debug", Some(matches)) => self.process_debug_matches(matches),
             _ => {},
         };
@@ -516,9 +561,11 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("token <token>")
             .add_argument("server add|remove|list|autoconnect|noautoconnect <server-name>")
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
+            .add_argument("query <user-name>")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
+            .add_completion("query %(discord_dm)")
             .add_completion("debug buffer|shutdown"),
         DiscordCommand {
             instance,

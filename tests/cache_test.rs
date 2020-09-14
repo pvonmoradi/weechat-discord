@@ -1,16 +1,14 @@
 use std::collections::HashMap;
-use twilight::{
-    cache_inmemory::InMemoryCache as Cache,
-    model::{
-        channel::{Channel, ChannelType, GuildChannel, TextChannel},
-        gateway::payload::{ChannelCreate, GuildCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
-        guild::{
-            DefaultMessageNotificationLevel, Emoji, ExplicitContentFilter, Guild, Member, MfaLevel,
-            Permissions, Role, SystemChannelFlags, VerificationLevel,
-        },
-        id::{EmojiId, GuildId, RoleId, UserId},
-        user::User,
+use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_model::{
+    channel::{Channel, ChannelType, GuildChannel, TextChannel},
+    gateway::payload::{ChannelCreate, GuildCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
+    guild::{
+        DefaultMessageNotificationLevel, Emoji, ExplicitContentFilter, Guild, Member, MfaLevel,
+        Permissions, Role, SystemChannelFlags, VerificationLevel,
     },
+    id::{EmojiId, GuildId, RoleId, UserId},
+    user::User,
 };
 
 #[tokio::test]

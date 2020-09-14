@@ -6,12 +6,10 @@ use crate::{
     refcell::RefCell,
 };
 use std::{collections::HashMap, rc::Rc};
-use twilight::{
-    cache_inmemory::model::CachedGuild as TwilightGuild,
-    model::{
-        channel::GuildChannel as TwilightChannel,
-        id::{ChannelId, GuildId},
-    },
+use twilight_cache_inmemory::model::CachedGuild as TwilightGuild;
+use twilight_model::{
+    channel::GuildChannel as TwilightChannel,
+    id::{ChannelId, GuildId},
 };
 use weechat::{
     buffer::{Buffer, BufferBuilder, BufferHandle},

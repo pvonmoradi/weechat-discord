@@ -4,7 +4,7 @@ use crate::{
     refcell::{Ref, RefCell, RefMut},
 };
 use std::{cell::BorrowMutError, collections::HashMap, rc::Rc};
-use twilight::model::id::{ChannelId, GuildId};
+use twilight_model::id::{ChannelId, GuildId};
 
 #[derive(Clone)]
 pub struct Instance {

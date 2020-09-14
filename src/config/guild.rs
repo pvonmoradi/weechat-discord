@@ -3,7 +3,7 @@ use crate::{
     refcell::{RefCell, RefMut},
 };
 use std::rc::{Rc, Weak};
-use twilight::model::id::{ChannelId, GuildId};
+use twilight_model::id::{ChannelId, GuildId};
 use weechat::{
     config::{
         BaseConfigOption, BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings,

@@ -1,5 +1,5 @@
 use crate::twilight_utils::ext::UserExt;
-use twilight::model::{
+use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
     id::ChannelId,
 };

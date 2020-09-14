@@ -4,10 +4,8 @@ use crate::{
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
-use twilight::{
-    cache_inmemory::InMemoryCache as Cache,
-    model::id::{ChannelId, EmojiId, GuildId, RoleId, UserId},
-};
+use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_model::id::{ChannelId, EmojiId, GuildId, RoleId, UserId};
 
 pub fn clean_all(
     cache: &Cache,

@@ -1,7 +1,5 @@
-use twilight::{
-    cache_inmemory::model::CachedEmoji,
-    model::id::{ChannelId, RoleId, UserId},
-};
+use twilight_cache_inmemory::model::CachedEmoji;
+use twilight_model::id::{ChannelId, RoleId, UserId};
 
 /// Allows something - such as a channel or role - to be mentioned in a message.
 pub trait Mentionable {

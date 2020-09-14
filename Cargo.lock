@@ -855,11 +855,12 @@ dependencies = [
 
 [[package]]
 name = "miniz_oxide"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d7559a8a40d0f97e1edea3220f698f78b1c5ab67532e49f68fde3910323b722"
+checksum = "c60c0dfe32c10b43a144bad8fc83538c52f58302c92300ea7ec7bf7b38d5a7b9"
 dependencies = [
  "adler",
+ "autocfg",
 ]
 
 [[package]]
@@ -1384,9 +1385,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.115"
+version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e54c9a88f2da7238af84b5101443f0c0d0a3bbdc455e34a5c9497b1903ed55d5"
+checksum = "96fe57af81d28386a513cbc6858332abc6117cfdb5999647c6444b8f43a370a5"
 dependencies = [
  "serde_derive",
 ]
@@ -1412,9 +1413,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.115"
+version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "609feed1d0a73cc36a0182a840a9b37b4a82f0b1150369f0536a9e3f2a31dc48"
+checksum = "f630a6370fd8e457873b4bd2ffdae75408bc291ba72be773772a4c2a065d9ae8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1525,9 +1526,9 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 
 [[package]]
 name = "syn"
-version = "1.0.40"
+version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "963f7d3cc59b59b9325165add223142bbf1df27655d07789f109896d353d8350"
+checksum = "6690e3e9f692504b941dc6c3b188fd28df054f7fb8469ab40680df52fdcc842b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1667,9 +1668,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-subscriber"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abd165311cc4d7a555ad11cc77a37756df836182db0d81aac908c8184c584f40"
+checksum = "82bb5079aa76438620837198db8a5c529fb9878c730bc2b28179b0241cf04c10"
 dependencies = [
  "ansi_term",
  "lazy_static",
@@ -1707,20 +1708,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "twilight"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#da8672ef3edbae5c969acff8d7e8fa4d483d6cc4"
-dependencies = [
- "twilight-cache-inmemory",
- "twilight-gateway",
- "twilight-http",
- "twilight-model",
-]
-
-[[package]]
 name = "twilight-cache-inmemory"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#da8672ef3edbae5c969acff8d7e8fa4d483d6cc4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -1732,7 +1722,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#da8672ef3edbae5c969acff8d7e8fa4d483d6cc4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -1753,7 +1743,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#da8672ef3edbae5c969acff8d7e8fa4d483d6cc4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1772,7 +1762,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#da8672ef3edbae5c969acff8d7e8fa4d483d6cc4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
 dependencies = [
  "bitflags",
  "serde",
@@ -2037,7 +2027,10 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "twilight",
+ "twilight-cache-inmemory",
+ "twilight-gateway",
+ "twilight-http",
+ "twilight-model",
  "weechat",
  "weechat-sys",
 ]

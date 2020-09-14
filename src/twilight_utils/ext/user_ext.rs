@@ -1,4 +1,4 @@
-use twilight::model::user::{CurrentUser, User};
+use twilight_model::user::{CurrentUser, User};
 
 pub trait UserExt {
     fn tag(&self) -> String;

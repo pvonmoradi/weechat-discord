@@ -1,5 +1,5 @@
 use crate::twilight_utils::ext::MemberExt;
-use twilight::cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
 use weechat::Weechat;
 
 pub fn colorize_string(text: &str, color: &str) -> String {

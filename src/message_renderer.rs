@@ -3,13 +3,11 @@ use crate::{
     twilight_utils::ext::MessageExt,
 };
 use std::{rc::Rc, sync::Arc};
-use twilight::{
-    cache_inmemory::InMemoryCache as Cache,
-    model::{
-        channel::Message,
-        gateway::payload::{MessageUpdate, RequestGuildMembers},
-        id::{ChannelId, GuildId, MessageId, UserId},
-    },
+use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_model::{
+    channel::Message,
+    gateway::payload::{MessageUpdate, RequestGuildMembers},
+    id::{ChannelId, GuildId, MessageId, UserId},
 };
 use weechat::{buffer::BufferHandle, Weechat};
 
@@ -312,7 +310,7 @@ fn render_msg(
         &config.nick_suffix_color(),
     ));
 
-    use twilight::model::channel::message::MessageType::*;
+    use twilight_model::channel::message::MessageType::*;
     if let Regular = msg.kind {
         (prefix, crate::utils::discord_to_weechat(&msg_content))
     } else {

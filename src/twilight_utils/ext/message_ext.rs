@@ -1,7 +1,5 @@
-use twilight::{
-    cache_inmemory::InMemoryCache as Cache,
-    model::{channel::Message, gateway::payload::MessageUpdate},
-};
+use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_model::{channel::Message, gateway::payload::MessageUpdate};
 
 pub trait MessageExt {
     fn is_own(&self, cache: &Cache) -> bool;

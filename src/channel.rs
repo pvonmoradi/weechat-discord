@@ -9,20 +9,18 @@ use crate::{
 use parsing::LineEdit;
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
-use twilight::{
-    cache_inmemory::{
-        model::{CachedGuild as TwilightGuild, CachedMember},
-        InMemoryCache as Cache,
+use twilight_cache_inmemory::{
+    model::{CachedGuild as TwilightGuild, CachedMember},
+    InMemoryCache as Cache,
+};
+use twilight_http::Client as HttpClient;
+use twilight_model::{
+    channel::{
+        GuildChannel as TwilightGuildChannel, Message, PrivateChannel as TwilightPrivateChannel,
     },
-    http::Client as HttpClient,
-    model::{
-        channel::{
-            GuildChannel as TwilightGuildChannel, Message, PrivateChannel as TwilightPrivateChannel,
-        },
-        gateway::payload::MessageUpdate,
-        id::{ChannelId, GuildId, MessageId, UserId},
-        user::User,
-    },
+    gateway::payload::MessageUpdate,
+    id::{ChannelId, GuildId, MessageId, UserId},
+    user::User,
 };
 use weechat::{
     buffer::{Buffer, BufferBuilder},

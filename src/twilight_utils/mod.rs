@@ -1,12 +1,10 @@
 use crate::{twilight_utils::ext::CachedGuildExt, utils};
 use std::sync::Arc;
-use twilight::{
-    cache_inmemory::{model::CachedGuild, InMemoryCache as Cache},
-    model::{
-        channel::{ChannelType, GuildChannel},
-        guild::Permissions,
-        id::GuildId,
-    },
+use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache as Cache};
+use twilight_model::{
+    channel::{ChannelType, GuildChannel},
+    guild::Permissions,
+    id::GuildId,
 };
 
 mod color;

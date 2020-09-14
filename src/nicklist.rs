@@ -4,7 +4,7 @@ use crate::{
     utils::color::colorize_string,
 };
 use std::{rc::Rc, sync::Arc};
-use twilight::cache_inmemory::model::CachedMember;
+use twilight_cache_inmemory::model::CachedMember;
 use weechat::buffer::{BufferHandle, NickSettings};
 
 pub struct Nicklist {

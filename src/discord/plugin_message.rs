@@ -1,4 +1,4 @@
-use twilight::model::{
+use twilight_model::{
     channel::Message,
     gateway::payload::{MemberChunk, MessageDelete, MessageUpdate},
     user::CurrentUser,

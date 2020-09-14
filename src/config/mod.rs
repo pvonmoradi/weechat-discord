@@ -7,7 +7,7 @@ use std::{
     rc::{Rc, Weak},
 };
 use tracing_subscriber::EnvFilter;
-use twilight::model::id::{ChannelId, GuildId};
+use twilight_model::id::{ChannelId, GuildId};
 use weechat::{
     config::{
         BooleanOptionSettings, Conf, Config as WeechatConfig, ConfigSection, ConfigSectionSettings,

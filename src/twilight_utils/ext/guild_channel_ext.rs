@@ -1,11 +1,9 @@
 use crate::twilight_utils::ext::CachedGuildExt;
 use std::sync::Arc;
-use twilight::{
-    cache_inmemory::{model::CachedMember, InMemoryCache as Cache},
-    model::{
-        channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
-        guild::Permissions,
-    },
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_model::{
+    channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
+    guild::Permissions,
 };
 
 pub trait GuildChannelExt {

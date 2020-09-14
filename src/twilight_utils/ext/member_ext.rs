@@ -1,9 +1,7 @@
 use crate::twilight_utils::color::Color;
 use std::sync::Arc;
-use twilight::{
-    cache_inmemory::{model::CachedMember, InMemoryCache as Cache},
-    model::guild::Role,
-};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_model::guild::Role;
 
 pub trait MemberExt {
     fn color(&self, cache: &Cache) -> Option<Color>;

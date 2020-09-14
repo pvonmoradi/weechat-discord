@@ -6,7 +6,8 @@ use crate::{
 };
 use clap::{App, AppSettings, Arg, ArgMatches};
 use std::sync::Arc;
-use twilight::{cache_inmemory::model::CachedGuild, model::channel::GuildChannel};
+use twilight_cache_inmemory::model::CachedGuild;
+use twilight_model::channel::GuildChannel;
 use weechat::{
     buffer::Buffer,
     hooks::{Command, CommandSettings},

@@ -1,11 +1,9 @@
 use crate::twilight_utils::ext::{ChannelExt, GuildChannelExt};
-use twilight::{
-    cache_inmemory::{model::CachedGuild, InMemoryCache as Cache},
-    model::{
-        channel::{permission_overwrite::PermissionOverwriteType, ChannelType},
-        guild::Permissions,
-        id::{ChannelId, RoleId, UserId},
-    },
+use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache as Cache};
+use twilight_model::{
+    channel::{permission_overwrite::PermissionOverwriteType, ChannelType},
+    guild::Permissions,
+    id::{ChannelId, RoleId, UserId},
 };
 
 pub trait CachedGuildExt {

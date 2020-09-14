@@ -15,12 +15,11 @@ use tokio::{
         oneshot::channel,
     },
 };
-use twilight::{
-    cache_inmemory::InMemoryCache as Cache,
-    gateway::{Event as GatewayEvent, Shard},
-    http::Client as HttpClient,
-    model::id::ChannelId,
-};
+
+use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_gateway::{Event as GatewayEvent, Shard};
+use twilight_http::Client as HttpClient;
+use twilight_model::id::ChannelId;
 use weechat::Weechat;
 
 #[derive(Clone, Debug)]
@@ -274,7 +273,7 @@ impl DiscordConnection {
             GatewayEvent::MessageDeleteBulk(event) => {
                 for id in event.ids {
                     tx.send(PluginMessage::MessageDelete {
-                        event: twilight::model::gateway::payload::MessageDelete {
+                        event: twilight_model::gateway::payload::MessageDelete {
                             channel_id: event.channel_id,
                             guild_id: event.guild_id,
                             id,

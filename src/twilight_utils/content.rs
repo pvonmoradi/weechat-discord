@@ -5,193 +5,98 @@ use crate::{
 use once_cell::sync::Lazy;
 use regex::Regex;
 use twilight_cache_inmemory::InMemoryCache as Cache;
-use twilight_model::id::{ChannelId, EmojiId, GuildId, RoleId, UserId};
+use twilight_mention::{parse::MentionType, ParseMention};
+use twilight_model::id::{GuildId, UserId};
 
 pub fn clean_all(
     cache: &Cache,
-    guild_id: Option<GuildId>,
     input: &str,
-    show_unknown_ids: bool,
-    unknown_members: &mut Vec<UserId>,
-) -> String {
-    let mut out = clean_roles(cache, input);
-    out = clean_channels(cache, &out);
-    out = clean_users(cache, guild_id, &out, show_unknown_ids, unknown_members);
-    out = clean_emojis(cache, &out);
-    out
-}
-
-pub fn clean_roles(cache: &Cache, input: &str) -> String {
-    let mut out = String::from(input);
-
-    static ROLE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<@&(\d+?)>").expect("valid regex"));
-
-    for role_match in ROLE_REGEX.captures_iter(input) {
-        let id = role_match
-            .get(1)
-            .expect("Regex contains one required group");
-
-        let id = RoleId(
-            id.as_str()
-                .parse::<u64>()
-                .expect("Match contains only digits"),
-        );
-
-        if let Some(role) = cache.role(id) {
-            out = out.replace(
-                role_match.get(0).expect("match must exist").as_str(),
-                &colorize_string(
-                    &format!("@{}", role.name),
-                    &Color::new(role.color).as_8bit().to_string(),
-                ),
-            );
-        } else {
-            out = out.replace(
-                role_match.get(0).expect("match must exist").as_str(),
-                "@unknown-role",
-            )
-        }
-    }
-
-    out
-}
-
-pub fn clean_channels(cache: &Cache, input: &str) -> String {
-    let mut out = String::from(input);
-
-    static CHANNEL_REGEX: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"<#(\d+?)>").expect("valid regex"));
-
-    for channel_match in CHANNEL_REGEX.captures_iter(input) {
-        let id = channel_match
-            .get(1)
-            .expect("Regex contains one required group");
-
-        let id = ChannelId(
-            id.as_str()
-                .parse::<u64>()
-                .expect("Match contains only digits"),
-        );
-
-        if let Some(channel) = cache.guild_channel(id) {
-            out = out.replace(
-                channel_match.get(0).expect("match must exist").as_str(),
-                &format!("#{}", channel.name()),
-            );
-            continue;
-        }
-
-        if let Some(channel) = cache.private_channel(id) {
-            out = out.replace(
-                channel_match.get(0).expect("match must exist").as_str(),
-                &format!("#{}", channel.name()),
-            );
-            continue;
-        }
-
-        if let Some(channel) = cache.group(id) {
-            out = out.replace(
-                channel_match.get(0).expect("match must exist").as_str(),
-                &format!("#{}", channel.name()),
-            );
-            continue;
-        }
-
-        out = out.replace(
-            channel_match.get(0).expect("match must exist").as_str(),
-            "#unknown-channel",
-        )
-    }
-
-    out
-}
-
-pub fn clean_users(
-    cache: &Cache,
     guild_id: Option<GuildId>,
-    input: &str,
     show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
 ) -> String {
     let mut out = String::from(input);
-
-    static USER_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"<@!?(\d+?)>").expect("valid regex"));
-
-    for user_match in USER_REGEX.captures_iter(input) {
-        let id = user_match
-            .get(1)
-            .expect("Regex contains one required group");
-
-        let id = UserId(
-            id.as_str()
-                .parse::<u64>()
-                .expect("Match contains only digits"),
-        );
-
-        let replacement = if let Some(guild_id) = guild_id {
-            if let Some(member) = cache.member(guild_id, id) {
-                Some(crate::utils::color::colorize_discord_member(
-                    cache, &member, true,
-                ))
-            } else {
-                None
-            }
-        } else {
-            cache.user(id).map(|user| format!("@{}", user.name))
-        };
-        if let Some(replacement) = replacement {
-            out = out.replace(
-                user_match.get(0).expect("match must exist").as_str(),
-                &replacement,
-            );
-        } else {
-            unknown_members.push(id);
-            out = out.replace(
-                user_match.get(0).expect("match must exist").as_str(),
-                &if show_unknown_ids {
-                    format!("@{}", id.0)
+    let mut previous_len = out.len();
+    let mut offset = 0isize;
+    for (mention, start, end) in twilight_mention::parse::MentionType::iter(input) {
+        let end = end + 1;
+        let start = (start as isize - offset) as usize;
+        let end = (end as isize - offset) as usize;
+        // TODO: Optimize this. since we know the bounds, we should be able to slice and replace
+        //       more efficiently than just using .replace
+        match mention {
+            MentionType::Role(id) => {
+                if let Some(role) = cache.role(id) {
+                    out = out.replace(
+                        &out[start..end],
+                        &colorize_string(
+                            &format!("@{}", role.name),
+                            &Color::new(role.color).as_8bit().to_string(),
+                        ),
+                    );
                 } else {
-                    "@unknown-user".into()
-                },
-            );
+                    out = out.replace(&out[start..end], "@unknown-role")
+                }
+            },
+            MentionType::Channel(id) => {
+                if let Some(channel) = cache.guild_channel(id) {
+                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    continue;
+                }
+
+                if let Some(channel) = cache.private_channel(id) {
+                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    continue;
+                }
+
+                if let Some(channel) = cache.group(id) {
+                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    continue;
+                }
+
+                out = out.replace(&out[start..end], "#unknown-channel")
+            },
+            MentionType::User(id) => {
+                let replacement = if let Some(guild_id) = guild_id {
+                    if let Some(member) = cache.member(guild_id, id) {
+                        Some(crate::utils::color::colorize_discord_member(
+                            cache, &member, true,
+                        ))
+                    } else {
+                        None
+                    }
+                } else {
+                    cache.user(id).map(|user| format!("@{}", user.name))
+                };
+                if let Some(replacement) = replacement {
+                    out = out.replace(&out[start..end], &replacement);
+                } else {
+                    unknown_members.push(id);
+                    out = out.replace(
+                        &out[start..end],
+                        &if show_unknown_ids {
+                            format!("@{}", id.0)
+                        } else {
+                            "@unknown-user".into()
+                        },
+                    );
+                }
+            },
+            MentionType::Emoji(id) => {
+                if let Some(emoji) = cache.emoji(id) {
+                    out = out.replace(&out[start..end], &format!(":{}:", emoji.name));
+                } else {
+                    tracing::trace!(emoji.id=?id, "Emoji not in cache");
+                    out = out.replace(&out[start..end], ":unknown-emoji:");
+                }
+            },
+            _ => unreachable!("exhaustive"),
         }
+        offset = previous_len as isize - out.len() as isize;
+        previous_len = out.len();
     }
 
-    out
-}
-
-pub fn clean_emojis(cache: &Cache, input: &str) -> String {
-    let mut out = String::from(input);
-
-    static EMOJI_REGEX: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"<:.+?:(\d+?)>").expect("valid regex"));
-
-    for emoji_match in EMOJI_REGEX.captures_iter(input) {
-        let id = emoji_match
-            .get(1)
-            .expect("Regex contains two required groups");
-
-        let id = EmojiId(
-            id.as_str()
-                .parse::<u64>()
-                .expect("Match contains only digits"),
-        );
-
-        if let Some(emoji) = cache.emoji(id) {
-            out = out.replace(
-                emoji_match.get(0).expect("match must exist").as_str(),
-                &format!(":{}:", emoji.name),
-            );
-        } else {
-            tracing::trace!(emoji.id=?id, "Emoji not in cache");
-            out = out.replace(
-                emoji_match.get(0).expect("match must exist").as_str(),
-                ":unknown-emoji:",
-            );
-        }
-    }
-
-    out
+    return out;
 }
 
 pub fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
@@ -339,4 +244,166 @@ pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> S
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use twilight_cache_inmemory::InMemoryCache as Cache;
+    use twilight_model::{
+        channel::{Channel, ChannelType, GuildChannel, TextChannel},
+        gateway::payload::{ChannelCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
+        guild::{Emoji, Member, Permissions, Role},
+        id::{ChannelId, EmojiId, RoleId},
+        user::User,
+    };
+
+    #[tokio::test]
+    async fn roles() {
+        let cache = Cache::new();
+        let role = Role {
+            color: 0,
+            hoist: false,
+            id: RoleId(1),
+            managed: false,
+            mentionable: false,
+            name: "foo".to_string(),
+            permissions: Permissions::CREATE_INVITE,
+            position: 0,
+        };
+        cache.update(&RoleCreate {
+            guild_id: GuildId(0),
+            role,
+        });
+
+        assert_eq!(
+            clean_all(&cache, "hello <@&1>!", None, false, &mut vec![]),
+            "hello 16@fooreset!"
+        );
+    }
+
+    #[tokio::test]
+    async fn channels() {
+        let cache = Cache::new();
+        let guild_id = Some(GuildId(0));
+        let channel = GuildChannel::Text(TextChannel {
+            guild_id,
+            id: ChannelId(1),
+            kind: ChannelType::GuildText,
+            last_message_id: None,
+            last_pin_timestamp: None,
+            name: "channel-one".to_string(),
+            nsfw: false,
+            permission_overwrites: vec![],
+            parent_id: None,
+            position: 0,
+            rate_limit_per_user: None,
+            topic: None,
+        });
+        cache.update(&ChannelCreate(Channel::Guild(channel)));
+
+        assert_eq!(
+            clean_all(&cache, "hello <#1>!", guild_id, false, &mut vec![]),
+            "hello #channel-one!"
+        );
+    }
+
+    // TODO: Expand this, to test members, users, show_unkown, and the unknown_users aspects
+    #[tokio::test]
+    async fn users() {
+        let guild_id = GuildId(0);
+
+        let cache = Cache::new();
+        let member = Member {
+            deaf: false,
+            guild_id,
+            hoisted_role: None,
+            joined_at: None,
+            mute: false,
+            nick: None,
+            premium_since: None,
+            roles: vec![],
+            user: User {
+                avatar: None,
+                bot: false,
+                discriminator: "1234".to_string(),
+                email: None,
+                flags: None,
+                id: UserId(1),
+                locale: None,
+                mfa_enabled: None,
+                name: "random-user".to_string(),
+                premium_type: None,
+                public_flags: None,
+                system: None,
+                verified: None,
+            },
+        };
+        cache.update(&MemberAdd(member));
+
+        assert_eq!(
+            clean_all(
+                &cache,
+                "hello <@1>!",
+                Some(guild_id),
+                false,
+                &mut Vec::new()
+            ),
+            "hello @random-user!"
+        );
+        assert_eq!(
+            clean_all(
+                &cache,
+                "hello <@!1>!",
+                Some(guild_id),
+                false,
+                &mut Vec::new()
+            ),
+            "hello @random-user!"
+        );
+    }
+
+    #[tokio::test]
+    async fn emojis() {
+        let cache = Cache::new();
+        let mut emojis = HashMap::new();
+        let emoji = Emoji {
+            animated: false,
+            available: false,
+            id: EmojiId(1),
+            managed: false,
+            name: "random-emoji".to_string(),
+            require_colons: false,
+            roles: vec![],
+            user: None,
+        };
+        emojis.insert(emoji.id, emoji);
+        let emoji = Emoji {
+            animated: false,
+            available: false,
+            id: EmojiId(2),
+            managed: false,
+            name: "emoji-two".to_string(),
+            require_colons: false,
+            roles: vec![],
+            user: None,
+        };
+        emojis.insert(emoji.id, emoji);
+        cache.update(&GuildEmojisUpdate {
+            emojis,
+            guild_id: GuildId(0),
+        });
+
+        assert_eq!(
+            clean_all(
+                &cache,
+                "hello <:random-emoji:1> <:emoji-two:2>",
+                None,
+                false,
+                &mut vec![]
+            ),
+            "hello :random-emoji: :emoji-two:"
+        );
+    }
 }

@@ -1,4 +1,4 @@
-use crate::twilight_utils::ext::MemberExt;
+use crate::{twilight_utils::ext::MemberExt, Weechat2};
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
 use weechat::Weechat;
 
@@ -8,9 +8,9 @@ pub fn colorize_string(text: &str, color: &str) -> String {
     } else {
         format!(
             "{}{}{}",
-            Weechat::color(color),
+            Weechat2::color(color),
             text,
-            Weechat::color("reset")
+            Weechat2::color("reset")
         )
     }
 }

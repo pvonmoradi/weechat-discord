@@ -5,6 +5,7 @@ use tokio::sync::mpsc::channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 use weechat::{plugin, Args, Plugin, Weechat};
+pub use weechat2::Weechat2;
 
 mod channel;
 mod config;
@@ -18,6 +19,7 @@ mod nicklist;
 mod refcell;
 mod twilight_utils;
 mod utils;
+mod weechat2;
 
 pub static SHUTTING_DOWN: Flag = Flag::new();
 

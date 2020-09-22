@@ -198,8 +198,8 @@ fn render_msg(
 ) -> (String, String) {
     let mut msg_content = crate::twilight_utils::content::clean_all(
         cache,
-        msg.guild_id,
         &msg.content,
+        msg.guild_id,
         config.show_unknown_user_ids(),
         unknown_members,
     );

@@ -1760,6 +1760,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "twilight-mention"
+version = "0.1.1"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
+dependencies = [
+ "twilight-model",
+]
+
+[[package]]
 name = "twilight-model"
 version = "0.1.2"
 source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
@@ -2030,6 +2038,7 @@ dependencies = [
  "twilight-cache-inmemory",
  "twilight-gateway",
  "twilight-http",
+ "twilight-mention",
  "twilight-model",
  "weechat",
  "weechat-sys",

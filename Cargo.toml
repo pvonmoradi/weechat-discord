@@ -75,3 +75,7 @@ branch = "next"
 [dependencies.twilight-model]
 git = "https://github.com/terminal-discord/twilight"
 branch = "next"
+
+[dependencies.twilight-mention]
+git = "https://github.com/terminal-discord/twilight"
+branch = "next"

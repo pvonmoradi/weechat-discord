@@ -1710,7 +1710,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -1721,8 +1721,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
+version = "0.1.1"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -1742,8 +1742,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
+version = "0.1.4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1761,8 +1761,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-model"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#27471fcd741ad007b655dbb396832f25a34f4f0e"
+version = "0.1.2"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#d170dc3d9f1135df949dbdf1acc08a8cfe07e27a"
 dependencies = [
  "bitflags",
  "serde",

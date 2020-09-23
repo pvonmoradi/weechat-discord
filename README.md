@@ -6,6 +6,8 @@ A plugin that adds Discord to [Weechat](https://weechat.org/)
 
 (Beta)
 
+This branch (`master`) is now in maintenance mode as the plugin is being rewritten in the `mk3` branch.
+
 ---
 
 ### Warning

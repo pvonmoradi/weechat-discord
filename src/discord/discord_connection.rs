@@ -16,6 +16,7 @@ use tokio::{
     },
 };
 
+use std::error::Error;
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_gateway::{Event as GatewayEvent, Shard};
 use twilight_http::Client as HttpClient;
@@ -51,9 +52,24 @@ impl DiscordConnection {
             runtime.spawn(async move {
                 let mut shard = Shard::new(&token);
                 if let Err(e) = shard.start().await {
-                    let err_msg = format!("An error occured connecting to Discord: {}", e);
+                    let err_msg = format!("An error occurred connecting to Discord: {}", e);
                     Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });
-                    tracing::error!("An error occured connecting to Discord: {:#?}", e);
+
+                    // Check if the error is a 401 Unauthorized, which is likely an invalid token
+                    if let Some(twilight_http::error::Error::Response { status, .. }) = e
+                        .source()
+                        .and_then(|e| e.downcast_ref::<twilight_http::error::Error>())
+                    {
+                        if status.as_u16() == 401 {
+                            Weechat::spawn_from_thread(async move {
+                                Weechat::print(
+                                    "Discord: Unauthorized: Check that your token is valid",
+                                )
+                            });
+                        }
+                    }
+
+                    tracing::error!("An error occurred connecting to Discord: {:#?}", e);
                     return;
                 };
 

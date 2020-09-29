@@ -46,7 +46,7 @@ def main():
         print("No databases found.")
         sys.exit(1)
 
-    discord_databases = list(filter(lambda x: "discord" in x, results))
+    discord_databases = list(filter(lambda x: "discord" in x and "Local Storage" in x, results))
 
     token_candidates = set()
     for database in discord_databases:

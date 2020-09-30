@@ -4,14 +4,18 @@ use weechat::Weechat;
 mod command;
 mod completions;
 mod options;
+mod signals;
+
 pub use completions::Completions;
 pub use options::Options;
+pub use signals::Signals;
 pub use weechat::hooks::Command;
 
 pub struct Hooks {
-    _completions: completions::Completions,
+    _completions: Completions,
     _command: Command,
-    _options: options::Options,
+    _options: Options,
+    _signals: Signals,
 }
 
 impl Hooks {
@@ -21,19 +25,23 @@ impl Hooks {
         instance: Instance,
         config: Config,
     ) -> Hooks {
-        let _command = command::hook(discord_connection.clone(), instance, config.clone());
+        let _command = command::hook(discord_connection.clone(), instance.clone(), config.clone());
         tracing::trace!("Command hooked");
 
-        let _completions = completions::Completions::hook_all(discord_connection);
+        let _completions = Completions::hook_all(discord_connection);
         tracing::trace!("Completions hooked");
 
-        let _options = options::Options::hook_all(weechat, config);
+        let _options = Options::hook_all(weechat, config);
         tracing::trace!("Options hooked");
+
+        let _signals = Signals::hook_all(instance);
+        tracing::trace!("Signals hooked");
 
         Hooks {
             _completions,
             _command,
             _options,
+            _signals,
         }
     }
 }

@@ -169,10 +169,6 @@ impl DiscordConnection {
                                     }
                                 },
                             ) {
-                                if let Err(e) = channel.load_history().await {
-                                    tracing::warn!("Error occurred joining private channel: {}", e)
-                                }
-
                                 instance
                                     .borrow_private_channels_mut()
                                     .insert(channel_id, channel);

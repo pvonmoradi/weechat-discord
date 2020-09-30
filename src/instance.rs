@@ -47,4 +47,20 @@ impl Instance {
     ) -> Result<RefMut<'_, HashMap<ChannelId, Channel>>, BorrowMutError> {
         self.private_channels.try_borrow_mut()
     }
+
+    pub fn search_buffer(
+        &self,
+        guild_id: Option<GuildId>,
+        channel_id: ChannelId,
+    ) -> Option<Channel> {
+        if let Some(guild_id) = guild_id {
+            if let Some(guild) = self.guilds.borrow().get(&guild_id) {
+                return guild.channels().get(&channel_id).cloned();
+            }
+        } else {
+            return self.private_channels.borrow().get(&channel_id).cloned();
+        }
+
+        None
+    }
 }

@@ -161,10 +161,6 @@ impl Guild {
             },
         )?;
 
-        channel.load_history().await?;
-
-        channel.load_users().await?;
-
         inner.channels.insert(channel_id, channel);
 
         Ok(())

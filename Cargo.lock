@@ -257,20 +257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap"
-version = "3.0.0-beta.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "860643c53f980f0d38a5e25dfab6c3c93b2cb3aa1fe192643d17a293c6c41936"
-dependencies = [
- "bitflags",
- "indexmap",
- "os_str_bytes",
- "textwrap",
- "unicode-width",
- "vec_map",
-]
-
-[[package]]
 name = "cloudabi"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1029,12 +1015,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "os_str_bytes"
-version = "2.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ac6fe3538f701e339953a3ebbe4f39941aababa8a3f6964635b24ab526daeac"
-
-[[package]]
 name = "parking_lot"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1536,15 +1516,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "thread_local"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1814,12 +1785,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unicode-width"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9337591893a19b88d8d87f2cec1e73fad5cdfd10e5a6f349f498ad6ea2ffb1e3"
-
-[[package]]
 name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1853,12 +1818,6 @@ name = "vcpkg"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6454029bf181f092ad1b853286f23e2c507d8e8194d01d92da4a55c274a5508c"
-
-[[package]]
-name = "vec_map"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "version_check"
@@ -2016,13 +1975,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "weechat-command-parser"
+version = "0.1.0"
+source = "git+https://github.com/terminal-discord/weechat-command-parser#7184bae61c1e2903d1c28fc3e257c9710a749532"
+
+[[package]]
 name = "weechat-discord"
 version = "0.3.0"
 dependencies = [
  "accountable-refcell",
  "anyhow",
  "chrono",
- "clap",
  "dirs",
  "futures",
  "glob",
@@ -2041,6 +2004,7 @@ dependencies = [
  "twilight-mention",
  "twilight-model",
  "weechat",
+ "weechat-command-parser",
  "weechat-sys",
 ]
 

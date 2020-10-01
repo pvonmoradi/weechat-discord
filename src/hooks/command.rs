@@ -5,7 +5,6 @@ use crate::{
     instance::Instance,
     twilight_utils::ext::UserExt,
 };
-use clap::{App, AppSettings, Arg, ArgMatches};
 use std::sync::Arc;
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_model::channel::GuildChannel;
@@ -14,6 +13,7 @@ use weechat::{
     hooks::{Command, CommandSettings},
     Args, Weechat,
 };
+use weechat_command_parser::{Command as WeechatCommand, ParsedCommand};
 
 pub struct DiscordCommand {
     instance: Instance,
@@ -22,7 +22,7 @@ pub struct DiscordCommand {
 }
 
 impl DiscordCommand {
-    fn add_guild(&self, matches: &ArgMatches) {
+    fn add_guild(&self, matches: ParsedCommand) {
         // TODO: Abstract guild resolution code
         let cache = match self.connection.borrow().as_ref() {
             Some(conn) => conn.cache.clone(),
@@ -32,7 +32,7 @@ impl DiscordCommand {
             },
         };
         let guild_name = matches
-            .value_of("name")
+            .arg("name")
             .expect("name is required by verification")
             .to_string();
 
@@ -83,7 +83,7 @@ impl DiscordCommand {
         }
     }
 
-    fn remove_guild(&self, matches: &ArgMatches) {
+    fn remove_guild(&self, matches: ParsedCommand) {
         let cache = match self.connection.borrow().as_ref() {
             Some(conn) => conn.cache.clone(),
             None => {
@@ -92,7 +92,7 @@ impl DiscordCommand {
             },
         };
         let guild_name = matches
-            .value_of("name")
+            .arg("name")
             .expect("name is required by verification")
             .to_string();
 
@@ -160,9 +160,9 @@ impl DiscordCommand {
         }
     }
 
-    fn autoconnect_guild(&self, matches: &ArgMatches) {
+    fn autoconnect_guild(&self, matches: ParsedCommand) {
         let guild_name = matches
-            .value_of("name")
+            .arg("name")
             .expect("name is required by verification")
             .to_string();
 
@@ -211,9 +211,9 @@ impl DiscordCommand {
         });
     }
 
-    fn noautoconnect_guild(&self, matches: &ArgMatches) {
+    fn noautoconnect_guild(&self, matches: ParsedCommand) {
         let guild_name = matches
-            .value_of("name")
+            .arg("name")
             .expect("name is required by verification")
             .to_string();
 
@@ -260,18 +260,18 @@ impl DiscordCommand {
         });
     }
 
-    fn process_server_matches(&self, matches: &ArgMatches) {
+    fn process_server_matches(&self, matches: ParsedCommand) {
         match matches.subcommand() {
-            ("add", Some(matches)) => self.add_guild(matches),
-            ("remove", Some(matches)) => self.remove_guild(matches),
-            ("list", _) => self.list_guilds(),
-            ("autoconnect", Some(matches)) => self.autoconnect_guild(matches),
-            ("noautoconnect", Some(matches)) => self.noautoconnect_guild(matches),
+            Some(("add", matches)) => self.add_guild(matches),
+            Some(("remove", matches)) => self.remove_guild(matches),
+            Some(("list", _)) => self.list_guilds(),
+            Some(("autoconnect", matches)) => self.autoconnect_guild(matches),
+            Some(("noautoconnect", matches)) => self.noautoconnect_guild(matches),
             _ => unreachable!("Reached subcommand that does not exist in clap config"),
         }
     }
 
-    fn add_autojoin_channel(&self, matches: &ArgMatches) {
+    fn add_autojoin_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             weecord_guild
                 .guild_config
@@ -290,7 +290,7 @@ impl DiscordCommand {
         }
     }
 
-    fn remove_autojoin_channel(&self, matches: &ArgMatches) {
+    fn remove_autojoin_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             {
                 // TODO: Vec::remove_item when it stabilizes
@@ -308,7 +308,7 @@ impl DiscordCommand {
         }
     }
 
-    fn join_channel(&self, matches: &ArgMatches) {
+    fn join_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             Weechat::spawn(async move {
                 if let Err(e) = weecord_guild.join_channel(&channel, &guild).await {
@@ -320,14 +320,14 @@ impl DiscordCommand {
 
     fn resolve_channel_and_guild(
         &self,
-        matches: &ArgMatches,
+        matches: ParsedCommand,
     ) -> Option<(Arc<CachedGuild>, Guild, Arc<GuildChannel>)> {
         let guild_name = matches
-            .value_of("guild_name")
+            .arg("guild_name")
             .expect("guild name is enforced by verification")
             .to_string();
         let channel_name = matches
-            .value_of("name")
+            .arg("name")
             .expect("channel name is enforced by verification")
             .to_string();
 
@@ -388,17 +388,17 @@ impl DiscordCommand {
         }
     }
 
-    fn process_channel_matches(&self, matches: &ArgMatches) {
+    fn process_channel_matches(&self, matches: ParsedCommand) {
         match matches.subcommand() {
-            ("autojoin", Some(matches)) => self.add_autojoin_channel(matches),
-            ("noautojoin", Some(matches)) => self.remove_autojoin_channel(matches),
-            ("join", Some(matches)) => self.join_channel(matches),
+            Some(("autojoin", matches)) => self.add_autojoin_channel(matches),
+            Some(("noautojoin", matches)) => self.remove_autojoin_channel(matches),
+            Some(("join", matches)) => self.join_channel(matches),
             _ => {},
         }
     }
 
-    fn token(&self, matches: &ArgMatches) {
-        let token = matches.value_of("token").expect("enforced by validation");
+    fn token(&self, matches: ParsedCommand) {
+        let token = matches.arg("token").expect("enforced by validation");
 
         self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_string());
 
@@ -406,8 +406,8 @@ impl DiscordCommand {
         tracing::info!("updated discord token");
     }
 
-    fn query(&self, matches: &ArgMatches) {
-        let user = matches.value_of("user").expect("enforced by validation");
+    fn query(&self, matches: ParsedCommand) {
+        let user = matches.arg("user").expect("enforced by validation");
 
         let conn = self.connection.borrow();
         let conn = match conn.as_ref() {
@@ -454,9 +454,9 @@ impl DiscordCommand {
         }
     }
 
-    fn process_debug_matches(&self, matches: &ArgMatches) {
+    fn process_debug_matches(&self, matches: ParsedCommand) {
         match matches.subcommand() {
-            ("buffer", Some(_)) => {
+            Some(("buffer", _)) => {
                 for guild in self.instance.borrow_guilds().values() {
                     let (strng, weak) = guild.debug_counts();
                     Weechat::print(&format!("Guild [{} {}]: {}", strng, weak, guild.id));
@@ -475,7 +475,7 @@ impl DiscordCommand {
                     ));
                 }
             },
-            ("shutdown", Some(_)) => {
+            Some(("shutdown", _)) => {
                 self.connection.shutdown();
                 self.instance.borrow_guilds_mut().clear();
             },
@@ -488,73 +488,60 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
     fn callback(&mut self, _: &Weechat, _: &Buffer, arguments: Args) {
         let args = arguments.collect::<Vec<_>>();
 
-        let app = App::new("/discord")
-            .global_setting(AppSettings::DisableVersion)
-            .global_setting(AppSettings::VersionlessSubcommands)
-            .setting(AppSettings::SubcommandRequiredElseHelp)
+        let matches = WeechatCommand::new("/discord")
             .subcommand(
-                App::new("server")
-                    .setting(AppSettings::SubcommandRequiredElseHelp)
-                    .subcommand(App::new("add").arg(Arg::with_name("name").required(true)))
-                    .subcommand(
-                        App::new("remove")
-                            .arg(Arg::with_name("name").required(true))
-                            .alias("rm"),
-                    )
-                    .subcommand(App::new("autoconnect").arg(Arg::with_name("name").required(true)))
-                    .subcommand(
-                        App::new("noautoconnect").arg(Arg::with_name("name").required(true)),
-                    )
-                    .subcommand(App::new("list")),
+                WeechatCommand::new("server")
+                    .subcommand(WeechatCommand::new("add").arg("name", true))
+                    .subcommand(WeechatCommand::new("remove").arg("name", true))
+                    .subcommand(WeechatCommand::new("autoconnect").arg("name", true))
+                    .subcommand(WeechatCommand::new("noautoconnect").arg("name", true))
+                    .subcommand(WeechatCommand::new("list")),
             )
             .subcommand(
-                App::new("channel")
-                    .setting(AppSettings::SubcommandRequiredElseHelp)
+                WeechatCommand::new("channel")
                     .subcommand(
-                        App::new("autojoin")
-                            .arg(Arg::with_name("guild_name").required(true))
-                            .arg(Arg::with_name("name").required(true)),
+                        WeechatCommand::new("autojoin")
+                            .arg("guild_name", true)
+                            .arg("name", true),
                     )
                     .subcommand(
-                        App::new("noautojoin")
-                            .arg(Arg::with_name("guild_name").required(true))
-                            .arg(Arg::with_name("name").required(true)),
+                        WeechatCommand::new("noautojoin")
+                            .arg("guild_name", true)
+                            .arg("name", true),
                     )
                     .subcommand(
-                        App::new("join")
-                            .arg(Arg::with_name("guild_name").required(true))
-                            .arg(Arg::with_name("name").required(true)),
+                        WeechatCommand::new("join")
+                            .arg("guild_name", true)
+                            .arg("name", true),
                     ),
             )
-            .subcommand(App::new("query").arg(Arg::with_name("user").required(true)))
+            .subcommand(WeechatCommand::new("query").arg("user", true))
             .subcommand(
-                App::new("debug")
-                    .setting(AppSettings::SubcommandRequiredElseHelp)
-                    .subcommand(App::new("buffer"))
-                    .subcommand(App::new("shutdown")),
+                WeechatCommand::new("debug")
+                    .subcommand(WeechatCommand::new("buffer"))
+                    .subcommand(WeechatCommand::new("shutdown")),
             )
-            .subcommand(App::new("token").arg(Arg::with_name("token").required(true)));
+            .subcommand(WeechatCommand::new("token").arg("token", true))
+            .parse_from(args.iter());
 
-        let matches = match app.try_get_matches_from(args) {
-            Ok(m) => {
-                tracing::trace!("{:#?}", m);
-                m
+        let matches = match matches {
+            Ok(matches) => {
+                tracing::trace!("{:#?}", matches);
+                matches
             },
-            Err(e) => {
-                tracing::trace!("{:#?}", e);
-                Weechat::print(
-                    &Weechat::execute_modifier("color_decode_ansi", "1", &e.to_string()).unwrap(),
-                );
+            Err(err) => {
+                tracing::error!("Error parsing command: \"{:?}\" {:?}", args, err);
+                Weechat::print(&format!("{}", err));
                 return;
             },
         };
 
         match matches.subcommand() {
-            ("server", Some(matches)) => self.process_server_matches(matches),
-            ("channel", Some(matches)) => self.process_channel_matches(matches),
-            ("token", Some(matches)) => self.token(matches),
-            ("query", Some(matches)) => self.query(matches),
-            ("debug", Some(matches)) => self.process_debug_matches(matches),
+            Some(("server", matches)) => self.process_server_matches(matches),
+            Some(("channel", matches)) => self.process_channel_matches(matches),
+            Some(("token", matches)) => self.token(matches),
+            Some(("query", matches)) => self.query(matches),
+            Some(("debug", matches)) => self.process_debug_matches(matches),
             _ => {},
         };
     }

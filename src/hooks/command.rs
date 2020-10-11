@@ -189,7 +189,7 @@ impl DiscordCommand {
                     if let Some(weechat_guild) = instance.borrow_guilds().get(&guild.id) {
                         tracing::info!(%guild.id, %guild.name, "Enabled autoconnect for guild");
                         weechat_guild.guild_config.set_autoconnect(true);
-                        weechat_guild.guild_config.write(&weechat_guild.config);
+                        weechat_guild.guild_config.persist(&weechat_guild.config);
                         Weechat::print(&format!(
                             "discord: Now autoconnecting to \"{}\"",
                             guild.name
@@ -239,7 +239,7 @@ impl DiscordCommand {
                     if let Some(weechat_guild) = instance.borrow_guilds().get(&guild.id) {
                         tracing::info!(%guild.id, %guild.name, "Disabled autoconnect for guild");
                         weechat_guild.guild_config.set_autoconnect(false);
-                        weechat_guild.guild_config.write(&weechat_guild.config);
+                        weechat_guild.guild_config.persist(&weechat_guild.config);
                         Weechat::print(&format!(
                             "discord: No longer autoconnecting to \"{}\"",
                             guild.name
@@ -277,7 +277,7 @@ impl DiscordCommand {
                 .guild_config
                 .autojoin_channels_mut()
                 .push(channel.id());
-            weecord_guild.guild_config.write(&weecord_guild.config);
+            weecord_guild.guild_config.persist(&weecord_guild.config);
             tracing::info!(%weecord_guild.id, channel.id=%channel.id(), "Added channel to autojoin list");
             Weechat::print(&format!(
                 "Added channel {} to autojoin list",
@@ -304,7 +304,7 @@ impl DiscordCommand {
                     ));
                 }
             }
-            weecord_guild.guild_config.write(&weecord_guild.config);
+            weecord_guild.guild_config.persist(&weecord_guild.config);
         }
     }
 
@@ -401,9 +401,10 @@ impl DiscordCommand {
         let token = matches.arg("token").expect("enforced by validation");
 
         self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_string());
+        self.config.persist();
 
         Weechat::print("discord: Updated Discord token");
-        tracing::info!("updated discord token");
+        tracing::info!("Updated discord token");
     }
 
     fn query(&self, matches: ParsedCommand) {

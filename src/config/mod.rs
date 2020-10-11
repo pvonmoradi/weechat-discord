@@ -286,10 +286,70 @@ impl Config {
     pub fn autojoin_private(&self) -> Vec<ChannelId> {
         self.inner.borrow().autojoin_private.clone()
     }
+
+    pub fn persist(&self) {
+        let config = self.config.borrow();
+        let general = config
+            .search_section("general")
+            .expect("general option section must exist");
+
+        general
+            .search_option("token")
+            .expect("token option must exist")
+            .set(&self.token().unwrap_or_default(), false);
+
+        general
+            .search_option("log_directive")
+            .expect("log directive option must exist")
+            .set(&self.log_directive(), false);
+
+        general
+            .search_option("open_tracing_window")
+            .expect("log directive option must exist")
+            .set(
+                if self.auto_open_tracing() {
+                    "true"
+                } else {
+                    "false"
+                },
+                false,
+            );
+
+        general
+            .search_option("show_unknown_user_ids")
+            .expect("show unknown user ids option must exist")
+            .set(
+                if self.show_unknown_user_ids() {
+                    "true"
+                } else {
+                    "false"
+                },
+                false,
+            );
+
+        general
+            .search_option("message_fetch_count")
+            .expect("message fetch count option must exist")
+            .set(&self.message_fetch_count().to_string(), false);
+
+        general
+            .search_option("autojoin_private")
+            .expect("autojoin private option must exist")
+            .set(
+                &self
+                    .autojoin_private()
+                    .iter()
+                    .map(|c| c.0.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                false,
+            );
+    }
 }
 
 impl Drop for Config {
     fn drop(&mut self) {
+        self.persist();
         let _ = self.config.borrow().write();
     }
 }

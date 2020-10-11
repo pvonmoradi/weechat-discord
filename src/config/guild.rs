@@ -106,7 +106,7 @@ impl GuildConfig {
         RefMut::map(self.inner.borrow_mut(), |i| &mut i.autojoin)
     }
 
-    pub fn write(&self, config: &Config) {
+    pub fn persist(&self, config: &Config) {
         let config = config.config.borrow();
         let section = config
             .search_section("server")
@@ -122,7 +122,12 @@ impl GuildConfig {
                 .map(|c| c.0.to_string())
                 .collect::<Vec<_>>()
                 .join(","),
-            true,
+            false,
         );
+
+        let autoconnect = section
+            .search_option(&format!("{}.autoconnect", self.id))
+            .expect("autoconnect option does not exist");
+        autoconnect.set(if self.autoconnect() { "true" } else { "false" }, false);
     }
 }

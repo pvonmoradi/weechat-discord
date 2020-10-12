@@ -18,7 +18,7 @@ use tokio::{
 
 use std::error::Error;
 use twilight_cache_inmemory::InMemoryCache as Cache;
-use twilight_gateway::{Event as GatewayEvent, Shard};
+use twilight_gateway::{Event as GatewayEvent, Intents, Shard};
 use twilight_http::Client as HttpClient;
 use twilight_model::id::ChannelId;
 use weechat::Weechat;
@@ -50,7 +50,7 @@ impl DiscordConnection {
         {
             let tx = tx.clone();
             runtime.spawn(async move {
-                let mut shard = Shard::new(&token);
+                let mut shard = Shard::new(&token, Intents::all());
                 if let Err(e) = shard.start().await {
                     let err_msg = format!("An error occurred connecting to Discord: {}", e);
                     Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });

@@ -132,8 +132,6 @@ fn fake_guild(guild_id: GuildId) -> Guild {
         default_message_notifications: DefaultMessageNotificationLevel::All,
         description: None,
         discovery_splash: None,
-        embed_channel_id: None,
-        embed_enabled: None,
         emojis: Default::default(),
         explicit_content_filter: ExplicitContentFilter::None,
         features: vec![],

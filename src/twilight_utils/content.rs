@@ -16,45 +16,41 @@ pub fn clean_all(
     unknown_members: &mut Vec<UserId>,
 ) -> String {
     let mut out = String::from(input);
-    let mut previous_len = out.len();
-    let mut offset = 0isize;
     for (mention, start, end) in twilight_mention::parse::MentionType::iter(input) {
         let end = end + 1;
-        let start = (start as isize - offset) as usize;
-        let end = (end as isize - offset) as usize;
         // TODO: Optimize this. since we know the bounds, we should be able to slice and replace
         //       more efficiently than just using .replace
         match mention {
             MentionType::Role(id) => {
                 if let Some(role) = cache.role(id) {
                     out = out.replace(
-                        &out[start..end],
+                        &input[start..end],
                         &colorize_string(
                             &format!("@{}", role.name),
                             &Color::new(role.color).as_8bit().to_string(),
                         ),
                     );
                 } else {
-                    out = out.replace(&out[start..end], "@unknown-role")
+                    out = out.replace(&input[start..end], "@unknown-role")
                 }
             },
             MentionType::Channel(id) => {
                 if let Some(channel) = cache.guild_channel(id) {
-                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    out = out.replace(&input[start..end], &format!("#{}", channel.name()));
                     continue;
                 }
 
                 if let Some(channel) = cache.private_channel(id) {
-                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    out = out.replace(&input[start..end], &format!("#{}", channel.name()));
                     continue;
                 }
 
                 if let Some(channel) = cache.group(id) {
-                    out = out.replace(&out[start..end], &format!("#{}", channel.name()));
+                    out = out.replace(&input[start..end], &format!("#{}", channel.name()));
                     continue;
                 }
 
-                out = out.replace(&out[start..end], "#unknown-channel")
+                out = out.replace(&input[start..end], "#unknown-channel")
             },
             MentionType::User(id) => {
                 let replacement = if let Some(guild_id) = guild_id {
@@ -69,11 +65,11 @@ pub fn clean_all(
                     cache.user(id).map(|user| format!("@{}", user.name))
                 };
                 if let Some(replacement) = replacement {
-                    out = out.replace(&out[start..end], &replacement);
+                    out = out.replace(&input[start..end], &replacement);
                 } else {
                     unknown_members.push(id);
                     out = out.replace(
-                        &out[start..end],
+                        &input[start..end],
                         &if show_unknown_ids {
                             format!("@{}", id.0)
                         } else {
@@ -84,16 +80,14 @@ pub fn clean_all(
             },
             MentionType::Emoji(id) => {
                 if let Some(emoji) = cache.emoji(id) {
-                    out = out.replace(&out[start..end], &format!(":{}:", emoji.name));
+                    out = out.replace(&input[start..end], &format!(":{}:", emoji.name));
                 } else {
                     tracing::trace!(emoji.id=?id, "Emoji not in cache");
-                    out = out.replace(&out[start..end], ":unknown-emoji:");
+                    out = out.replace(&input[start..end], ":unknown-emoji:");
                 }
             },
             _ => unreachable!("exhaustive"),
         }
-        offset = previous_len as isize - out.len() as isize;
-        previous_len = out.len();
     }
 
     return out;
@@ -348,7 +342,7 @@ mod tests {
                 "hello <@1>!",
                 Some(guild_id),
                 false,
-                &mut Vec::new()
+                &mut Vec::new(),
             ),
             "hello @random-user!"
         );
@@ -358,7 +352,7 @@ mod tests {
                 "hello <@!1>!",
                 Some(guild_id),
                 false,
-                &mut Vec::new()
+                &mut Vec::new(),
             ),
             "hello @random-user!"
         );
@@ -401,9 +395,42 @@ mod tests {
                 "hello <:random-emoji:1> <:emoji-two:2>",
                 None,
                 false,
-                &mut vec![]
+                &mut vec![],
             ),
             "hello :random-emoji: :emoji-two:"
         );
+    }
+
+    #[test]
+    fn evil_pony() {
+        let cache = Cache::new();
+        let mut emojis = HashMap::new();
+        for (i, n) in ["one", "two", "three", "four", "five", "six"]
+            .iter()
+            .enumerate()
+        {
+            let emoji = Emoji {
+                animated: false,
+                available: false,
+                id: EmojiId(i as u64 + 1),
+                managed: false,
+                name: n.to_string(),
+                require_colons: false,
+                roles: vec![],
+                user: None,
+            };
+            emojis.insert(emoji.id, emoji);
+        }
+        cache.update(&GuildEmojisUpdate {
+            emojis,
+            guild_id: GuildId(0),
+        });
+        let src = "<:one:1><:two:2><:one:1>\
+        <:three:3><:four:4><:five:5>\
+        <:one:1><:six:6><:one:1>";
+        let target = ":one::two::one:\
+        :three::four::five:\
+        :one::six::one:";
+        assert_eq!(clean_all(&cache, src, None, false, &mut vec![]), target);
     }
 }

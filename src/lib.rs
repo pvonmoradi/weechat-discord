@@ -7,11 +7,10 @@ use tracing_subscriber::EnvFilter;
 use weechat::{plugin, Args, Plugin, Weechat};
 pub use weechat2::Weechat2;
 
-mod channel;
+mod buffer;
 mod config;
 mod debug;
 mod discord;
-mod guild;
 mod hooks;
 mod instance;
 mod message_renderer;

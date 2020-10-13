@@ -1,5 +1,5 @@
 use crate::{
-    channel::Channel,
+    buffer::channel::Channel,
     config::{Config, GuildConfig},
     discord::discord_connection::ConnectionInner,
     instance::Instance,
@@ -145,7 +145,7 @@ impl Guild {
     ) -> anyhow::Result<()> {
         let weak_inner = Rc::downgrade(&self.inner);
         let channel_id = channel.id();
-        let channel = crate::channel::Channel::guild(
+        let channel = crate::buffer::channel::Channel::guild(
             &channel,
             &guild,
             &inner.conn,

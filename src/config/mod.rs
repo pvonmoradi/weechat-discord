@@ -46,6 +46,8 @@ pub struct InnerConfig {
     pub nick_suffix_color: String,
     pub guilds: HashMap<GuildId, GuildConfig>,
     pub autojoin_private: Vec<ChannelId>,
+    pub typing_list_max: i32,
+    pub typing_list_style: i32,
 }
 
 impl InnerConfig {
@@ -62,6 +64,8 @@ impl InnerConfig {
             nick_suffix_color: "".to_string(),
             guilds: HashMap::new(),
             autojoin_private: Vec::new(),
+            typing_list_max: 5,
+            typing_list_style: 0,
         }
     }
 }
@@ -185,6 +189,40 @@ impl Config {
                     }),
             )
             .expect("Unable to create autojoin private option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("typing_list_max")
+                    .description("Maximum number of users to display in the typing list")
+                    .min(0)
+                    .max(100)
+                    .default_value(5)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+
+                        inner.borrow_mut().typing_list_max = option.value();
+                    }),
+            )
+            .expect("Unable to create typing list max option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("typing_list_style")
+                    .description("Style of the typing list")
+                    .default_value(0)
+                    .min(0)
+                    .max(1)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+
+                        inner.borrow_mut().typing_list_style = option.value();
+                    }),
+            )
+            .expect("Unable to create typing list style option");
         }
 
         {
@@ -287,6 +325,14 @@ impl Config {
         self.inner.borrow().autojoin_private.clone()
     }
 
+    pub fn typing_list_max(&self) -> i32 {
+        self.inner.borrow().typing_list_max
+    }
+
+    pub fn typing_list_style(&self) -> i32 {
+        self.inner.borrow().typing_list_style
+    }
+
     pub fn persist(&self) {
         let config = self.config.borrow();
         let general = config
@@ -344,6 +390,16 @@ impl Config {
                     .join(","),
                 false,
             );
+
+        general
+            .search_option("typing_list_max")
+            .expect("typing list max option must exist")
+            .set(&self.typing_list_max().to_string(), false);
+
+        general
+            .search_option("typing_list_style")
+            .expect("typing list style option must exist")
+            .set(&self.typing_list_style().to_string(), false);
     }
 }
 

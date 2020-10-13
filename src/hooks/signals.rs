@@ -1,5 +1,6 @@
-use crate::instance::Instance;
-use twilight_model::id::{ChannelId, GuildId};
+use crate::{
+    buffer::ext::BufferExt, discord::discord_connection::DiscordConnection, instance::Instance,
+};
 use weechat::{
     hooks::{SignalData, SignalHook},
     ReturnCode, Weechat,
@@ -10,29 +11,18 @@ pub struct Signals {
 }
 
 impl Signals {
-    pub fn hook_all(instance: Instance) -> Signals {
+    pub fn hook_all(connection: DiscordConnection, instance: Instance) -> Signals {
         let _buffer_switch_hook = SignalHook::new(
             "buffer_switch",
             move |_: &Weechat, _: &str, data: Option<SignalData>| {
                 if let Some(SignalData::Buffer(buffer)) = data {
-                    if buffer
-                        .get_localvar("loaded_history")
-                        .unwrap_or_else(|| "false".into())
-                        == "true"
-                    {
+                    if buffer.history_loaded() {
                         return ReturnCode::Ok;
                     }
 
-                    let guild_id = buffer
-                        .get_localvar("guild_id")
-                        .and_then(|id| id.parse().ok())
-                        .map(GuildId);
+                    let guild_id = buffer.guild_id();
 
-                    let channel_id = match buffer
-                        .get_localvar("channel_id")
-                        .and_then(|id| id.parse().ok())
-                        .map(ChannelId)
-                    {
+                    let channel_id = match buffer.channel_id() {
                         Some(channel_id) => channel_id,
                         None => {
                             return ReturnCode::Ok;
@@ -40,7 +30,8 @@ impl Signals {
                     };
 
                     if let Some(channel) = instance.search_buffer(guild_id, channel_id) {
-                        buffer.set_localvar("loaded_history", "true");
+                        buffer.set_history_loaded();
+                        let connection = connection.clone();
                         Weechat::spawn(async move {
                             tracing::trace!(?guild_id, ?channel_id, "Loading history");
                             if let Err(e) = channel.load_history().await {
@@ -49,6 +40,12 @@ impl Signals {
 
                             if let Err(e) = channel.load_users().await {
                                 tracing::error!("Error loading channel member list: {}", e);
+                            }
+
+                            if let Some(guild_id) = guild_id {
+                                connection
+                                    .send_guild_subscription(guild_id, channel_id)
+                                    .await;
                             }
                         });
                     }

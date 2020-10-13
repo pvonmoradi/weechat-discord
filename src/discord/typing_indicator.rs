@@ -1,0 +1,66 @@
+use std::{
+    collections::VecDeque,
+    time::{SystemTime, UNIX_EPOCH},
+};
+use twilight_model::id::{ChannelId, GuildId, UserId};
+
+const MAX_TYPING_EVENTS: usize = 50;
+
+#[derive(Debug, PartialEq, Eq, Ord)]
+pub struct TypingEntry {
+    pub channel_id: ChannelId,
+    pub guild_id: Option<GuildId>,
+    pub user: UserId,
+    pub user_name: String,
+    pub time: u64,
+}
+
+impl PartialOrd for TypingEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.time.partial_cmp(&other.time)
+    }
+}
+
+pub struct TypingTracker {
+    entries: VecDeque<TypingEntry>,
+}
+
+impl TypingTracker {
+    pub fn new() -> TypingTracker {
+        TypingTracker {
+            entries: VecDeque::new(),
+        }
+    }
+
+    /// Remove any expired entries
+    pub fn sweep(&mut self) {
+        let now = SystemTime::now();
+        let timestamp_now = now
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs() as u64;
+
+        // If the entry is more than 10 seconds old, remove it
+        // TODO: Use binary heap or other structure for better performance?
+        self.entries.retain(|e| timestamp_now - e.time < 10)
+    }
+
+    /// Add a new entry
+    pub fn add(&mut self, entry: TypingEntry) {
+        self.entries.push_back(entry);
+
+        self.sweep();
+        if self.entries.len() > MAX_TYPING_EVENTS {
+            self.entries.pop_front();
+        }
+    }
+
+    /// Get the users currently typing
+    pub fn typing(&self, guild_id: Option<GuildId>, channel_id: ChannelId) -> Vec<String> {
+        self.entries
+            .iter()
+            .filter(|e| e.guild_id == guild_id && e.channel_id == channel_id)
+            .map(|e| e.user_name.clone())
+            .collect::<Vec<_>>()
+    }
+}

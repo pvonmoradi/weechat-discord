@@ -1,12 +1,20 @@
 use crate::{
     config::Config,
-    discord::plugin_message::PluginMessage,
+    discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
     refcell::{Ref, RefCell},
-    twilight_utils::ext::{MessageExt, UserExt},
+    twilight_utils::ext::{MemberExt, MessageExt, UserExt},
 };
 use anyhow::Result;
-use std::sync::Arc;
+use once_cell::sync::Lazy;
+use parking_lot::Mutex;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    iter::FromIterator,
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     runtime::Runtime,
     stream::StreamExt,
@@ -15,12 +23,10 @@ use tokio::{
         oneshot::channel,
     },
 };
-
-use std::error::Error;
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_gateway::{Event as GatewayEvent, Intents, Shard};
 use twilight_http::Client as HttpClient;
-use twilight_model::id::ChannelId;
+use twilight_model::id::{ChannelId, GuildId};
 use weechat::Weechat;
 
 #[derive(Clone, Debug)]
@@ -116,6 +122,43 @@ impl DiscordConnection {
         }
     }
 
+    pub async fn send_guild_subscription(&self, guild_id: GuildId, channel_id: ChannelId) {
+        if let Some(inner) = self.0.borrow().as_ref() {
+            static CHANNELS: Lazy<Mutex<HashMap<GuildId, HashSet<ChannelId>>>> =
+                Lazy::new(|| Mutex::new(HashMap::new()));
+
+            let mut channels = CHANNELS.lock();
+            let send = if let Some(guild_channels) = channels.get_mut(&guild_id) {
+                guild_channels.insert(channel_id)
+            } else {
+                channels.insert(guild_id, HashSet::from_iter(vec![channel_id].into_iter()));
+                true
+            };
+
+            if send {
+                let channels = channels.get(&guild_id).unwrap();
+                let channels_obj =
+                    HashMap::from_iter(channels.iter().map(|&ch| (ch, vec![vec![0, 99]])));
+                if let Err(e) = inner
+                    .shard
+                    .command(&super::custom_commands::GuildSubscription {
+                        d: super::custom_commands::GuildSubscriptionInfo {
+                            guild_id,
+                            typing: true,
+                            activities: true,
+                            members: vec![],
+                            channels: channels_obj,
+                        },
+                        op: 14,
+                    })
+                    .await
+                {
+                    tracing::warn!(guild.id=?guild_id, channel.id=?channel_id, "Unable to send guild subscription (14): {}", e);
+                }
+            }
+        }
+    }
+
     // Runs on weechat runtime
     pub async fn handle_events(
         mut rx: Receiver<PluginMessage>,
@@ -138,7 +181,7 @@ impl DiscordConnection {
                     tracing::info!("Ready as {}", user.tag());
 
                     for (guild_id, guild_config) in config.guilds() {
-                        let guild = crate::guild::Guild::new(
+                        let guild = crate::buffer::guild::Guild::new(
                             guild_id,
                             conn.clone(),
                             guild_config.clone(),
@@ -155,7 +198,7 @@ impl DiscordConnection {
                     for channel_id in config.autojoin_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             let instance_async = instance.clone();
-                            if let Ok(channel) = crate::channel::Channel::private(
+                            if let Ok(channel) = crate::buffer::channel::Channel::private(
                                 &channel,
                                 &conn,
                                 &config,
@@ -270,6 +313,39 @@ impl DiscordConnection {
                         channel.redraw(&conn.cache, &member_chunk.not_found);
                     }
                 },
+                PluginMessage::TypingStart(typing) => {
+                    if conn
+                        .cache
+                        .current_user()
+                        .map(|current_user| current_user.id == typing.user_id)
+                        .unwrap_or(true)
+                    {
+                        continue;
+                    };
+                    let typing_user_id = typing.user_id;
+                    if let Some(name) = typing
+                        .member
+                        .map(|m| m.display_name().to_string())
+                        .or_else(|| conn.cache.user(typing_user_id).map(|u| u.name.clone()))
+                    {
+                        instance.borrow_typing_tracker_mut().add(TypingEntry {
+                            channel_id: typing.channel_id,
+                            guild_id: typing.guild_id,
+                            user: typing.user_id,
+                            user_name: name,
+                            time: typing.timestamp,
+                        });
+                        Weechat::bar_item_update("discord_typing");
+                        Weechat::spawn({
+                            let instance = instance.clone();
+                            async move {
+                                async_std::task::sleep(Duration::from_secs(10)).await;
+                                instance.borrow_typing_tracker_mut().sweep();
+                                Weechat::bar_item_update("discord_typing");
+                            }
+                        });
+                    }
+                },
             }
         }
     }
@@ -318,6 +394,12 @@ impl DiscordConnection {
                 .await
                 .ok()
                 .expect("Receiving thread has died"),
+            GatewayEvent::TypingStart(typing_start) => tx
+                .send(PluginMessage::TypingStart(*typing_start))
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+
             _ => {},
         }
     }

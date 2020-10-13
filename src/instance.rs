@@ -1,6 +1,6 @@
 use crate::{
-    channel::Channel,
-    guild::Guild,
+    buffer::{channel::Channel, guild::Guild},
+    discord::typing_indicator::TypingTracker,
     refcell::{Ref, RefCell, RefMut},
 };
 use std::{cell::BorrowMutError, collections::HashMap, rc::Rc};
@@ -10,6 +10,7 @@ use twilight_model::id::{ChannelId, GuildId};
 pub struct Instance {
     guilds: Rc<RefCell<HashMap<GuildId, Guild>>>,
     private_channels: Rc<RefCell<HashMap<ChannelId, Channel>>>,
+    typing_tracker: Rc<RefCell<TypingTracker>>,
 }
 
 impl Instance {
@@ -17,6 +18,7 @@ impl Instance {
         Self {
             guilds: Rc::new(RefCell::new(HashMap::new())),
             private_channels: Rc::new(RefCell::new(HashMap::new())),
+            typing_tracker: Rc::new(RefCell::new(TypingTracker::new())),
         }
     }
 
@@ -46,6 +48,10 @@ impl Instance {
         &self,
     ) -> Result<RefMut<'_, HashMap<ChannelId, Channel>>, BorrowMutError> {
         self.private_channels.try_borrow_mut()
+    }
+
+    pub fn borrow_typing_tracker_mut(&self) -> RefMut<'_, TypingTracker> {
+        self.typing_tracker.borrow_mut()
     }
 
     pub fn search_buffer(

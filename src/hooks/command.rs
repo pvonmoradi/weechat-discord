@@ -1,7 +1,7 @@
 use crate::{
+    buffer::guild::Guild,
     config::{Config, GuildConfig},
     discord::discord_connection::DiscordConnection,
-    guild::Guild,
     instance::Instance,
     twilight_utils::ext::UserExt,
 };
@@ -434,8 +434,11 @@ impl DiscordCommand {
                 let instance_async = self.instance.clone();
                 let channel_id = channel.id;
                 Weechat::spawn(async move {
-                    if let Ok(channel) =
-                        crate::channel::Channel::private(&channel, &conn, &config, move |_| {
+                    if let Ok(channel) = crate::buffer::channel::Channel::private(
+                        &channel,
+                        &conn,
+                        &config,
+                        move |_| {
                             if let Ok(mut channels) =
                                 instance_async.try_borrow_private_channels_mut()
                             {
@@ -443,8 +446,8 @@ impl DiscordCommand {
                                     channel.set_closed();
                                 }
                             }
-                        })
-                    {
+                        },
+                    ) {
                         instance
                             .borrow_private_channels_mut()
                             .insert(channel.id, channel);

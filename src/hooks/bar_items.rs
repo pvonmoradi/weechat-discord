@@ -1,16 +1,22 @@
 use crate::{
-    buffer::ext::BufferExt, config::Config, discord::typing_indicator::TypingTracker,
+    buffer::ext::BufferExt,
+    config::Config,
+    discord::{discord_connection::DiscordConnection, typing_indicator::TypingTracker},
     instance::Instance,
 };
-use twilight_model::id::{ChannelId, GuildId};
+use twilight_model::{
+    channel::GuildChannel,
+    id::{ChannelId, GuildId},
+};
 use weechat::{buffer::Buffer, hooks::BarItem, Weechat};
 
 pub struct BarItems {
     _typing: BarItem,
+    _slowmode: BarItem,
 }
 
 impl BarItems {
-    pub fn add_all(instance: Instance, config: Config) -> BarItems {
+    pub fn add_all(connection: DiscordConnection, instance: Instance, config: Config) -> BarItems {
         let _typing = BarItem::new("discord_typing", move |_: &Weechat, buffer: &Buffer| {
             if let Some(channel_id) = buffer.channel_id() {
                 let guild_id = buffer.guild_id();
@@ -34,9 +40,46 @@ impl BarItems {
                 "".into()
             }
         })
-        .expect("Unable to add typing bar item");
+        .expect("Unable to create typing bar item");
 
-        BarItems { _typing }
+        let _slowmode = BarItem::new(
+            "discord_slowmode_cooldown",
+            move |_: &Weechat, buffer: &Buffer| {
+                let connection = connection.borrow();
+                let connection = match connection.as_ref() {
+                    Some(conn) => conn,
+                    None => return "".into(),
+                };
+
+                let channel_id = match buffer.channel_id() {
+                    Some(channel_id) => channel_id,
+                    None => return "".into(),
+                };
+
+                let channel = match connection.cache.guild_channel(channel_id) {
+                    Some(chan) => chan,
+                    None => return "".into(),
+                };
+
+                return match &*channel {
+                    GuildChannel::Category(_) => "".into(),
+                    GuildChannel::Text(channel) => match channel.rate_limit_per_user {
+                        None => "".into(),
+                        Some(rate_limit) => {
+                            if rate_limit == 0 {
+                                "".into()
+                            } else {
+                                humanize_duration(rate_limit)
+                            }
+                        },
+                    },
+                    GuildChannel::Voice(_) => "".into(),
+                };
+            },
+        )
+        .expect("Unable to create slowmode bar item");
+
+        BarItems { _typing, _slowmode }
     }
 }
 
@@ -107,4 +150,46 @@ fn get_users_for_typing_list(
         (&users[..], false)
     };
     (head.to_vec(), has_more)
+}
+
+fn humanize_duration(duration: u64) -> String {
+    match duration {
+        0..=59 => format!("{}s", duration),
+        60..=3599 => format!("{}m", duration / 60),
+        3600..=86399 => format!("{}h", duration / 60 / 60),
+        _ => format!("{}d", duration / 60 / 60 / 24),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::hooks::bar_items::humanize_duration;
+
+    #[test]
+    fn duration_fmt_second() {
+        assert_eq!(humanize_duration(1), "1s");
+        assert_eq!(humanize_duration(59), "59s");
+        assert_eq!(humanize_duration(60), "1m");
+    }
+
+    #[test]
+    fn duration_fmt_minute() {
+        assert_eq!(humanize_duration(1 * 60), "1m");
+        assert_eq!(humanize_duration(59 * 60), "59m");
+        assert_eq!(humanize_duration(60 * 60), "1h");
+    }
+
+    #[test]
+    fn duration_fmt_hour() {
+        assert_eq!(humanize_duration(1 * 60 * 60), "1h");
+        assert_eq!(humanize_duration(23 * 60 * 60), "23h");
+        assert_eq!(humanize_duration(24 * 60 * 60), "1d");
+    }
+
+    #[test]
+    fn duration_fmt_day() {
+        assert_eq!(humanize_duration(1 * 60 * 60 * 24), "1d");
+        assert_eq!(humanize_duration(59 * 60 * 60 * 24), "59d");
+        assert_eq!(humanize_duration(60 * 60 * 60 * 24), "60d");
+    }
 }

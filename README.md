@@ -105,6 +105,11 @@ Once your token is set, you can reload the plugin with
 The bar item `discord_typing` displays the typing status of the current buffer and can be appended to
 `weechat.bar.status.items`.
 
+
+#### Slowmode cooldown
+
+The bar item `discord_slowmode_cooldown` displays the ratelimit time for the current channel.
+
 ### Usage
 
 #### Editing

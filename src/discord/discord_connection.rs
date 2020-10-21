@@ -1,4 +1,5 @@
 use crate::{
+    buffer::ext::BufferExt,
     config::Config,
     discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
@@ -346,6 +347,13 @@ impl DiscordConnection {
                         });
                     }
                 },
+                PluginMessage::ChannelUpdate(channel_update) => {
+                    if unsafe { Weechat::weechat() }.current_buffer().channel_id()
+                        == Some(channel_update.0.id())
+                    {
+                        Weechat::bar_item_update("discord_slowmode_cooldown")
+                    }
+                },
             }
         }
     }
@@ -399,7 +407,11 @@ impl DiscordConnection {
                 .await
                 .ok()
                 .expect("Receiving thread has died"),
-
+            GatewayEvent::ChannelUpdate(channel_update) => tx
+                .send(PluginMessage::ChannelUpdate(channel_update))
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
             _ => {},
         }
     }

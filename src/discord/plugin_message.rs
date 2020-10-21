@@ -1,6 +1,6 @@
 use twilight_model::{
     channel::Message,
-    gateway::payload::{MemberChunk, MessageDelete, MessageUpdate, TypingStart},
+    gateway::payload::{ChannelUpdate, MemberChunk, MessageDelete, MessageUpdate, TypingStart},
     user::CurrentUser,
 };
 
@@ -11,4 +11,5 @@ pub enum PluginMessage {
     MessageUpdate { message: Box<MessageUpdate> },
     MemberChunk(MemberChunk),
     TypingStart(TypingStart),
+    ChannelUpdate(ChannelUpdate),
 }

@@ -8,7 +8,6 @@ use crate::{
 };
 use anyhow::Result;
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -22,6 +21,7 @@ use tokio::{
     sync::{
         mpsc::{Receiver, Sender},
         oneshot::channel,
+        Mutex as TokioMutex,
     },
 };
 use twilight_cache_inmemory::InMemoryCache as Cache;
@@ -125,10 +125,10 @@ impl DiscordConnection {
 
     pub async fn send_guild_subscription(&self, guild_id: GuildId, channel_id: ChannelId) {
         if let Some(inner) = self.0.borrow().as_ref() {
-            static CHANNELS: Lazy<Mutex<HashMap<GuildId, HashSet<ChannelId>>>> =
-                Lazy::new(|| Mutex::new(HashMap::new()));
+            static CHANNELS: Lazy<TokioMutex<HashMap<GuildId, HashSet<ChannelId>>>> =
+                Lazy::new(|| TokioMutex::new(HashMap::new()));
 
-            let mut channels = CHANNELS.lock();
+            let mut channels = CHANNELS.lock().await;
             let send = if let Some(guild_channels) = channels.get_mut(&guild_id) {
                 guild_channels.insert(channel_id)
             } else {

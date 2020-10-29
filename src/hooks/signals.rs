@@ -35,11 +35,21 @@ impl Signals {
                         Weechat::spawn(async move {
                             tracing::trace!(?guild_id, ?channel_id, "Loading history");
                             if let Err(e) = channel.load_history().await {
-                                tracing::error!("Error loading channel history: {}", e);
+                                tracing::error!(
+                                    ?guild_id,
+                                    ?channel_id,
+                                    "Error loading channel history: {}",
+                                    e
+                                );
                             }
 
                             if let Err(e) = channel.load_users().await {
-                                tracing::error!("Error loading channel member list: {}", e);
+                                tracing::error!(
+                                    ?guild_id,
+                                    ?channel_id,
+                                    "Error loading channel member list: {}",
+                                    e
+                                );
                             }
 
                             if let Some(guild_id) = guild_id {

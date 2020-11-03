@@ -8,6 +8,7 @@ impl Debug {
         if let Ok(buffer) = BufferBuilder::new("weecord.tracing").build() {
             if let Ok(buffer) = buffer.upgrade() {
                 buffer.set_title("Tracing events for weecord");
+                buffer.disable_hotlist();
             }
         }
     }

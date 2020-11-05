@@ -482,6 +482,7 @@ impl DiscordCommand {
             Some(("shutdown", _)) => {
                 self.connection.shutdown();
                 self.instance.borrow_guilds_mut().clear();
+                self.instance.borrow_private_channels_mut().clear()
             },
             _ => {},
         }

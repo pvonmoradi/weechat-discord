@@ -315,21 +315,30 @@ fn render_msg(
         (prefix, crate::utils::discord_to_weechat(&msg_content))
     } else {
         let (prefix, body) = match msg.kind {
-            RecipientAdd | GuildMemberJoin => ("join", format!("{} joined the group.", author)),
-            RecipientRemove => ("quit", format!("{} left the group.", author)),
+            RecipientAdd | GuildMemberJoin => {
+                ("join", format!("{} joined the group.", bold(&author)))
+            },
+            RecipientRemove => ("quit", format!("{} left the group.", bold(&author))),
             ChannelNameChange => (
                 "network",
-                format!("{} changed the channel name: {}.", author, msg.content),
+                format!(
+                    "{} changed the channel name to {}.",
+                    bold(&author),
+                    bold(&msg.content)
+                ),
             ),
-            Call => ("network", format!("{} started a call.", author)),
-            ChannelIconChange => ("network", format!("{} changed the channel icon.", author)),
+            Call => ("network", format!("{} started a call.", bold(&author))),
+            ChannelIconChange => (
+                "network",
+                format!("{} changed the channel icon.", bold(&author)),
+            ),
             ChannelMessagePinned => (
                 "network",
-                format!("{} pinned a message to this channel", author),
+                format!("{} pinned a message to this channel", bold(&author)),
             ),
             UserPremiumSub => (
                 "network",
-                format!("{} boosted this channel with nitro", author),
+                format!("{} boosted this channel with nitro", bold(&author)),
             ),
             UserPremiumSubTier1 => (
                 "network",
@@ -354,15 +363,14 @@ fn render_msg(
             ),
             ChannelFollowAdd => (
                 "network",
-                format!(
-                    "This channel is now following {}{}{}",
-                    Weechat::color("bold"),
-                    msg.content,
-                    Weechat::color("-bold"),
-                ),
+                format!("This channel is now following {}", bold(&msg.content)),
             ),
             Regular => unreachable!(),
         };
         (Weechat::prefix(&prefix).to_owned(), body)
     }
+}
+
+fn bold(body: &str) -> String {
+    Weechat::color("bold").to_string() + body + Weechat::color("-bold")
 }

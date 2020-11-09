@@ -352,7 +352,15 @@ fn render_msg(
                 "network",
                 "This server has been requalified for Discovery".to_string(),
             ),
-            ChannelFollowAdd => ("network", "This server has a new follow".to_string()),
+            ChannelFollowAdd => (
+                "network",
+                format!(
+                    "This channel is now following {}{}{}",
+                    Weechat::color("bold"),
+                    msg.content,
+                    Weechat::color("-bold"),
+                ),
+            ),
             Regular => unreachable!(),
         };
         (Weechat::prefix(&prefix).to_owned(), body)

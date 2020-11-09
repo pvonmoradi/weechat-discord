@@ -337,10 +337,16 @@ impl DiscordConnection {
                             time: typing.timestamp,
                         });
                         Weechat::bar_item_update("discord_typing");
+                        let (mut tx, mut rx) = tokio::sync::mpsc::channel(1);
+                        conn.rt.spawn(async move {
+                            tokio::time::delay_for(Duration::from_secs(10)).await;
+                            let _ = tx.send(()).await;
+                        });
+
                         Weechat::spawn({
                             let instance = instance.clone();
                             async move {
-                                async_std::task::sleep(Duration::from_secs(10)).await;
+                                rx.recv().await;
                                 instance.borrow_typing_tracker_mut().sweep();
                                 Weechat::bar_item_update("discord_typing");
                             }

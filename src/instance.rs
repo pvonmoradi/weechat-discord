@@ -1,5 +1,5 @@
 use crate::{
-    buffer::{channel::Channel, guild::Guild},
+    buffer::{channel::Channel, guild::Guild, pins::Pins},
     discord::typing_indicator::TypingTracker,
     refcell::{Ref, RefCell, RefMut},
 };
@@ -10,6 +10,7 @@ use twilight_model::id::{ChannelId, GuildId};
 pub struct Instance {
     guilds: Rc<RefCell<HashMap<GuildId, Guild>>>,
     private_channels: Rc<RefCell<HashMap<ChannelId, Channel>>>,
+    pins: Rc<RefCell<HashMap<(GuildId, ChannelId), Pins>>>,
     typing_tracker: Rc<RefCell<TypingTracker>>,
 }
 
@@ -18,6 +19,7 @@ impl Instance {
         Self {
             guilds: Rc::new(RefCell::new(HashMap::new())),
             private_channels: Rc::new(RefCell::new(HashMap::new())),
+            pins: Rc::new(RefCell::new(HashMap::new())),
             typing_tracker: Rc::new(RefCell::new(TypingTracker::new())),
         }
     }
@@ -48,6 +50,10 @@ impl Instance {
         &self,
     ) -> Result<RefMut<'_, HashMap<ChannelId, Channel>>, BorrowMutError> {
         self.private_channels.try_borrow_mut()
+    }
+
+    pub fn borrow_pins_mut(&self) -> RefMut<'_, HashMap<(GuildId, ChannelId), Pins>> {
+        self.pins.borrow_mut()
     }
 
     pub fn borrow_typing_tracker_mut(&self) -> RefMut<'_, TypingTracker> {

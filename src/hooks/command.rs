@@ -1,5 +1,5 @@
 use crate::{
-    buffer::guild::Guild,
+    buffer::{ext::BufferExt, guild::Guild, pins::Pins},
     config::{Config, GuildConfig},
     discord::discord_connection::DiscordConnection,
     instance::Instance,
@@ -458,6 +458,34 @@ impl DiscordCommand {
         }
     }
 
+    fn pins(&self, weechat: &Weechat) {
+        let conn = self.connection.borrow();
+        let conn = match conn.as_ref() {
+            Some(conn) => conn.clone(),
+            None => {
+                Weechat::print("discord: Discord must be connected to view pinned messages");
+                return;
+            },
+        };
+
+        let buffer = weechat.current_buffer();
+        let guild_id = buffer.guild_id();
+        let channel_id = buffer.channel_id();
+        let config = self.config.clone();
+        let instance = self.instance.clone();
+        Weechat::spawn(async move {
+            let pins = Pins::new(guild_id, channel_id.unwrap(), conn, &config);
+
+            if let Err(e) = pins.load().await {
+                Weechat::print(&format!("An error occurred loading channel pins: {}", e))
+            };
+
+            instance
+                .borrow_pins_mut()
+                .insert((guild_id.unwrap(), channel_id.unwrap()), pins);
+        });
+    }
+
     fn process_debug_matches(&self, matches: ParsedCommand) {
         match matches.subcommand() {
             Some(("buffer", _)) => {
@@ -478,11 +506,21 @@ impl DiscordCommand {
                         strng, weak, private_channel.id
                     ));
                 }
+
+                for pins in self.instance.borrow_pins_mut().values() {
+                    let (strng, weak) = pins.debug_counts();
+
+                    Weechat::print(&format!(
+                        "Pin Channel [{} {}]: {:?} {}",
+                        strng, weak, pins.guild_id, pins.channel_id
+                    ));
+                }
             },
             Some(("shutdown", _)) => {
                 self.connection.shutdown();
                 self.instance.borrow_guilds_mut().clear();
-                self.instance.borrow_private_channels_mut().clear()
+                self.instance.borrow_private_channels_mut().clear();
+                self.instance.borrow_pins_mut().clear();
             },
             _ => {},
         }
@@ -490,7 +528,7 @@ impl DiscordCommand {
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
-    fn callback(&mut self, _: &Weechat, _: &Buffer, arguments: Args) {
+    fn callback(&mut self, weechat: &Weechat, _: &Buffer, arguments: Args) {
         let args = arguments.collect::<Vec<_>>();
 
         let matches = WeechatCommand::new("/discord")
@@ -527,6 +565,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                     .subcommand(WeechatCommand::new("shutdown")),
             )
             .subcommand(WeechatCommand::new("token").arg("token", true))
+            .subcommand(WeechatCommand::new("pins"))
             .parse_from(args.iter());
 
         let matches = match matches {
@@ -546,6 +585,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             Some(("channel", matches)) => self.process_channel_matches(matches),
             Some(("token", matches)) => self.token(matches),
             Some(("query", matches)) => self.query(matches),
+            Some(("pins", _)) => self.pins(weechat),
             Some(("debug", matches)) => self.process_debug_matches(matches),
             _ => {},
         };
@@ -560,10 +600,12 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("server add|remove|list|autoconnect|noautoconnect <server-name>")
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_argument("query <user-name>")
+            .add_argument("pins")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
             .add_completion("query %(discord_dm)")
+            .add_completion("pins")
             .add_completion("debug buffer|shutdown"),
         DiscordCommand {
             instance,

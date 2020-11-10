@@ -21,6 +21,12 @@ jobs:
       - name: Install macOS packages
         if: runner.os == 'macOS'
         run: brew install weechat
+      # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
+      - name: Install GNU tar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gnu-tar
+          echo "/usr/local/opt/gnu-tar/libexec/gnubin" >> $GITHUB_PATH
 
       - name: Display Rust and Cargo versions
         run: |
@@ -33,9 +39,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests

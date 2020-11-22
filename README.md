@@ -31,6 +31,7 @@ Dependencies:
 
 * Weechat developer libraries. Usually called `weechat-dev`, or sometimes just `weechat` includes them.
 * [Rust](https://www.rust-lang.org). Ensure you have the latest version.
+* [libclang](https://rust-lang.github.io/rust-bindgen/requirements.html)
 
 Then just run `make install`
 

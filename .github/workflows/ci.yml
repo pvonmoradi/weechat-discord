@@ -20,7 +20,9 @@ jobs:
         sudo apt install weechat-devel-curses libclang-dev
     - name: Install macOS packages
       if: runner.os == 'macOS'
-      run: brew install weechat
+      run: |
+        brew install weechat llvm
+        echo LIBCLANG_PATH=$(brew --prefix llvm)/lib/libclang.dylib >> $GITHUB_ENV
 
     - name: Display Rust and Cargo versions
       run: |
@@ -32,8 +34,13 @@ jobs:
     - name: Cache cargo build
       uses: actions/cache@v2
       with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build binaries
       run: cargo build --release

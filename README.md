@@ -1,16 +1,13 @@
 # Weechat Discord
 
-![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)
 
-A plugin that adds Discord to [Weechat](https://weechat.org/)
+## Warning
 
-(Beta)
+The developer of [cordless](https://github.com/Bios-Marcel/cordless) (another 3rd party client) has had his [account banned for using a 3rd party client](https://github.com/Bios-Marcel/cordless#i-am-closing-down-the-cordless-project). 
 
-This branch (`master`) is now in maintenance mode as the plugin is being rewritten in the `mk3` branch.
+***It is very possible Discord is now actively enforcing TOS violations, I cannot recommending using this project with an account you are not ok with loosing***
 
 ---
-
-### Warning
 
 ***Usage of self-tokens is a violation of Discord's TOS***
 
@@ -18,6 +15,16 @@ This client makes use of the "user api" and is essentially a self-bot.
 This client does not abuse the api however it is still a violation of the TOS.
 
 Use at your own risk, using this program could get your account or ip disabled, banned, etc.
+
+---
+
+![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)
+
+A plugin that adds Discord to [Weechat](https://weechat.org/)
+
+(Beta)
+
+This branch (`master`) is now in maintenance mode as the plugin is being rewritten in the `mk3` branch.
 
 ---
 

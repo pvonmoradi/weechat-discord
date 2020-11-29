@@ -52,12 +52,14 @@ jobs:
       - name: Build binaries
         run: cargo build --release
 
-      - uses: actions/upload-artifact@v2
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v2
         if: runner.os == 'Linux'
         with:
           name: weechat-discord-linux
           path: target/release/libweecord.*
-      - uses: actions/upload-artifact@v2
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v2
         if: runner.os == 'macOS'
         with:
           name: weechat-discord-macos

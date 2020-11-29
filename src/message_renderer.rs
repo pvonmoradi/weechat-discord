@@ -334,6 +334,7 @@ fn render_msg(
                 )
             },
             // TODO: Currently never called due to the first Reply block above
+            //       Nested replies contain only ids, so cache lookup is needed
             None => (
                 prefix,
                 format!(

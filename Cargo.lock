@@ -1800,8 +1800,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.2.0-beta.2"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.3"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -1812,8 +1812,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.2.0-beta.1"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.5"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -1834,8 +1834,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.1"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -1846,8 +1846,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.2.0-beta.2"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.5"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1865,16 +1865,16 @@ dependencies = [
 
 [[package]]
 name = "twilight-mention"
-version = "0.2.0-beta.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.0"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-model"
-version = "0.2.0-beta.2"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#3636df17c549d0292746dba67462c4ac3b76eff3"
+version = "0.2.4"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
 dependencies = [
  "bitflags",
  "serde",

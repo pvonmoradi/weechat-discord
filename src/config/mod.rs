@@ -77,9 +77,9 @@ impl Config {
 
         {
             let inner = Rc::downgrade(&inner);
-            let general_secion_option = ConfigSectionSettings::new("general");
+            let general_section_option = ConfigSectionSettings::new("general");
             let mut sec = weechat_config
-                .new_section(general_secion_option)
+                .new_section(general_section_option)
                 .expect("Unable to create general section");
 
             let inner_clone = Weak::clone(&inner);
@@ -143,21 +143,6 @@ impl Config {
             .expect("Unable to create tracing window option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_boolean_option(
-                BooleanOptionSettings::new("show_unknown_user_ids")
-                    .description(
-                        "Should unknown users be shown as @<user-id> instead of @unknown-user",
-                    )
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().show_unknown_user_ids = option.value();
-                    }),
-            )
-            .expect("Unable to create show unknown user ids option");
-
-            let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
                 StringOptionSettings::new("autojoin_private")
                     .description("List of private channels to autojoin")
@@ -189,6 +174,14 @@ impl Config {
                     }),
             )
             .expect("Unable to create autojoin private option");
+        }
+
+        {
+            let inner = Rc::downgrade(&inner);
+            let look_section_options = ConfigSectionSettings::new("look");
+            let mut sec = weechat_config
+                .new_section(look_section_options)
+                .expect("Unable to create look section");
 
             let inner_clone = Weak::clone(&inner);
             sec.new_integer_option(
@@ -223,6 +216,21 @@ impl Config {
                     }),
             )
             .expect("Unable to create typing list style option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_boolean_option(
+                BooleanOptionSettings::new("show_unknown_user_ids")
+                    .description(
+                        "Should unknown users be shown as @<user-id> instead of @unknown-user",
+                    )
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().show_unknown_user_ids = option.value();
+                    }),
+            )
+            .expect("Unable to create show unknown user ids option");
         }
 
         {
@@ -362,18 +370,6 @@ impl Config {
             );
 
         general
-            .search_option("show_unknown_user_ids")
-            .expect("show unknown user ids option must exist")
-            .set(
-                if self.show_unknown_user_ids() {
-                    "true"
-                } else {
-                    "false"
-                },
-                false,
-            );
-
-        general
             .search_option("message_fetch_count")
             .expect("message fetch count option must exist")
             .set(&self.message_fetch_count().to_string(), false);
@@ -391,15 +387,28 @@ impl Config {
                 false,
             );
 
-        general
-            .search_option("typing_list_max")
+        let look = config
+            .search_section("look")
+            .expect("look option section must exist");
+
+        look.search_option("typing_list_max")
             .expect("typing list max option must exist")
             .set(&self.typing_list_max().to_string(), false);
 
-        general
-            .search_option("typing_list_style")
+        look.search_option("typing_list_style")
             .expect("typing list style option must exist")
             .set(&self.typing_list_style().to_string(), false);
+
+        look.search_option("show_unknown_user_ids")
+            .expect("show unknown user ids option must exist")
+            .set(
+                if self.show_unknown_user_ids() {
+                    "true"
+                } else {
+                    "false"
+                },
+                false,
+            );
     }
 }
 

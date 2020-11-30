@@ -23,6 +23,12 @@ jobs:
       run: |
         brew install weechat llvm
         echo LIBCLANG_PATH=$(brew --prefix llvm)/lib/libclang.dylib >> $GITHUB_ENV
+    # NB: We install gnu-tar because BSD tar is buggy on Github's macos machines. https://github.com/actions/cache/issues/403
+    - name: Install GNU tar (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install gnu-tar
+        echo "/usr/local/opt/gnu-tar/libexec/gnubin" >> $GITHUB_PATH
 
     - name: Display Rust and Cargo versions
       run: |
@@ -40,7 +46,7 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo--${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build binaries
       run: cargo build --release

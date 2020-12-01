@@ -486,7 +486,7 @@ impl DiscordCommand {
         });
     }
 
-    fn process_debug_matches(&self, matches: ParsedCommand) {
+    fn process_debug_matches(&self, matches: ParsedCommand, weechat: &Weechat) {
         match matches.subcommand() {
             Some(("buffer", _)) => {
                 for guild in self.instance.borrow_guilds().values() {
@@ -514,6 +514,30 @@ impl DiscordCommand {
                         "Pin Channel [{} {}]: {:?} {}",
                         strng, weak, pins.guild_id, pins.channel_id
                     ));
+                }
+            },
+            Some(("members", _)) => {
+                let conn = self.connection.borrow();
+                let conn = match conn.as_ref() {
+                    Some(conn) => conn.clone(),
+                    None => {
+                        Weechat::print(
+                            "discord: Discord must be connected to view guild members messages",
+                        );
+                        return;
+                    },
+                };
+
+                let buffer = weechat.current_buffer();
+                let guild_id = buffer.guild_id();
+                if let Some(members) = conn.cache.guild_members(guild_id.unwrap()) {
+                    for user_id in members {
+                        Weechat::print(&format!(
+                            "{}: {:?}",
+                            user_id,
+                            conn.cache.member(guild_id.unwrap(), user_id)
+                        ))
+                    }
                 }
             },
             Some(("shutdown", _)) => {
@@ -562,7 +586,8 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             .subcommand(
                 WeechatCommand::new("debug")
                     .subcommand(WeechatCommand::new("buffer"))
-                    .subcommand(WeechatCommand::new("shutdown")),
+                    .subcommand(WeechatCommand::new("shutdown"))
+                    .subcommand(WeechatCommand::new("members")),
             )
             .subcommand(WeechatCommand::new("token").arg("token", true))
             .subcommand(WeechatCommand::new("pins"))
@@ -586,7 +611,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             Some(("token", matches)) => self.token(matches),
             Some(("query", matches)) => self.query(matches),
             Some(("pins", _)) => self.pins(weechat),
-            Some(("debug", matches)) => self.process_debug_matches(matches),
+            Some(("debug", matches)) => self.process_debug_matches(matches, weechat),
             _ => {},
         };
     }
@@ -606,7 +631,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
             .add_completion("query %(discord_dm)")
             .add_completion("pins")
-            .add_completion("debug buffer|shutdown"),
+            .add_completion("debug buffer|shutdown|members"),
         DiscordCommand {
             instance,
             connection,

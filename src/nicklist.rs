@@ -31,9 +31,7 @@ impl Nicklist {
                 let member_display_name = colorize_string(&member.display_name(), &member_color);
                 if let Some(role) = member.highest_role_info(&self.conn.cache) {
                     let role_color = Color::new(role.color).as_8bit().to_string();
-                    if let Ok(group) =
-                        buffer.add_nicklist_group(&role.name, &role_color, true, None)
-                    {
+                    if let Some(group) = buffer.search_nicklist_group(&role.name) {
                         if group
                             .add_nick(NickSettings::new(&member_display_name))
                             .is_err()
@@ -41,11 +39,22 @@ impl Nicklist {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
                     } else {
-                        if buffer
-                            .add_nick(NickSettings::new(&member_display_name))
-                            .is_err()
+                        if let Ok(group) =
+                            buffer.add_nicklist_group(&role.name, &role_color, true, None)
                         {
-                            tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
+                            if group
+                                .add_nick(NickSettings::new(&member_display_name))
+                                .is_err()
+                            {
+                                tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
+                            }
+                        } else {
+                            if buffer
+                                .add_nick(NickSettings::new(&member_display_name))
+                                .is_err()
+                            {
+                                tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
+                            }
                         }
                     }
                 } else {

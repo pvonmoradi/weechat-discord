@@ -22,11 +22,12 @@ pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -
         .clone()
         .unwrap_or_else(|| member.user.name.clone());
 
-    let nick = format!("{}{}", if at { "@" } else { "" }, nick);
+    let nick_prefix = if at { "@" } else { "" };
+    let nick = format!("{}{}", nick_prefix, nick);
 
     color
         .map(|color| colorize_string(&nick, &color.as_8bit().to_string()))
-        .unwrap_or_else(|| format!("@{}", member.user.name.clone()))
+        .unwrap_or_else(|| format!("{}{}", nick_prefix, member.user.name.clone()))
 }
 
 #[allow(dead_code)]

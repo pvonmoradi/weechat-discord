@@ -33,39 +33,62 @@ impl Config {
     }
 }
 
-#[derive(Clone)]
-pub struct InnerConfig {
-    pub token: Option<String>,
-    pub log_directive: String,
+pub struct LookConfig {
+    pub nick_prefix: String,
+    pub nick_suffix: String,
     pub auto_open_tracing: bool,
+    pub typing_list_style: i32,
+    pub typing_list_max: i32,
     pub show_unknown_user_ids: bool,
     pub message_fetch_count: i32,
-    pub nick_prefix: String,
-    pub nick_prefix_color: String,
-    pub nick_suffix: String,
-    pub nick_suffix_color: String,
-    pub guilds: HashMap<GuildId, GuildConfig>,
-    pub autojoin_private: Vec<ChannelId>,
-    pub typing_list_max: i32,
-    pub typing_list_style: i32,
 }
 
-impl InnerConfig {
-    pub fn new() -> InnerConfig {
-        InnerConfig {
-            token: None,
-            log_directive: "".to_string(),
+impl Default for LookConfig {
+    fn default() -> LookConfig {
+        LookConfig {
             auto_open_tracing: false,
             show_unknown_user_ids: false,
-            message_fetch_count: 50,
             nick_prefix: "".to_string(),
-            nick_prefix_color: "".to_string(),
             nick_suffix: "".to_string(),
-            nick_suffix_color: "".to_string(),
-            guilds: HashMap::new(),
-            autojoin_private: Vec::new(),
             typing_list_max: 5,
             typing_list_style: 0,
+            message_fetch_count: 50,
+        }
+    }
+}
+
+pub struct ColorConfig {
+    pub nick_prefix_color: String,
+    pub nick_suffix_color: String,
+}
+
+impl Default for ColorConfig {
+    fn default() -> ColorConfig {
+        ColorConfig {
+            nick_prefix_color: "".to_string(),
+            nick_suffix_color: "".to_string(),
+        }
+    }
+}
+
+pub struct InnerConfig {
+    pub look: LookConfig,
+    pub color: ColorConfig,
+    pub token: Option<String>,
+    pub log_directive: String,
+    pub guilds: HashMap<GuildId, GuildConfig>,
+    pub autojoin_private: Vec<ChannelId>,
+}
+
+impl Default for InnerConfig {
+    fn default() -> InnerConfig {
+        InnerConfig {
+            look: LookConfig::default(),
+            color: ColorConfig::default(),
+            token: None,
+            log_directive: "".to_string(),
+            guilds: HashMap::new(),
+            autojoin_private: Vec::new(),
         }
     }
 }
@@ -73,7 +96,7 @@ impl InnerConfig {
 impl Config {
     pub fn new() -> Config {
         let mut weechat_config = WeechatConfig::new("weecord").expect("Can't create new config");
-        let inner = Rc::new(RefCell::new(InnerConfig::new()));
+        let inner = Rc::new(RefCell::new(InnerConfig::default()));
 
         {
             let inner = Rc::downgrade(&inner);
@@ -96,22 +119,6 @@ impl Config {
             .expect("Unable to create token option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
-                IntegerOptionSettings::new("message_fetch_count")
-                    .description("Number of messages to fetch when opening a buffer")
-                    .default_value(50)
-                    .min(0)
-                    .max(100)
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().message_fetch_count = option.value();
-                    }),
-            )
-            .expect("Unable to create message fetch count option");
-
-            let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
                 StringOptionSettings::new("log_directive")
                     .description("tracing-style env-logger directive to configure plugin logging")
@@ -128,19 +135,6 @@ impl Config {
                     }),
             )
             .expect("Unable to create tracing level option");
-
-            let inner_clone = Weak::clone(&inner);
-            sec.new_boolean_option(
-                BooleanOptionSettings::new("open_tracing_window")
-                    .description("Should the tracing window be opened automatically")
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().auto_open_tracing = option.value();
-                    }),
-            )
-            .expect("Unable to create tracing window option");
 
             let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
@@ -184,6 +178,35 @@ impl Config {
                 .expect("Unable to create look section");
 
             let inner_clone = Weak::clone(&inner);
+            sec.new_boolean_option(
+                BooleanOptionSettings::new("open_tracing_window")
+                    .description("Should the tracing window be opened automatically")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.auto_open_tracing = option.value();
+                    }),
+            )
+            .expect("Unable to create tracing window option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("message_fetch_count")
+                    .description("Number of messages to fetch when opening a buffer")
+                    .default_value(50)
+                    .min(0)
+                    .max(100)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.message_fetch_count = option.value();
+                    }),
+            )
+            .expect("Unable to create message fetch count option");
+
+            let inner_clone = Weak::clone(&inner);
             sec.new_integer_option(
                 IntegerOptionSettings::new("typing_list_max")
                     .description("Maximum number of users to display in the typing list")
@@ -195,7 +218,7 @@ impl Config {
                             .upgrade()
                             .expect("Outer config has outlived inner config");
 
-                        inner.borrow_mut().typing_list_max = option.value();
+                        inner.borrow_mut().look.typing_list_max = option.value();
                     }),
             )
             .expect("Unable to create typing list max option");
@@ -212,7 +235,7 @@ impl Config {
                             .upgrade()
                             .expect("Outer config has outlived inner config");
 
-                        inner.borrow_mut().typing_list_style = option.value();
+                        inner.borrow_mut().look.typing_list_style = option.value();
                     }),
             )
             .expect("Unable to create typing list style option");
@@ -227,7 +250,7 @@ impl Config {
                         let inner = inner_clone
                             .upgrade()
                             .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().show_unknown_user_ids = option.value();
+                        inner.borrow_mut().look.show_unknown_user_ids = option.value();
                     }),
             )
             .expect("Unable to create show unknown user ids option");
@@ -290,11 +313,11 @@ impl Config {
     }
 
     pub fn auto_open_tracing(&self) -> bool {
-        self.inner.borrow().auto_open_tracing
+        self.inner.borrow().look.auto_open_tracing
     }
 
     pub fn show_unknown_user_ids(&self) -> bool {
-        self.inner.borrow().show_unknown_user_ids
+        self.inner.borrow().look.show_unknown_user_ids
     }
 
     pub fn token(&self) -> Option<String> {
@@ -306,23 +329,23 @@ impl Config {
     }
 
     pub fn message_fetch_count(&self) -> i32 {
-        self.inner.borrow().message_fetch_count
+        self.inner.borrow().look.message_fetch_count
     }
 
     pub fn nick_prefix(&self) -> String {
-        self.inner.borrow().nick_prefix.clone()
+        self.inner.borrow().look.nick_prefix.clone()
     }
 
     pub fn nick_prefix_color(&self) -> String {
-        self.inner.borrow().nick_prefix_color.clone()
+        self.inner.borrow().color.nick_prefix_color.clone()
     }
 
     pub fn nick_suffix(&self) -> String {
-        self.inner.borrow().nick_suffix.clone()
+        self.inner.borrow().look.nick_suffix.clone()
     }
 
     pub fn nick_suffix_color(&self) -> String {
-        self.inner.borrow().nick_suffix_color.clone()
+        self.inner.borrow().color.nick_suffix_color.clone()
     }
 
     pub fn guilds(&self) -> HashMap<GuildId, GuildConfig> {
@@ -334,11 +357,11 @@ impl Config {
     }
 
     pub fn typing_list_max(&self) -> i32 {
-        self.inner.borrow().typing_list_max
+        self.inner.borrow().look.typing_list_max
     }
 
     pub fn typing_list_style(&self) -> i32 {
-        self.inner.borrow().typing_list_style
+        self.inner.borrow().look.typing_list_style
     }
 
     pub fn persist(&self) {
@@ -356,23 +379,6 @@ impl Config {
             .search_option("log_directive")
             .expect("log directive option must exist")
             .set(&self.log_directive(), false);
-
-        general
-            .search_option("open_tracing_window")
-            .expect("log directive option must exist")
-            .set(
-                if self.auto_open_tracing() {
-                    "true"
-                } else {
-                    "false"
-                },
-                false,
-            );
-
-        general
-            .search_option("message_fetch_count")
-            .expect("message fetch count option must exist")
-            .set(&self.message_fetch_count().to_string(), false);
 
         general
             .search_option("autojoin_private")
@@ -403,6 +409,21 @@ impl Config {
             .expect("show unknown user ids option must exist")
             .set(
                 if self.show_unknown_user_ids() {
+                    "true"
+                } else {
+                    "false"
+                },
+                false,
+            );
+
+        look.search_option("message_fetch_count")
+            .expect("message fetch count option must exist")
+            .set(&self.message_fetch_count().to_string(), false);
+
+        look.search_option("open_tracing_window")
+            .expect("log directive option must exist")
+            .set(
+                if self.auto_open_tracing() {
                     "true"
                 } else {
                     "false"

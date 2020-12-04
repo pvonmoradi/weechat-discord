@@ -62,7 +62,12 @@ pub fn clean_all(
                         None
                     }
                 } else {
-                    cache.user(id).map(|user| format!("@{}", user.name))
+                    cache.user(id).map(|user| {
+                        format!(
+                            "@{}",
+                            crate::utils::color::colorize_weechat_nick(&user.name)
+                        )
+                    })
                 };
                 if let Some(replacement) = replacement {
                     out = out.replace(&input[start..end], &replacement);

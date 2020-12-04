@@ -30,7 +30,6 @@ pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -
         .unwrap_or_else(|| format!("{}{}", nick_prefix, member.user.name.clone()))
 }
 
-#[allow(dead_code)]
 pub fn colorize_weechat_nick(nick: &str) -> String {
     let color = Weechat::info_get("nick_color_name", nick).unwrap_or_else(|| "reset".into());
 

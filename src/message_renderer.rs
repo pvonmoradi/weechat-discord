@@ -2,7 +2,7 @@ use crate::{
     config::Config, discord::discord_connection::ConnectionInner, refcell::RefCell,
     twilight_utils::ext::MessageExt,
 };
-use std::{rc::Rc, sync::Arc};
+use std::{collections::VecDeque, rc::Rc, sync::Arc};
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::Message,
@@ -15,7 +15,7 @@ pub struct MessageRender {
     pub buffer_handle: Rc<BufferHandle>,
     conn: ConnectionInner,
     config: Config,
-    messages: Arc<RefCell<Vec<Message>>>,
+    messages: Arc<RefCell<VecDeque<Message>>>,
 }
 
 impl MessageRender {
@@ -28,7 +28,7 @@ impl MessageRender {
             buffer_handle,
             conn: connection.clone(),
             config: config.clone(),
-            messages: Arc::new(RefCell::new(Vec::new())),
+            messages: Arc::new(RefCell::new(VecDeque::new())),
         }
     }
 
@@ -59,10 +59,11 @@ impl MessageRender {
             .expect("message renderer outlived buffer")
             .clear();
         let mut unknown_members = Vec::new();
-        for message in self.messages.borrow().iter() {
+        for message in self.messages.borrow().iter().rev() {
             self.print_msg(cache, &message, false, &mut unknown_members);
         }
 
+        // TODO: Use drain_filter when it stabilizes
         for user in ignore_users {
             // TODO: Vec::remove_item when it stabilizes
             // TODO: Make unknown_members a hashset?
@@ -71,7 +72,7 @@ impl MessageRender {
             }
         }
 
-        if let Some(first_msg) = self.messages.borrow().first() {
+        if let Some(first_msg) = self.messages.borrow().front() {
             if !unknown_members.is_empty() {
                 if let Some(guild_id) = first_msg.guild_id {
                     self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
@@ -82,10 +83,12 @@ impl MessageRender {
 
     pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
         let mut unknown_members = Vec::new();
-        for msg in msgs {
+        let max_msgs = self.config.max_buffer_messages() as usize;
+        let mut messages = self.messages.borrow_mut();
+        messages.extend(msgs.iter().rev().take(max_msgs).cloned());
+        messages.truncate(max_msgs);
+        for msg in messages.iter().rev() {
             self.print_msg(cache, msg, false, &mut unknown_members);
-
-            self.messages.borrow_mut().push(msg.clone());
         }
 
         if let Some(first_msg) = msgs.first() {
@@ -99,7 +102,9 @@ impl MessageRender {
         let mut unknown_members = Vec::new();
         self.print_msg(cache, msg, notify, &mut unknown_members);
 
-        self.messages.borrow_mut().push(msg.clone());
+        let mut messages = self.messages.borrow_mut();
+        messages.push_front(msg.clone());
+        messages.truncate(self.config.max_buffer_messages() as usize);
 
         if let Some(guild_id) = msg.guild_id {
             self.fetch_guild_members(unknown_members, msg.channel_id, guild_id);

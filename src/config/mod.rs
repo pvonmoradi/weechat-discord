@@ -78,6 +78,8 @@ pub struct InnerConfig {
     pub log_directive: String,
     pub guilds: HashMap<GuildId, GuildConfig>,
     pub autojoin_private: Vec<ChannelId>,
+    // Should we use value of weechat.history.max_buffer_lines_number here instead?
+    pub max_buffer_messages: i32,
 }
 
 impl Default for InnerConfig {
@@ -89,6 +91,7 @@ impl Default for InnerConfig {
             log_directive: "".to_string(),
             guilds: HashMap::new(),
             autojoin_private: Vec::new(),
+            max_buffer_messages: 4096,
         }
     }
 }
@@ -168,6 +171,22 @@ impl Config {
                     }),
             )
             .expect("Unable to create autojoin private option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("max_buffer_messages")
+                    .description("maximum number of messages to store in the internal buffer")
+                    .default_value(4096)
+                    .max(i32::max_value())
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+
+                        inner.borrow_mut().max_buffer_messages = option.value();
+                    }),
+            )
+            .expect("Unable to create max buffer messages option");
         }
 
         {
@@ -360,6 +379,10 @@ impl Config {
         self.inner.borrow().look.typing_list_max
     }
 
+    pub fn max_buffer_messages(&self) -> i32 {
+        self.inner.borrow().max_buffer_messages
+    }
+
     pub fn typing_list_style(&self) -> i32 {
         self.inner.borrow().look.typing_list_style
     }
@@ -392,6 +415,11 @@ impl Config {
                     .join(","),
                 false,
             );
+
+        general
+            .search_option("max_buffer_messages")
+            .expect("max buffer messages option must exist")
+            .set(&self.max_buffer_messages().to_string(), false);
 
         let look = config
             .search_section("look")

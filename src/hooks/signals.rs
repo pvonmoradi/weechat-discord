@@ -33,29 +33,37 @@ impl Signals {
                         buffer.set_history_loaded();
                         let connection = connection.clone();
                         Weechat::spawn(async move {
-                            tracing::trace!(?guild_id, ?channel_id, "Loading history");
-                            if let Err(e) = channel.load_history().await {
-                                tracing::error!(
-                                    ?guild_id,
-                                    ?channel_id,
-                                    "Error loading channel history: {}",
-                                    e
-                                );
-                            }
-
-                            if let Err(e) = channel.load_users().await {
-                                tracing::error!(
-                                    ?guild_id,
-                                    ?channel_id,
-                                    "Error loading channel member list: {}",
-                                    e
-                                );
-                            }
-
+                            tracing::trace!(?guild_id, ?channel_id, "Sending channel subscription");
                             if let Some(guild_id) = guild_id {
                                 connection
                                     .send_guild_subscription(guild_id, channel_id)
                                     .await;
+                            }
+                        });
+                        Weechat::spawn({
+                            let channel = channel.clone();
+                            async move {
+                                tracing::trace!(?guild_id, ?channel_id, "Loading history");
+                                if let Err(e) = channel.load_history().await {
+                                    tracing::error!(
+                                        ?guild_id,
+                                        ?channel_id,
+                                        "Error loading channel history: {}",
+                                        e
+                                    );
+                                }
+                            }
+                        });
+                        Weechat::spawn({
+                            async move {
+                                if let Err(e) = channel.load_users().await {
+                                    tracing::error!(
+                                        ?guild_id,
+                                        ?channel_id,
+                                        "Error loading channel member list: {}",
+                                        e
+                                    );
+                                }
                             }
                         });
                     }

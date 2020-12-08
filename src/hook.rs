@@ -6,7 +6,11 @@ use crate::{
 };
 use crossbeam_channel::unbounded;
 use lazy_static::lazy_static;
-use serenity::{client::bridge::gateway, model::prelude::*, prelude::*};
+use serenity::{
+    client::bridge::gateway,
+    model::{channel::ReactionType, prelude::*},
+    prelude::*,
+};
 use std::{
     iter::FromIterator,
     sync::Arc,
@@ -179,6 +183,28 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                         ));
                     }
                 },
+            }
+            return;
+        }
+        if let Some(reaction) = parsing::parse_reaction(text) {
+            if let Ok(msgs) =
+                channel.messages(ctx, |retriever| retriever.limit(reaction.line as u64))
+            {
+                for (i, msg) in msgs.iter().enumerate() {
+                    if i + 1 == reaction.line {
+                        if reaction.add {
+                            let _ =
+                                msg.react(ctx, ReactionType::Unicode(reaction.unicode.to_string()));
+                        } else {
+                            let _ = channel.delete_reaction(
+                                &ctx,
+                                msg.id,
+                                None,
+                                ReactionType::Unicode(reaction.unicode.to_string()),
+                            );
+                        }
+                    }
+                }
             }
             return;
         }

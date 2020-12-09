@@ -242,6 +242,26 @@ mod formatting_utils {
             }
         }
 
+        if msg.reactions.len() > 0 {
+            msg_content.push('\n');
+        }
+
+        use serenity::model::channel::ReactionType;
+        for reaction in &msg.reactions {
+            match &reaction.reaction_type {
+                ReactionType::Custom { name, .. } => name.clone(),
+                ReactionType::Unicode(s) => Some(s.clone()),
+                _ => None,
+            }
+            .map(|reaction_string| {
+                msg_content.push_str(&format!("[{} {}] ", reaction_string, reaction.count).as_str())
+            });
+        }
+
+        if msg.reactions.len() > 0 {
+            msg_content.push('\n');
+        }
+
         let mut prefix = String::new();
 
         if let Some(nick_prefix) = weechat.get_string_option("weechat.look.nick_prefix") {

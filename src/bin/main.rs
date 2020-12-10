@@ -40,7 +40,7 @@ fn main() {
 }
 
 fn format() -> Result<()> {
-    run("cargo", &["fmt"]).ignore()
+    run("cargo", &["+nightly", "fmt"]).ignore()
 }
 
 fn run_weechat(weechat_home: &Path) -> Result<()> {

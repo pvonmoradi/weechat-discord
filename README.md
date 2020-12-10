@@ -1,9 +1,8 @@
 # Weechat Discord
 
-
 ## Warning
 
-The developer of [cordless](https://github.com/Bios-Marcel/cordless) (another 3rd party client) has had his [account banned for using a 3rd party client](https://github.com/Bios-Marcel/cordless#i-am-closing-down-the-cordless-project). 
+The developer of [cordless](https://github.com/Bios-Marcel/cordless) (another 3rd party client) has had his [account banned for using a 3rd party client](https://github.com/Bios-Marcel/cordless#i-am-closing-down-the-cordless-project).
 
 ***It is very possible Discord is now actively enforcing TOS violations, I cannot recommending using this project with an account you are not ok with loosing***
 
@@ -13,7 +12,7 @@ The developer of [cordless](https://github.com/Bios-Marcel/cordless) (another 3r
 
 This client makes use of the Discord "user api" and is can be viewed as a "self-bot".
 
-This client does not abuse the api, however it is still a violation of the TOS and makes use of undocumented "client only" 
+This client does not abuse the api, however it is still a violation of the TOS and makes use of undocumented "client only"
 apis.
 
 Use at your own risk: Using this program could get your account or ip disabled, banned, etc.
@@ -67,7 +66,7 @@ Other commands include:
 * `cargo run -- fmt` - Builds and formats the repo
 * `cargo run` - Is the same as `cargo run -- test`
 
-The global weechat home directory defaults to `~/.weechat` and can be changed by setting `WEECHAT_HOME` and the test 
+The global weechat home directory defaults to `~/.weechat` and can be changed by setting `WEECHAT_HOME` and the test
 dir defaults to `./test_dir/` and can be changed by setting `WEECHAT_TEST_DIR`
 
 ### Setup
@@ -91,8 +90,7 @@ Once you have your token you can run
 /discord token 123456789ABCDEF
 ```
 
-However, this saves your token insecurely in `$WEECHAT_HOME/weecord.conf`, so it is recommended you use 
-[secure data](https://weechat.org/blog/post/2013/08/04/Secured-data).
+However, this saves your token insecurely in `$WEECHAT_HOME/weecord.conf`, so it is recommended you use [secure data](https://weechat.org/blog/post/2013/08/04/Secured-data).
 If you saved your token as `discord_token` then you would run
 
 ```
@@ -144,3 +142,8 @@ Weechat does not search for macos dynamic libraries (.dylib) by default, this ca
 ```
 /set weechat.plugin.extension ".so,.dll,.dylib"
 ```
+
+## Contributing
+
+PRs are welcome.
+Please ensure that the source is formatted by running `cargo run -- fmt` (the code builds on stable but uses nightly rustfmt). 

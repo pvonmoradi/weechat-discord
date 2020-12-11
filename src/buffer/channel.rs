@@ -444,7 +444,7 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                 } else {
                     tracing::warn!("Unable to find message n {}", line);
                     Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("Unable to locate message n = {}", line))
+                        Weechat::print(&format!("discord: unable to locate message n = {}", line))
                     })
                 };
             },
@@ -458,7 +458,7 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                 } else {
                     tracing::warn!("Unable to find message n {}", line);
                     Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("Unable to locate message n = {}", line))
+                        Weechat::print(&format!("discord: unable to locate message n = {}", line))
                     })
                 };
             },
@@ -467,14 +467,17 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                     if let Err(e) = msg.await {
                         tracing::error!("Failed to send message: {:#?}", e);
                         Weechat::spawn_from_thread(async move {
-                            Weechat::print(&format!("An error occurred sending message: {}", e))
+                            Weechat::print(&format!(
+                                "discord: an error occurred sending message: {}",
+                                e
+                            ))
                         });
                     };
                 },
                 Err(e) => {
                     tracing::error!("Failed to create message: {:#?}", e);
                     Weechat::spawn_from_thread(async {
-                        Weechat::print("Message content's invalid")
+                        Weechat::print("discord: message content is invalid")
                     })
                 },
             },

@@ -27,7 +27,7 @@ impl DiscordCommand {
         let cache = match self.connection.borrow().as_ref() {
             Some(conn) => conn.cache.clone(),
             None => {
-                Weechat::print("discord: Discord must be connected to add servers");
+                Weechat::print("discord: must be connected to add servers");
                 return;
             },
         };
@@ -53,7 +53,7 @@ impl DiscordCommand {
 
                             if !instance.borrow_guilds().contains_key(&guild.id) {
                                 tracing::info!(%guild.id, %guild.name, "Adding guild to config.");
-                                Weechat::print(&format!("discord: Added \"{}\"", guild.name));
+                                Weechat::print(&format!("discord: added \"{}\"", guild.name));
                                 instance.borrow_guilds_mut().insert(
                                     guild.id,
                                     Guild::new(
@@ -66,7 +66,7 @@ impl DiscordCommand {
                             } else {
                                 tracing::info!(%guild.id, %guild.name, "Guild not added to config, already exists.");
                                 Weechat::print(&format!(
-                                    "\"{}\" has already been added",
+                                    "discord: \"{}\" has already been added",
                                     guild.name
                                 ));
                             }
@@ -75,7 +75,10 @@ impl DiscordCommand {
 
                         None => {
                             tracing::info!("Could not find guild: \"{}\"", guild_name);
-                            Weechat::print(&format!("Could not find guild: {}", guild_name));
+                            Weechat::print(&format!(
+                                "discord: could not find guild: {}",
+                                guild_name
+                            ));
                         },
                     };
                 });
@@ -85,11 +88,11 @@ impl DiscordCommand {
 
     fn remove_guild(&self, matches: ParsedCommand) {
         let cache = match self.connection.borrow().as_ref() {
-            Some(conn) => conn.cache.clone(),
             None => {
-                Weechat::print("discord: Discord must be connected to remove servers");
+                Weechat::print("discord: must be connected to remove servers");
                 return;
             },
+            Some(conn) => conn.cache.clone(),
         };
         let guild_name = matches
             .arg("name")
@@ -108,18 +111,18 @@ impl DiscordCommand {
                     Some(guild) => {
                         if instance.borrow_guilds_mut().remove(&guild.id).is_some() {
                             tracing::info!(%guild.id, %guild.name, "Removed guild from config.");
-                            Weechat::print(&format!("discord: Removed \"{}\"", guild.name));
+                            Weechat::print(&format!("discord: removed server \"{}\"", guild.name));
                         } else {
                             tracing::info!(%guild.id, %guild.name, "Guild not added.");
                             Weechat::print(&format!(
-                                "discord: Server \"{}\" not in config",
+                                "discord: server \"{}\" not in config",
                                 guild.name
                             ));
                         }
                     },
                     None => {
-                        tracing::info!("Could not find guild: \"{}\"", guild_name);
-                        Weechat::print(&format!("Could not find guild: {}", guild_name));
+                        tracing::info!("discord: Could not find guild: \"{}\"", guild_name);
+                        Weechat::print(&format!("discord: could not find server: {}", guild_name));
                     },
                 };
             });
@@ -127,7 +130,7 @@ impl DiscordCommand {
     }
 
     fn list_guilds(&self) {
-        Weechat::print("discord: Servers:");
+        Weechat::print("discord: servers:");
 
         if let Some(connection) = self.connection.borrow().as_ref() {
             let cache = connection.cache.clone();
@@ -173,9 +176,7 @@ impl DiscordCommand {
             let conn = match conn.as_ref() {
                 Some(conn) => conn,
                 None => {
-                    Weechat::print(
-                        "discord: Discord must be connected to enable server autoconnect",
-                    );
+                    Weechat::print("discord: must be connected to enable server autoconnect");
                     return;
                 },
             };
@@ -191,21 +192,21 @@ impl DiscordCommand {
                         weechat_guild.guild_config.set_autoconnect(true);
                         weechat_guild.guild_config.persist(&weechat_guild.config);
                         Weechat::print(&format!(
-                            "discord: Now autoconnecting to \"{}\"",
+                            "discord: now autoconnecting to server \"{}\"",
                             guild.name
                         ));
                         let _ = weechat_guild.connect(instance.clone()).await;
                     } else {
                         tracing::info!(%guild.id, %guild.name, "Guild not added.");
                         Weechat::print(&format!(
-                            "discord: Server \"{}\" not in config",
+                            "discord: server \"{}\" not in config",
                             guild.name
                         ));
                     }
                 },
                 None => {
                     tracing::info!("Could not find guild: \"{}\"", guild_name);
-                    Weechat::print(&format!("Could not find guild: {}", guild_name));
+                    Weechat::print(&format!("discord: could not find server: {}", guild_name));
                 },
             };
         });
@@ -223,9 +224,7 @@ impl DiscordCommand {
             let cache = match connection.borrow().as_ref() {
                 Some(conn) => conn.cache.clone(),
                 None => {
-                    Weechat::print(
-                        "discord: Discord must be connected to enable server autoconnect",
-                    );
+                    Weechat::print("discord: must be connected to enable server autoconnect");
                     return;
                 },
             };
@@ -241,20 +240,23 @@ impl DiscordCommand {
                         weechat_guild.guild_config.set_autoconnect(false);
                         weechat_guild.guild_config.persist(&weechat_guild.config);
                         Weechat::print(&format!(
-                            "discord: No longer autoconnecting to \"{}\"",
+                            "discord: no longer autoconnecting to server \"{}\"",
                             guild.name
                         ));
                     } else {
                         tracing::info!(%guild.id, %guild.name, "Guild not added.");
                         Weechat::print(&format!(
-                            "discord: Server \"{}\" not in config",
+                            "discord: server \"{}\" not in config",
                             guild.name
                         ));
                     }
                 },
                 None => {
                     tracing::info!("Could not find guild: \"{}\"", guild_name);
-                    Weechat::print(&format!("Could not find guild: {}", guild_name));
+                    Weechat::print(&format!(
+                        "discord: could not find server: \"{}\"",
+                        guild_name
+                    ));
                 },
             };
         });
@@ -280,7 +282,7 @@ impl DiscordCommand {
             weecord_guild.guild_config.persist(&weecord_guild.config);
             tracing::info!(%weecord_guild.id, channel.id=%channel.id(), "Added channel to autojoin list");
             Weechat::print(&format!(
-                "Added channel {} to autojoin list",
+                "discord: added channel \"{}\" to autojoin list",
                 channel.name()
             ));
 
@@ -299,7 +301,7 @@ impl DiscordCommand {
                     autojoin.remove(pos);
                     tracing::info!(%weecord_guild.id, channel.id=%channel.id(), "Removed channel from autojoin list");
                     Weechat::print(&format!(
-                        "Removed channel {} from autojoin list",
+                        "discord: removed channel \"{}\" from autojoin list",
                         guild.name
                     ));
                 }
@@ -312,7 +314,7 @@ impl DiscordCommand {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             Weechat::spawn(async move {
                 if let Err(e) = weecord_guild.join_channel(&channel, &guild).await {
-                    Weechat::print(&format!("Unable to join channel: {}", e));
+                    Weechat::print(&format!("discord: unable to join channel \"{}\"", e));
                 }
             });
         }
@@ -335,7 +337,7 @@ impl DiscordCommand {
         let connection = match connection.as_ref() {
             Some(conn) => conn,
             None => {
-                Weechat::print("discord: Discord must be connected to join channels");
+                Weechat::print("discord: must be connected to join channels");
                 return None;
             },
         };
@@ -360,13 +362,19 @@ impl DiscordCommand {
                 } else {
                     tracing::warn!(%channel_name, "Unable to find matching channel");
                     Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("Could not find channel: {}", channel_name));
+                        Weechat::print(&format!(
+                            "discord: could not find channel: \"{}\"",
+                            channel_name
+                        ));
                     });
                 }
             } else {
                 tracing::warn!(%channel_name, "Unable to find matching guild");
                 Weechat::spawn_from_thread(async move {
-                    Weechat::print(&format!("Could not find server: {}", guild_name));
+                    Weechat::print(&format!(
+                        "discord: could not find server \"{}\"",
+                        guild_name
+                    ));
                 });
             }
         });
@@ -379,7 +387,10 @@ impl DiscordCommand {
             } else {
                 tracing::warn!(%guild.id, "Guild has not been added to weechat");
                 Weechat::spawn_from_thread(async move {
-                    Weechat::print(&format!("Could not find server in config: {}", guild.name));
+                    Weechat::print(&format!(
+                        "discord: could not find server \"{}\" in config",
+                        guild.name
+                    ));
                 });
                 None
             }
@@ -403,7 +414,7 @@ impl DiscordCommand {
         self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_string());
         self.config.persist();
 
-        Weechat::print("discord: Updated Discord token");
+        Weechat::print("discord: updated token");
         tracing::info!("Updated discord token");
     }
 
@@ -414,7 +425,7 @@ impl DiscordCommand {
         let conn = match conn.as_ref() {
             Some(conn) => conn,
             None => {
-                Weechat::print("discord: Discord must be connected to join channels");
+                Weechat::print("discord: must be connected to join channels");
                 return;
             },
         };
@@ -463,7 +474,7 @@ impl DiscordCommand {
         let conn = match conn.as_ref() {
             Some(conn) => conn.clone(),
             None => {
-                Weechat::print("discord: Discord must be connected to view pinned messages");
+                Weechat::print("discord: must be connected to view pinned messages");
                 return;
             },
         };
@@ -477,7 +488,10 @@ impl DiscordCommand {
             let pins = Pins::new(guild_id, channel_id.unwrap(), conn, &config);
 
             if let Err(e) = pins.load().await {
-                Weechat::print(&format!("An error occurred loading channel pins: {}", e))
+                Weechat::print(&format!(
+                    "discord: an error occurred loading channel pins: {}",
+                    e
+                ))
             };
 
             instance
@@ -521,9 +535,7 @@ impl DiscordCommand {
                 let conn = match conn.as_ref() {
                     Some(conn) => conn.clone(),
                     None => {
-                        Weechat::print(
-                            "discord: Discord must be connected to view guild members messages",
-                        );
+                        Weechat::print("discord: must be connected to view guild members messages");
                         return;
                     },
                 };
@@ -600,7 +612,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             },
             Err(err) => {
                 tracing::error!("Error parsing command: \"{:?}\" {:?}", args, err);
-                Weechat::print(&format!("{}", err));
+                Weechat::print(&format!("discord: {}", err));
                 return;
             },
         };

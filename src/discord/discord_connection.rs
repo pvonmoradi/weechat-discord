@@ -70,7 +70,7 @@ impl DiscordConnection {
                         if status.as_u16() == 401 {
                             Weechat::spawn_from_thread(async move {
                                 Weechat::print(
-                                    "Discord: Unauthorized: Check that your token is valid",
+                                    "discord: unauthorized: check that your token is valid",
                                 )
                             });
                         }
@@ -171,7 +171,7 @@ impl DiscordConnection {
             let event = match rx.recv().await {
                 Some(e) => e,
                 None => {
-                    Weechat::print("Error receiving message");
+                    Weechat::print("discord: error receiving message");
                     return;
                 },
             };

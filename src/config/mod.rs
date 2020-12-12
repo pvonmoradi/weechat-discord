@@ -294,10 +294,9 @@ impl Config {
                             let guilds = &mut inner.borrow_mut().guilds;
 
                             if let Ok(guild_id) = guild_id.parse().map(GuildId) {
-                                if !guilds.contains_key(&guild_id) {
-                                    let guild = GuildConfig::new(section, guild_id);
-                                    guilds.insert(guild_id, guild);
-                                }
+                                guilds
+                                    .entry(guild_id)
+                                    .or_insert_with(|| GuildConfig::new(section, guild_id));
                             }
                         }
 

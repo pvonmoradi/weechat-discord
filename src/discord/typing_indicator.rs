@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::VecDeque,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -6,7 +7,7 @@ use twilight_model::id::{ChannelId, GuildId, UserId};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
-#[derive(Debug, PartialEq, Eq, Ord)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TypingEntry {
     pub channel_id: ChannelId,
     pub guild_id: Option<GuildId>,
@@ -16,8 +17,14 @@ pub struct TypingEntry {
 }
 
 impl PartialOrd for TypingEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.time.partial_cmp(&other.time)
+    }
+}
+
+impl Ord for TypingEntry {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.time.cmp(&other.time)
     }
 }
 

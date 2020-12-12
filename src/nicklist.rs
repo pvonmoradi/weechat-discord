@@ -38,32 +38,26 @@ impl Nicklist {
                         {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
-                    } else {
-                        if let Ok(group) =
-                            buffer.add_nicklist_group(&role.name, &role_color, true, None)
+                    } else if let Ok(group) =
+                        buffer.add_nicklist_group(&role.name, &role_color, true, None)
+                    {
+                        if group
+                            .add_nick(NickSettings::new(&member_display_name))
+                            .is_err()
                         {
-                            if group
-                                .add_nick(NickSettings::new(&member_display_name))
-                                .is_err()
-                            {
-                                tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
-                            }
-                        } else {
-                            if buffer
-                                .add_nick(NickSettings::new(&member_display_name))
-                                .is_err()
-                            {
-                                tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
-                            }
+                            tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
-                    }
-                } else {
-                    if buffer
+                    } else if buffer
                         .add_nick(NickSettings::new(&member_display_name))
                         .is_err()
                     {
                         tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
                     }
+                } else if buffer
+                    .add_nick(NickSettings::new(&member_display_name))
+                    .is_err()
+                {
+                    tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
                 }
             }
         }

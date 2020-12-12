@@ -34,6 +34,7 @@ pub struct GuildChannelBuffer {
 }
 
 impl GuildChannelBuffer {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: &str,
         nick: &str,
@@ -199,11 +200,10 @@ enum ChannelBufferVariants {
 impl ChannelBufferVariants {
     fn renderer(&self) -> &MessageRender {
         use ChannelBufferVariants::*;
-        let renderer = match self {
+        match self {
             GuildChannel(buffer) => &buffer.renderer,
             PrivateChannel(buffer) => &buffer.renderer,
-        };
-        renderer
+        }
     }
 
     pub fn close(&self) {
@@ -553,19 +553,17 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                                         ))
                                     });
                                 }
-                            } else {
-                                if let Err(e) = http
-                                    .delete_current_user_reaction(id, msg.id, reaction_type)
-                                    .await
-                                {
-                                    tracing::error!("Failed to remove reaction: {:#?}", e);
-                                    Weechat::spawn_from_thread(async move {
-                                        Weechat::print(&format!(
-                                            "discord: an error occurred removing reaction: {}",
-                                            e
-                                        ))
-                                    });
-                                }
+                            } else if let Err(e) = http
+                                .delete_current_user_reaction(id, msg.id, reaction_type)
+                                .await
+                            {
+                                tracing::error!("Failed to remove reaction: {:#?}", e);
+                                Weechat::spawn_from_thread(async move {
+                                    Weechat::print(&format!(
+                                        "discord: an error occurred removing reaction: {}",
+                                        e
+                                    ))
+                                });
                             }
                         }
                     };

@@ -70,9 +70,7 @@ impl DiscordCommand {
                                     guild.name
                                 ));
                             }
-                            return;
                         },
-
                         None => {
                             tracing::info!("Could not find guild: \"{}\"", guild_name);
                             Weechat::print(&format!(

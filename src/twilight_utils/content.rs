@@ -95,7 +95,7 @@ pub fn clean_all(
         }
     }
 
-    return out;
+    out
 }
 
 pub fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {

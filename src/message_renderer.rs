@@ -295,7 +295,7 @@ fn render_msg(
         }
     }
 
-    if msg.reactions.len() > 0 {
+    if !msg.reactions.is_empty() {
         msg_content.push_str(&format!(" {}", Weechat::color("8")));
     }
 
@@ -313,8 +313,8 @@ fn render_msg(
             .join(" "),
     );
 
-    if msg.reactions.len() > 0 {
-        msg_content.push_str(&format!("{}", Weechat::color("-8")));
+    if !msg.reactions.is_empty() {
+        msg_content.push_str(&Weechat::color("-8"));
     }
 
     let mut prefix = String::new();

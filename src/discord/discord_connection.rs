@@ -11,7 +11,6 @@ use once_cell::sync::Lazy;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    iter::FromIterator,
     sync::Arc,
     time::Duration,
 };
@@ -133,14 +132,13 @@ impl DiscordConnection {
             let send = if let Some(guild_channels) = channels.get_mut(&guild_id) {
                 guild_channels.insert(channel_id)
             } else {
-                channels.insert(guild_id, HashSet::from_iter(vec![channel_id].into_iter()));
+                channels.insert(guild_id, vec![channel_id].into_iter().collect());
                 true
             };
 
             if send {
                 let channels = channels.get(&guild_id).unwrap();
-                let channels_obj =
-                    HashMap::from_iter(channels.iter().map(|&ch| (ch, vec![vec![0, 99]])));
+                let channels_obj = channels.iter().map(|&ch| (ch, vec![vec![0, 99]])).collect();
                 if let Err(e) = inner
                     .shard
                     .command(&super::custom_commands::GuildSubscription {

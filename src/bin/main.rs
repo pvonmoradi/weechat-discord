@@ -18,12 +18,12 @@ fn main() {
     };
 
     let install_test = {
-        let test_dir = test_dir.clone();
+        let test_dir = test_dir;
         move || install_test(&test_dir)
     };
 
     let install_release = {
-        let weechat_home = weechat_home.clone();
+        let weechat_home = weechat_home;
         move || install_release(&weechat_home)
     };
 

@@ -61,7 +61,7 @@ impl BarItems {
                     None => return "".into(),
                 };
 
-                return match &*channel {
+                match &*channel {
                     GuildChannel::Category(_) => "".into(),
                     GuildChannel::Text(channel) => match channel.rate_limit_per_user {
                         None => "".into(),
@@ -74,7 +74,7 @@ impl BarItems {
                         },
                     },
                     GuildChannel::Voice(_) => "".into(),
-                };
+                }
             },
         )
         .expect("Unable to create slowmode bar item");
@@ -98,7 +98,7 @@ fn terse_typing_list(
 
     let mut users = head.join(", ");
     if has_more {
-        users = users + ", ...";
+        users += ", ...";
     }
     if users.is_empty() {
         "".into()

@@ -117,7 +117,7 @@ impl Guild {
         if let Some(guild) = inner.conn.cache.guild(self.id) {
             inner
                 .buffer
-                .replace(GuildBuffer::new(&guild.name, guild.id, instance.clone())?);
+                .replace(GuildBuffer::new(&guild.name, guild.id, instance)?);
 
             let conn = inner.conn.clone();
             for auto_channel_id in self.guild_config.autojoin_channels() {

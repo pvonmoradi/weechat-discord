@@ -5,7 +5,7 @@ use crate::{
 use std::{collections::VecDeque, rc::Rc, sync::Arc};
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
-    channel::Message,
+    channel::{Message, ReactionType},
     gateway::payload::{MessageUpdate, RequestGuildMembers},
     id::{ChannelId, GuildId, MessageId, UserId},
 };
@@ -111,6 +111,20 @@ impl MessageRender {
         }
     }
 
+    pub fn update_message<F>(&self, id: MessageId, f: F)
+    where
+        F: FnOnce(&mut Message),
+    {
+        if let Some(msg) = self
+            .messages
+            .borrow_mut()
+            .iter_mut()
+            .find(|msg| msg.id == id)
+        {
+            f(msg)
+        }
+    }
+
     pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
         let index = self.messages.borrow().iter().position(|it| it.id == id);
         if let Some(index) = index {
@@ -119,16 +133,8 @@ impl MessageRender {
         self.redraw_buffer(cache, &[]);
     }
 
-    pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
-        if let Some(old_msg) = self
-            .messages
-            .borrow_mut()
-            .iter_mut()
-            .find(|it| it.id == update.id)
-        {
-            old_msg.update(update);
-        }
-
+    pub fn apply_message_update(&self, cache: &Cache, update: MessageUpdate) {
+        self.update_message(update.id, |msg| msg.update(update));
         self.redraw_buffer(cache, &[]);
     }
 
@@ -288,6 +294,28 @@ fn render_msg(
             );
             msg_content.push('\n');
         }
+    }
+
+    if msg.reactions.len() > 0 {
+        msg_content.push_str(&format!(" {}", Weechat::color("8")));
+    }
+
+    msg_content.push_str(
+        &msg.reactions
+            .iter()
+            .flat_map(|reaction| {
+                match &reaction.emoji {
+                    ReactionType::Custom { name, .. } => name.clone().map(|n| format!(":{}:", n)),
+                    ReactionType::Unicode { name } => Some(name.clone()),
+                }
+                .map(|e| format!("[{} {}]", e, reaction.count))
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+    );
+
+    if msg.reactions.len() > 0 {
+        msg_content.push_str(&format!("{}", Weechat::color("-8")));
     }
 
     let mut prefix = String::new();

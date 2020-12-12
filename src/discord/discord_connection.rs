@@ -360,6 +360,57 @@ impl DiscordConnection {
                         Weechat::bar_item_update("discord_slowmode_cooldown")
                     }
                 },
+                PluginMessage::ReactionAdd(reaction_add) => {
+                    let reaction = reaction_add.0;
+                    if let Some(guild_id) = reaction.guild_id {
+                        let channels = match instance.borrow_guilds().get(&guild_id) {
+                            Some(guild) => guild.channels(),
+                            None => continue,
+                        };
+
+                        let channel = match channels.get(&reaction.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.add_reaction(&conn.cache, reaction);
+                    } else {
+                        let private_channels = instance.borrow_private_channels_mut();
+                        let channel = match private_channels.get(&reaction.channel_id) {
+                            Some(channel) => channel,
+                            None => continue,
+                        };
+
+                        channel.add_reaction(&conn.cache, reaction);
+                    }
+                },
+                PluginMessage::ReactionRemove(reaction_remove) => {
+                    let reaction = reaction_remove.0;
+                    match reaction.guild_id {
+                        Some(guild_id) => {
+                            let channels = match instance.borrow_guilds().get(&guild_id) {
+                                Some(guild) => guild.channels(),
+                                None => continue,
+                            };
+
+                            let channel = match channels.get(&reaction.channel_id) {
+                                Some(channel) => channel,
+                                None => continue,
+                            };
+
+                            channel.remove_reaction(&conn.cache, reaction);
+                        },
+                        _ => {
+                            let private_channels = instance.borrow_private_channels_mut();
+                            let channel = match private_channels.get(&reaction.channel_id) {
+                                Some(channel) => channel,
+                                None => continue,
+                            };
+
+                            channel.remove_reaction(&conn.cache, reaction);
+                        },
+                    }
+                },
             }
         }
     }
@@ -415,6 +466,16 @@ impl DiscordConnection {
                 .expect("Receiving thread has died"),
             GatewayEvent::ChannelUpdate(channel_update) => tx
                 .send(PluginMessage::ChannelUpdate(channel_update))
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+            GatewayEvent::ReactionAdd(reaction_add) => tx
+                .send(PluginMessage::ReactionAdd(reaction_add))
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+            GatewayEvent::ReactionRemove(reaction_remove) => tx
+                .send(PluginMessage::ReactionRemove(reaction_remove))
                 .await
                 .ok()
                 .expect("Receiving thread has died"),

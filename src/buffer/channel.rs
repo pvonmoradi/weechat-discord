@@ -16,7 +16,8 @@ use twilight_cache_inmemory::{
 use twilight_http::Client as HttpClient;
 use twilight_model::{
     channel::{
-        GuildChannel as TwilightGuildChannel, Message, PrivateChannel as TwilightPrivateChannel,
+        message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
+        PrivateChannel as TwilightPrivateChannel, Reaction,
     },
     gateway::payload::MessageUpdate,
     id::{ChannelId, GuildId, MessageId, UserId},
@@ -219,12 +220,60 @@ impl ChannelBufferVariants {
         self.renderer().add_msg(cache, msg, notify)
     }
 
+    pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
+        self.renderer().update_message(reaction.message_id, |msg| {
+            // Copied from twilight
+            if let Some(msg_reaction) = msg.reactions.iter_mut().find(|r| r.emoji == reaction.emoji)
+            {
+                if !msg_reaction.me {
+                    if let Some(current_user) = cache.current_user() {
+                        if current_user.id == reaction.user_id {
+                            msg_reaction.me = true;
+                        }
+                    }
+                }
+
+                msg_reaction.count += 1;
+            } else {
+                let me = cache
+                    .current_user()
+                    .map(|user| user.id == reaction.user_id)
+                    .unwrap_or_default();
+
+                msg.reactions.push(MessageReaction {
+                    count: 1,
+                    emoji: reaction.emoji.clone(),
+                    me,
+                });
+            }
+        });
+        self.renderer().redraw_buffer(cache, &[]);
+    }
+
+    pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
+        self.renderer().update_message(reaction.message_id, |msg| {
+            if let Some((i, reaction)) = msg
+                .reactions
+                .iter_mut()
+                .enumerate()
+                .find(|(_, r)| r.emoji == reaction.emoji)
+            {
+                if reaction.count == 1 {
+                    msg.reactions.remove(i);
+                } else {
+                    reaction.count -= 1
+                }
+            }
+        });
+        self.renderer().redraw_buffer(cache, &[]);
+    }
+
     pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
         self.renderer().remove_msg(cache, id)
     }
 
     pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
-        self.renderer().update_msg(cache, update)
+        self.renderer().apply_message_update(cache, update)
     }
 
     pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
@@ -387,6 +436,14 @@ impl Channel {
 
     pub fn add_message(&self, cache: &Cache, msg: &Message, notify: bool) {
         self.inner.borrow().buffer.add_msg(cache, msg, notify);
+    }
+
+    pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
+        self.inner.borrow().buffer.add_reaction(cache, reaction);
+    }
+
+    pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
+        self.inner.borrow().buffer.remove_reaction(cache, reaction);
     }
 
     pub fn remove_message(&self, cache: &Cache, msg_id: MessageId) {

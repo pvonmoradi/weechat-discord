@@ -295,7 +295,6 @@ impl DiscordCommand {
     fn remove_autojoin_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             {
-                // TODO: Vec::remove_item when it stabilizes
                 let mut autojoin = weecord_guild.guild_config.autojoin_channels_mut();
                 if let Some(pos) = autojoin.iter().position(|x| *x == channel.id()) {
                     autojoin.remove(pos);

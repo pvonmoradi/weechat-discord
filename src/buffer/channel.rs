@@ -252,6 +252,7 @@ impl ChannelBufferVariants {
 
     pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
         self.renderer().update_message(reaction.message_id, |msg| {
+            // TODO: Use Vec::drain_filter when it stabilizes
             if let Some((i, reaction)) = msg
                 .reactions
                 .iter_mut()

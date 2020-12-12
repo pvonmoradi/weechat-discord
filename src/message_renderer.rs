@@ -65,7 +65,6 @@ impl MessageRender {
 
         // TODO: Use drain_filter when it stabilizes
         for user in ignore_users {
-            // TODO: Vec::remove_item when it stabilizes
             // TODO: Make unknown_members a hashset?
             if let Some(pos) = unknown_members.iter().position(|x| x == user) {
                 unknown_members.remove(pos);

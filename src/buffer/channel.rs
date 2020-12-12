@@ -476,7 +476,7 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
     let http = conn.http.clone();
     conn.rt.spawn(async move {
         let current_user_id = cache.current_user().expect("No current user?").id;
-        match parsing::parse_line_edit(&input) {
+        match parsing::LineEdit::parse(&input) {
             Some(LineEdit::Sub {
                 line,
                 old,
@@ -521,7 +521,7 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                 };
             },
             None => {
-                if let Some(reaction) = parsing::parse_reaction(&input) {
+                if let Some(reaction) = parsing::Reaction::parse(&input) {
                     let reaction_type = match reaction.emoji {
                         Emoji::Custom(name, id) => RequestReactionType::Custom {
                             id: EmojiId(id),

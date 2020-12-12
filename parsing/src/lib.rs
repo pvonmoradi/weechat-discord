@@ -39,6 +39,27 @@ pub enum LineEdit<'a> {
     },
 }
 
+impl<'a> LineEdit<'a> {
+    pub fn parse(input: &'a str) -> Option<Self> {
+        let caps = LINE_SUB_REGEX.captures(input)?;
+
+        let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
+        let old = caps.at(2)?;
+        let new = caps.at(3)?;
+
+        if old.is_empty() && new.is_empty() {
+            Some(Self::Delete { line })
+        } else {
+            Some(Self::Sub {
+                line,
+                old,
+                new,
+                options: caps.at(4),
+            })
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Emoji<'a> {
     Custom(&'a str, u64),
@@ -52,39 +73,22 @@ pub struct Reaction<'a> {
     pub line: usize,
 }
 
-pub fn parse_line_edit(input: &str) -> Option<LineEdit> {
-    let caps = LINE_SUB_REGEX.captures(input)?;
+impl<'a> Reaction<'a> {
+    pub fn parse(input: &'a str) -> Option<Self> {
+        let caps = REACTION_REGEX.captures(input)?;
+        let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
+        let emoji = caps.at(3);
+        let custom = caps.at(4);
+        let add = caps.at(2) == Some("+");
 
-    let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
-    let old = caps.at(2)?;
-    let new = caps.at(3)?;
-
-    if old.is_empty() && new.is_empty() {
-        Some(LineEdit::Delete { line })
-    } else {
-        Some(LineEdit::Sub {
+        emoji.map(|emoji| Self {
+            add,
+            emoji: if let Some(id) = custom.and_then(|id| id.parse::<u64>().ok()) {
+                Emoji::Custom(emoji, id)
+            } else {
+                Emoji::Unicode(emoji)
+            },
             line,
-            old,
-            new,
-            options: caps.at(4),
         })
     }
-}
-
-pub fn parse_reaction(input: &str) -> Option<Reaction> {
-    let caps = REACTION_REGEX.captures(input)?;
-    let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
-    let emoji = caps.at(3);
-    let custom = caps.at(4);
-    let add = caps.at(2) == Some("+");
-
-    emoji.map(|emoji| Reaction {
-        add,
-        emoji: if let Some(id) = custom.and_then(|id| id.parse::<u64>().ok()) {
-            Emoji::Custom(emoji, id)
-        } else {
-            Emoji::Unicode(emoji)
-        },
-        line,
-    })
 }

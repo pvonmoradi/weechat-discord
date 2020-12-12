@@ -6,21 +6,21 @@ use crate::{
     refcell::RefCell,
     twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
-use parsing::LineEdit;
+use parsing::{Emoji, LineEdit};
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
 use twilight_cache_inmemory::{
     model::{CachedGuild as TwilightGuild, CachedMember},
     InMemoryCache as Cache,
 };
-use twilight_http::Client as HttpClient;
+use twilight_http::{request::channel::reaction::RequestReactionType, Client as HttpClient};
 use twilight_model::{
     channel::{
         message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
         PrivateChannel as TwilightPrivateChannel, Reaction,
     },
     gateway::payload::MessageUpdate,
-    id::{ChannelId, GuildId, MessageId, UserId},
+    id::{ChannelId, EmojiId, GuildId, MessageId, UserId},
     user::User,
 };
 use weechat::{
@@ -520,24 +520,73 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                     })
                 };
             },
-            None => match http.create_message(id).content(input) {
-                Ok(msg) => {
-                    if let Err(e) = msg.await {
-                        tracing::error!("Failed to send message: {:#?}", e);
-                        Weechat::spawn_from_thread(async move {
-                            Weechat::print(&format!(
-                                "discord: an error occurred sending message: {}",
-                                e
-                            ))
-                        });
+            None => {
+                if let Some(reaction) = parsing::parse_reaction(&input) {
+                    let reaction_type = match reaction.emoji {
+                        Emoji::Custom(name, id) => RequestReactionType::Custom {
+                            id: EmojiId(id),
+                            name: Some(name.to_string()),
+                        },
+                        Emoji::Unicode(name) => RequestReactionType::Unicode {
+                            name: name.to_string(),
+                        },
                     };
-                },
-                Err(e) => {
-                    tracing::error!("Failed to create message: {:#?}", e);
-                    Weechat::spawn_from_thread(async {
-                        Weechat::print("discord: message content is invalid")
-                    })
-                },
+                    if let Ok(msgs) = http
+                        .channel_messages(id)
+                        .limit((reaction.line as u64).min(100))
+                        .expect("limit of 100 enforced above")
+                        .await
+                    {
+                        if let Some(msg) = msgs.get(reaction.line - 1) {
+                            if reaction.add {
+                                if let Err(e) =
+                                    http.create_reaction(id, msg.id, reaction_type).await
+                                {
+                                    tracing::error!("Failed to add reaction: {:#?}", e);
+                                    Weechat::spawn_from_thread(async move {
+                                        Weechat::print(&format!(
+                                            "discord: an error occurred adding reaction: {}",
+                                            e
+                                        ))
+                                    });
+                                }
+                            } else {
+                                if let Err(e) = http
+                                    .delete_current_user_reaction(id, msg.id, reaction_type)
+                                    .await
+                                {
+                                    tracing::error!("Failed to remove reaction: {:#?}", e);
+                                    Weechat::spawn_from_thread(async move {
+                                        Weechat::print(&format!(
+                                            "discord: an error occurred removing reaction: {}",
+                                            e
+                                        ))
+                                    });
+                                }
+                            }
+                        }
+                    };
+                    return;
+                };
+                match http.create_message(id).content(input) {
+                    Ok(msg) => {
+                        if let Err(e) = msg.await {
+                            tracing::error!("Failed to send message: {:#?}", e);
+                            Weechat::spawn_from_thread(async move {
+                                Weechat::print(&format!(
+                                    "discord: an error occurred sending message: {}",
+                                    e
+                                ))
+                            });
+                        };
+                    },
+                    Err(e) => {
+                        tracing::error!("Failed to create message: {:#?}", e);
+                        Weechat::spawn_from_thread(async {
+                            Weechat::print("discord: message content is invalid")
+                        })
+                    },
+                }
             },
         };
     });

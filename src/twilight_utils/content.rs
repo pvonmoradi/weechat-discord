@@ -209,7 +209,7 @@ pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
 
 pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = String::from(input);
-    static EMOJI_MENTIONS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(.?):(\w+):").unwrap());
+    static EMOJI_MENTIONS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\\?):(\w+):").unwrap());
 
     let matches = EMOJI_MENTIONS.captures_iter(input).collect::<Vec<_>>();
     for emoji_match in matches {

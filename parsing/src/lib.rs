@@ -23,6 +23,8 @@ pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
 
 static LINE_SUB_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^(\d)?s/(.*?(?<!\\))/(.*?(?<!\\))(?:/|$)(\w+)?").unwrap());
+static REACTION_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(\d)?([+\-])(<:.+:(\d+)>|.*).*$").unwrap());
 
 #[derive(Debug)]
 pub enum LineEdit<'a> {
@@ -35,6 +37,19 @@ pub enum LineEdit<'a> {
     Delete {
         line: usize,
     },
+}
+
+#[derive(Debug)]
+pub enum Emoji<'a> {
+    Custom(&'a str, u64),
+    Unicode(&'a str), // String and not char to accommodate grapheme clusters
+}
+
+#[derive(Debug)]
+pub struct Reaction<'a> {
+    pub add: bool,
+    pub emoji: Emoji<'a>,
+    pub line: usize,
 }
 
 pub fn parse_line_edit(input: &str) -> Option<LineEdit> {
@@ -54,4 +69,22 @@ pub fn parse_line_edit(input: &str) -> Option<LineEdit> {
             options: caps.at(4),
         })
     }
+}
+
+pub fn parse_reaction(input: &str) -> Option<Reaction> {
+    let caps = REACTION_REGEX.captures(input)?;
+    let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
+    let emoji = caps.at(3);
+    let custom = caps.at(4);
+    let add = caps.at(2) == Some("+");
+
+    emoji.map(|emoji| Reaction {
+        add,
+        emoji: if let Some(id) = custom.and_then(|id| id.parse::<u64>().ok()) {
+            Emoji::Custom(emoji, id)
+        } else {
+            Emoji::Unicode(emoji)
+        },
+        line,
+    })
 }

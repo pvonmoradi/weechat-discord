@@ -20,7 +20,7 @@ impl Nicklist {
         }
     }
 
-    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
+    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
         if let Ok(buffer) = self.handle.upgrade() {
             for member in members {
                 let member_color = member

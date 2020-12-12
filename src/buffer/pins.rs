@@ -112,39 +112,27 @@ impl Pins {
 
     pub async fn load(&self) -> anyhow::Result<()> {
         tracing::trace!(guild.id=?self.guild_id, channel.id=?self.channel_id, "Loading pins");
-        let mut inner = self.inner.borrow_mut();
+        let conn = self.inner.borrow().conn.clone();
+        let cache = &conn.cache;
+        let rt = &conn.rt;
 
-        let name = inner
-            .conn
-            .cache
+        let name = cache
             .guild_channel(self.channel_id)
             .map(|c| c.name().to_owned())
-            .or_else(|| {
-                inner
-                    .conn
-                    .cache
-                    .private_channel(self.channel_id)
-                    .map(|c| c.name())
-            })
+            .or_else(|| cache.private_channel(self.channel_id).map(|c| c.name()))
             .unwrap_or_else(|| "Unknown Channel".to_owned());
 
-        let pins_buffer = PinsBuffer::new(
-            &name,
-            self.guild_id,
-            self.channel_id,
-            &inner.conn,
-            &self.config,
-        )?;
-        inner.buffer.replace(pins_buffer);
-        let pins_buffer = inner.buffer.as_ref().expect("guaranteed to exist");
+        let pins_buffer =
+            PinsBuffer::new(&name, self.guild_id, self.channel_id, &conn, &self.config)?;
+        self.inner.borrow_mut().buffer.replace(pins_buffer);
 
         let (mut tx, mut rx) = mpsc::channel(100);
 
         {
             let guild_id = self.guild_id;
             let channel_id = self.channel_id;
-            let http = inner.conn.http.clone();
-            inner.conn.rt.spawn(async move {
+            let http = conn.http.clone();
+            rt.spawn(async move {
                 let pins = match http.pins(channel_id).await {
                     Ok(pins) => pins,
                     Err(e) => {
@@ -165,9 +153,14 @@ impl Pins {
             });
         }
 
-        pins_buffer
+        let messages = rx.recv().await.unwrap()?;
+        self.inner
+            .borrow()
+            .buffer
+            .as_ref()
+            .expect("guaranteed to exist")
             .0
-            .add_bulk_msgs(&inner.conn.cache, &rx.recv().await.unwrap()?);
+            .add_bulk_msgs(&cache, &messages);
 
         Ok(())
     }

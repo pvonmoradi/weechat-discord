@@ -112,7 +112,7 @@ impl Guild {
         }
     }
 
-    pub async fn connect(&self, instance: Instance) -> anyhow::Result<()> {
+    pub fn connect(&self, instance: Instance) -> anyhow::Result<()> {
         let mut inner = self.inner.borrow_mut();
         if let Some(guild) = inner.conn.cache.guild(self.id) {
             inner
@@ -125,7 +125,7 @@ impl Guild {
                     if crate::twilight_utils::is_text_channel(&conn.cache, &channel) {
                         tracing::info!("Joining channel: #{}", channel.name());
 
-                        self._join_channel(&channel, &guild, &mut inner).await?;
+                        self._join_channel(&channel, &guild, &mut inner)?;
                     }
                 }
             }
@@ -137,7 +137,7 @@ impl Guild {
         }
     }
 
-    async fn _join_channel(
+    fn _join_channel(
         &self,
         channel: &TwilightChannel,
         guild: &TwilightGuild,
@@ -166,13 +166,12 @@ impl Guild {
         Ok(())
     }
 
-    pub async fn join_channel(
+    pub fn join_channel(
         &self,
         channel: &TwilightChannel,
         guild: &TwilightGuild,
     ) -> anyhow::Result<()> {
         self._join_channel(channel, guild, &mut self.inner.borrow_mut())
-            .await
     }
 
     pub fn channels(&self) -> HashMap<ChannelId, Channel> {

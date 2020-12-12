@@ -54,18 +54,14 @@ impl Signals {
                                 }
                             }
                         });
-                        Weechat::spawn({
-                            async move {
-                                if let Err(e) = channel.load_users().await {
-                                    tracing::error!(
-                                        ?guild_id,
-                                        ?channel_id,
-                                        "Error loading channel member list: {}",
-                                        e
-                                    );
-                                }
-                            }
-                        });
+                        if let Err(e) = channel.load_users() {
+                            tracing::error!(
+                                ?guild_id,
+                                ?channel_id,
+                                "Error loading channel member list: {}",
+                                e
+                            );
+                        }
                     }
                 }
                 ReturnCode::Ok

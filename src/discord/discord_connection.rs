@@ -124,7 +124,8 @@ impl DiscordConnection {
     }
 
     pub async fn send_guild_subscription(&self, guild_id: GuildId, channel_id: ChannelId) {
-        if let Some(inner) = self.0.borrow().as_ref() {
+        let inner = self.0.borrow().as_ref().cloned();
+        if let Some(inner) = inner {
             static CHANNELS: Lazy<TokioMutex<HashMap<GuildId, HashSet<ChannelId>>>> =
                 Lazy::new(|| TokioMutex::new(HashMap::new()));
 
@@ -189,7 +190,7 @@ impl DiscordConnection {
                             &config,
                         );
                         if guild_config.autoconnect() {
-                            if let Err(e) = guild.connect(instance.clone()).await {
+                            if let Err(e) = guild.connect(instance.clone()) {
                                 tracing::warn!("Unable to connect guild: {}", e);
                             };
                         }

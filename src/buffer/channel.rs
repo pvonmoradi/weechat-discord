@@ -91,8 +91,8 @@ impl GuildChannelBuffer {
         })
     }
 
-    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(members).await;
+    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
+        self.nicklist.add_members(members);
     }
 }
 
@@ -186,8 +186,8 @@ impl PrivateChannelBuffer {
         )
     }
 
-    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(members).await;
+    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
+        self.nicklist.add_members(members);
     }
 }
 
@@ -281,11 +281,11 @@ impl ChannelBufferVariants {
         self.renderer().redraw_buffer(cache, ignore_users)
     }
 
-    pub async fn add_members(&self, members: &[Arc<CachedMember>]) {
+    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
         use ChannelBufferVariants::*;
         match self {
-            GuildChannel(buffer) => buffer.add_members(members).await,
-            PrivateChannel(buffer) => buffer.add_members(members).await,
+            GuildChannel(buffer) => buffer.add_members(members),
+            PrivateChannel(buffer) => buffer.add_members(members),
         }
     }
 }
@@ -385,12 +385,12 @@ impl Channel {
 
     pub async fn load_history(&self) -> anyhow::Result<()> {
         let (mut tx, mut rx) = mpsc::channel(100);
-        let conn = &self.inner.borrow().conn;
-        let conn_clone = conn.clone();
+        let conn = self.inner.borrow().conn.clone();
         {
             let id = self.id;
             let msg_count = self.config.message_fetch_count() as u64;
 
+            let conn_clone = conn.clone();
             conn.rt.spawn(async move {
                 let mut messages: Vec<_> = conn_clone
                     .http
@@ -412,18 +412,21 @@ impl Channel {
         }
         let messages = rx.recv().await.unwrap();
 
-        self.inner
-            .borrow()
-            .buffer
-            .add_bulk_msgs(&conn.cache, &messages.into_iter().rev().collect::<Vec<_>>());
+        let inner = self.inner.borrow();
+        inner.buffer.add_bulk_msgs(
+            &inner.conn.cache,
+            &messages.into_iter().rev().collect::<Vec<_>>(),
+        );
         Ok(())
     }
 
-    pub async fn load_users(&self) -> anyhow::Result<()> {
-        let conn = &self.inner.borrow().conn;
+    pub fn load_users(&self) -> anyhow::Result<()> {
+        let conn = self.inner.borrow().conn.clone();
         if let Some(channel) = conn.cache.guild_channel(self.id) {
             if let Ok(members) = channel.members(&conn.cache) {
-                self.inner.borrow().buffer.add_members(&members).await;
+                // TODO: Fix this, currently there doesn't seem to be much we can do about it
+                #[allow(clippy::await_holding_refcell_ref)]
+                self.inner.borrow().buffer.add_members(&members);
                 Ok(())
             } else {
                 tracing::error!(guild.id=?self.guild_id, channel.id=%self.id, "unable to load members for nicklist");

@@ -172,22 +172,19 @@ impl DiscordCommand {
         let instance = self.instance.clone();
         let connection = self.connection.clone();
         Weechat::spawn(async move {
-            let conn = connection.borrow();
-            let conn = match conn.as_ref() {
-                Some(conn) => conn,
+            let cache = match connection.borrow().as_ref() {
+                Some(conn) => conn.cache.clone(),
                 None => {
                     Weechat::print("discord: must be connected to enable server autoconnect");
                     return;
                 },
             };
 
-            match crate::twilight_utils::search_striped_guild_name(
-                &conn.cache,
-                instance.borrow_guilds().keys().copied(),
-                &guild_name,
-            ) {
+            let guilds = instance.borrow_guilds().keys().copied().collect::<Vec<_>>();
+            match crate::twilight_utils::search_striped_guild_name(&cache, guilds, &guild_name) {
                 Some(guild) => {
-                    if let Some(weechat_guild) = instance.borrow_guilds().get(&guild.id) {
+                    let weechat_guild = instance.borrow_guilds().get(&guild.id).cloned();
+                    if let Some(weechat_guild) = weechat_guild {
                         tracing::info!(%guild.id, %guild.name, "Enabled autoconnect for guild");
                         weechat_guild.guild_config.set_autoconnect(true);
                         weechat_guild.guild_config.persist(&weechat_guild.config);
@@ -195,7 +192,7 @@ impl DiscordCommand {
                             "discord: now autoconnecting to server \"{}\"",
                             guild.name
                         ));
-                        let _ = weechat_guild.connect(instance.clone()).await;
+                        let _ = weechat_guild.connect(instance.clone());
                     } else {
                         tracing::info!(%guild.id, %guild.name, "Guild not added.");
                         Weechat::print(&format!(
@@ -286,9 +283,7 @@ impl DiscordCommand {
                 channel.name()
             ));
 
-            Weechat::spawn(async move {
-                let _ = weecord_guild.join_channel(&channel, &guild).await;
-            });
+            let _ = weecord_guild.join_channel(&channel, &guild);
         }
     }
 
@@ -312,7 +307,7 @@ impl DiscordCommand {
     fn join_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
             Weechat::spawn(async move {
-                if let Err(e) = weecord_guild.join_channel(&channel, &guild).await {
+                if let Err(e) = weecord_guild.join_channel(&channel, &guild) {
                     Weechat::print(&format!("discord: unable to join channel \"{}\"", e));
                 }
             });

@@ -28,14 +28,14 @@ use weechat::{
     Weechat,
 };
 
-pub struct GuildChannelBuffer {
-    renderer: MessageRender,
-    nicklist: Nicklist,
+struct ChannelBuffer {
+    pub renderer: MessageRender,
+    pub nicklist: Nicklist,
 }
 
-impl GuildChannelBuffer {
+impl ChannelBuffer {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn guild(
         name: &str,
         nick: &str,
         guild_name: &str,
@@ -92,18 +92,7 @@ impl GuildChannelBuffer {
         })
     }
 
-    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(members);
-    }
-}
-
-pub struct PrivateChannelBuffer {
-    renderer: MessageRender,
-    nicklist: Nicklist,
-}
-
-impl PrivateChannelBuffer {
-    pub fn new(
+    pub fn private(
         channel: &TwilightPrivateChannel,
         conn: &ConnectionInner,
         config: &Config,
@@ -111,8 +100,8 @@ impl PrivateChannelBuffer {
     ) -> anyhow::Result<Self> {
         let id = channel.id;
 
-        let short_name = PrivateChannelBuffer::short_name(&channel.recipients);
-        let buffer_id = PrivateChannelBuffer::buffer_id(&channel.recipients);
+        let short_name = Self::short_name(&channel.recipients);
+        let buffer_id = Self::buffer_id(&channel.recipients);
 
         let handle = BufferBuilder::new(&buffer_id)
             .input_callback({
@@ -137,7 +126,7 @@ impl PrivateChannelBuffer {
             .upgrade()
             .map_err(|_| anyhow::anyhow!("Unable to create guild buffer"))?;
 
-        buffer.set_localvar("nick", &PrivateChannelBuffer::nick(&conn.cache));
+        buffer.set_localvar("nick", &Self::nick(&conn.cache));
 
         let full_name = channel.name();
 
@@ -187,41 +176,22 @@ impl PrivateChannelBuffer {
         )
     }
 
-    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(members);
-    }
-}
-
-enum ChannelBufferVariants {
-    GuildChannel(GuildChannelBuffer),
-    PrivateChannel(PrivateChannelBuffer),
-}
-
-impl ChannelBufferVariants {
-    fn renderer(&self) -> &MessageRender {
-        use ChannelBufferVariants::*;
-        match self {
-            GuildChannel(buffer) => &buffer.renderer,
-            PrivateChannel(buffer) => &buffer.renderer,
-        }
-    }
-
     pub fn close(&self) {
-        if let Ok(buffer) = self.renderer().buffer_handle.upgrade() {
+        if let Ok(buffer) = self.renderer.buffer_handle.upgrade() {
             buffer.close();
         }
     }
 
     pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
-        self.renderer().add_bulk_msgs(cache, msgs)
+        self.renderer.add_bulk_msgs(cache, msgs)
     }
 
     pub fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
-        self.renderer().add_msg(cache, msg, notify)
+        self.renderer.add_msg(cache, msg, notify)
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
-        self.renderer().update_message(reaction.message_id, |msg| {
+        self.renderer.update_message(reaction.message_id, |msg| {
             // Copied from twilight
             if let Some(msg_reaction) = msg.reactions.iter_mut().find(|r| r.emoji == reaction.emoji)
             {
@@ -247,11 +217,11 @@ impl ChannelBufferVariants {
                 });
             }
         });
-        self.renderer().redraw_buffer(cache, &[]);
+        self.renderer.redraw_buffer(cache, &[]);
     }
 
     pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
-        self.renderer().update_message(reaction.message_id, |msg| {
+        self.renderer.update_message(reaction.message_id, |msg| {
             // TODO: Use Vec::drain_filter when it stabilizes
             if let Some((i, reaction)) = msg
                 .reactions
@@ -266,33 +236,29 @@ impl ChannelBufferVariants {
                 }
             }
         });
-        self.renderer().redraw_buffer(cache, &[]);
+        self.renderer.redraw_buffer(cache, &[]);
     }
 
     pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
-        self.renderer().remove_msg(cache, id)
+        self.renderer.remove_msg(cache, id)
     }
 
     pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
-        self.renderer().apply_message_update(cache, update)
+        self.renderer.apply_message_update(cache, update)
     }
 
     pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
-        self.renderer().redraw_buffer(cache, ignore_users)
+        self.renderer.redraw_buffer(cache, ignore_users)
     }
 
     pub fn add_members(&self, members: &[Arc<CachedMember>]) {
-        use ChannelBufferVariants::*;
-        match self {
-            GuildChannel(buffer) => buffer.add_members(members),
-            PrivateChannel(buffer) => buffer.add_members(members),
-        }
+        self.nicklist.add_members(members);
     }
 }
 
 struct ChannelInner {
     conn: ConnectionInner,
-    buffer: ChannelBufferVariants,
+    buffer: ChannelBuffer,
     closed: bool,
 }
 
@@ -309,7 +275,7 @@ impl Drop for ChannelInner {
 }
 
 impl ChannelInner {
-    pub fn new(conn: ConnectionInner, buffer: ChannelBufferVariants) -> Self {
+    pub fn new(conn: ConnectionInner, buffer: ChannelBuffer) -> Self {
         Self {
             conn,
             buffer,
@@ -342,7 +308,7 @@ impl Channel {
             "@{}",
             crate::twilight_utils::current_user_nick(&guild, &conn.cache)
         );
-        let channel_buffer = GuildChannelBuffer::new(
+        let channel_buffer = ChannelBuffer::guild(
             channel.name(),
             &nick,
             &guild.name,
@@ -354,7 +320,7 @@ impl Channel {
         )?;
         let inner = Rc::new(RefCell::new(ChannelInner::new(
             conn.clone(),
-            ChannelBufferVariants::GuildChannel(channel_buffer),
+            channel_buffer,
         )));
         Ok(Channel {
             id: channel.id(),
@@ -370,10 +336,10 @@ impl Channel {
         config: &Config,
         close_cb: impl FnMut(&Buffer) + 'static,
     ) -> anyhow::Result<Self> {
-        let channel_buffer = PrivateChannelBuffer::new(&channel, conn, config, close_cb)?;
+        let channel_buffer = ChannelBuffer::private(&channel, conn, config, close_cb)?;
         let inner = Rc::new(RefCell::new(ChannelInner::new(
             conn.clone(),
-            ChannelBufferVariants::PrivateChannel(channel_buffer),
+            channel_buffer,
         )));
         Ok(Channel {
             id: channel.id,

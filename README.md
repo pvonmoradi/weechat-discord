@@ -30,10 +30,12 @@ A plugin that adds Discord support to [Weechat](https://weechat.org/)
   * [Building](#building)
 * [Setup](#setup)
 * [Configuration](#configuration)
-  * [Typing indicator](#typing-indicator)
+  * [Bar items](#bar-items)
+  * [Useful options](#useful-options)
 * [Usage](#usage)
   * [Editing](#editing)
-* [MacOS](#macos)
+* [Note for macOS](#macos)
+* [Contributing](#contributing)
 
 
 ### Installation
@@ -110,15 +112,21 @@ Once your token is set, you can reload the plugin with
 
 ### Configuration
 
-#### Typing indicator
+#### Bar items
+##### Typing indicator
 
 The bar item `discord_typing` displays the typing status of the current buffer and can be appended to
 `weechat.bar.status.items`.
 
 
-#### Slowmode cooldown
+##### Slowmode cooldown
 
 The bar item `discord_slowmode_cooldown` displays the ratelimit time for the current channel.
+
+#### Useful options
+
+* `weecord.general.send_typing` - This must be set to true for others to see when you are typing
+
 
 ### Usage
 

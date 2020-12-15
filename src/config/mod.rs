@@ -80,6 +80,7 @@ pub struct InnerConfig {
     pub autojoin_private: Vec<ChannelId>,
     // Should we use value of weechat.history.max_buffer_lines_number here instead?
     pub max_buffer_messages: i32,
+    pub send_typing: bool,
 }
 
 impl Default for InnerConfig {
@@ -92,6 +93,7 @@ impl Default for InnerConfig {
             guilds: HashMap::new(),
             autojoin_private: Vec::new(),
             max_buffer_messages: 4096,
+            send_typing: false,
         }
     }
 }
@@ -187,6 +189,19 @@ impl Config {
                     }),
             )
             .expect("Unable to create max buffer messages option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_boolean_option(
+                BooleanOptionSettings::new("send_typing")
+                    .description("Should typing status be sent to discord")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().send_typing = option.value();
+                    }),
+            )
+            .expect("Unable to create send typing option");
         }
 
         {
@@ -350,6 +365,10 @@ impl Config {
         self.inner.borrow().look.message_fetch_count
     }
 
+    pub fn send_typing(&self) -> bool {
+        self.inner.borrow().send_typing
+    }
+
     pub fn nick_prefix(&self) -> String {
         self.inner.borrow().look.nick_prefix.clone()
     }
@@ -419,6 +438,11 @@ impl Config {
             .search_option("max_buffer_messages")
             .expect("max buffer messages option must exist")
             .set(&self.max_buffer_messages().to_string(), false);
+
+        general
+            .search_option("send_typing")
+            .expect("send typing options must exist")
+            .set(if self.send_typing() { "true" } else { "false" }, false);
 
         let look = config
             .search_section("look")

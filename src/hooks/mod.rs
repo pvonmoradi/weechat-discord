@@ -37,7 +37,8 @@ impl Hooks {
         let _options = Options::hook_all(weechat, config.clone());
         tracing::trace!("Options hooked");
 
-        let _signals = Signals::hook_all(discord_connection.clone(), instance.clone());
+        let _signals =
+            Signals::hook_all(discord_connection.clone(), instance.clone(), config.clone());
         tracing::trace!("Signals hooked");
 
         let _bar_items = BarItems::add_all(discord_connection, instance, config);

@@ -492,6 +492,15 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
             None => {
                 if let Some(reaction) = parsing::Reaction::parse(&input) {
                     let reaction_type = match reaction.emoji {
+                        Emoji::Shortcode(name) => {
+                            if let Some(emoji) = discord_emoji::lookup(name) {
+                                RequestReactionType::Unicode {
+                                    name: emoji.to_string(),
+                                }
+                            } else {
+                                return;
+                            }
+                        },
                         Emoji::Custom(name, id) => RequestReactionType::Custom {
                             id: EmojiId(id),
                             name: Some(name.to_string()),

@@ -63,6 +63,7 @@ impl<'a> LineEdit<'a> {
 #[derive(Debug)]
 pub enum Emoji<'a> {
     Custom(&'a str, u64),
+    Shortcode(&'a str),
     Unicode(&'a str), // String and not char to accommodate grapheme clusters
 }
 
@@ -79,12 +80,17 @@ impl<'a> Reaction<'a> {
         let line = caps.at(1).and_then(|l| l.parse().ok()).unwrap_or(1);
         let emoji = caps.at(3);
         let custom = caps.at(4);
+        let shortcode = emoji
+            .map(|e| e.starts_with(':') && e.ends_with(':'))
+            .unwrap_or(false);
         let add = caps.at(2) == Some("+");
 
         emoji.map(|emoji| Self {
             add,
             emoji: if let Some(id) = custom.and_then(|id| id.parse::<u64>().ok()) {
                 Emoji::Custom(emoji, id)
+            } else if shortcode {
+                Emoji::Shortcode(&emoji[1..emoji.len() - 1])
             } else {
                 Emoji::Unicode(emoji)
             },

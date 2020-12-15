@@ -30,6 +30,10 @@ once_cell = "1.4.1"
 futures = "0.3.6"
 parking_lot = "0.11.0"
 
+[dependencies.discord-emoji]
+git = "https://github.com/terminal-discord/discord-emoji"
+branch = "main"
+
 [dependencies.serde]
 version = "1.0.117"
 features = ["derive"]

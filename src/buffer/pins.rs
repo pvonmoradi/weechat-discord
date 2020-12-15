@@ -37,7 +37,7 @@ impl PinsBuffer {
             .upgrade()
             .map_err(|_| anyhow::anyhow!("Unable to create pins buffer"))?;
 
-        buffer.set_short_name(&name);
+        buffer.set_short_name(&format!("Pins for #{}", name));
         if let Some(guild_id) = guild_id {
             buffer.set_localvar("guild_id", &guild_id.0.to_string());
         }

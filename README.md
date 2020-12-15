@@ -69,6 +69,11 @@ Other commands include:
 The global weechat home directory defaults to `~/.weechat` and can be changed by setting `WEECHAT_HOME` and the test
 dir defaults to `./test_dir/` and can be changed by setting `WEECHAT_TEST_DIR`
 
+#### Weechat headers
+
+By default, the latest `weechat-plugin.h` file is used, however a system file can be used by setting
+`WEECHAT_BUNDLED=false` and setting `WEECHAT_PLUGIN_FILE` to the absolute path of your `weechat-plugin.h` file.
+
 ### Setup
 
 You must first obtain a login token.

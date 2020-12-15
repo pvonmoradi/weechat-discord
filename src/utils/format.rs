@@ -1,69 +1,87 @@
+use crate::Weechat2;
 use parsing::MarkdownNode;
 use std::{rc::Rc, sync::RwLock};
-use weechat::Weechat;
 
 pub fn discord_to_weechat(msg: &str) -> String {
     let ast = parsing::parse_markdown(msg);
 
-    let mut out = String::new();
-    for node in &ast.0 {
-        out.push_str(&discord_to_weechat_reducer(&*node.read().unwrap()))
-    }
-    out
+    collect_styles(&ast.0, &mut Vec::new())
 }
 
-fn collect_styles(styles: &[Rc<RwLock<MarkdownNode>>]) -> String {
+fn collect_styles(
+    styles: &[Rc<RwLock<MarkdownNode>>],
+    color_stack: &mut Vec<&'static str>,
+) -> String {
     styles
         .iter()
-        .map(|s| discord_to_weechat_reducer(&*s.read().unwrap()))
+        .map(|s| discord_to_weechat_reducer(&*s.read().unwrap(), color_stack))
         .collect::<Vec<_>>()
         .join("")
 }
 
+fn push_color(color: &'static str, color_stack: &mut Vec<&'static str>) -> &'static str {
+    color_stack.push(color);
+    Weechat2::color(color)
+}
+
+fn pop_color(color_stack: &mut Vec<&'static str>) -> String {
+    color_stack.pop();
+    let mut out = Weechat2::color("resetcolor").to_string();
+    for color in color_stack {
+        out.push_str(Weechat2::color(color));
+    }
+
+    out
+}
+
 // TODO: if the whole line is wrapped in *, render as CTCP ACTION rather than
 //       as fully italicized message.
-fn discord_to_weechat_reducer(node: &MarkdownNode) -> String {
+fn discord_to_weechat_reducer(node: &MarkdownNode, color_stack: &mut Vec<&'static str>) -> String {
     use MarkdownNode::*;
     match node {
         Bold(styles) => format!(
             "{}{}{}",
-            Weechat::color("bold"),
-            collect_styles(styles),
-            Weechat::color("-bold")
+            Weechat2::color("bold"),
+            collect_styles(styles, color_stack),
+            Weechat2::color("-bold")
         ),
         Italic(styles) => format!(
             "{}{}{}",
-            Weechat::color("italic"),
-            collect_styles(styles),
-            Weechat::color("-italic")
+            Weechat2::color("italic"),
+            collect_styles(styles, color_stack),
+            Weechat2::color("-italic")
         ),
         Underline(styles) => format!(
             "{}{}{}",
-            Weechat::color("underline"),
-            collect_styles(styles),
-            Weechat::color("-underline")
+            Weechat2::color("underline"),
+            collect_styles(styles, color_stack),
+            Weechat2::color("-underline")
         ),
         Strikethrough(styles) => format!(
             "{}~~{}~~{}",
-            Weechat::color("red"),
-            collect_styles(styles),
-            Weechat::color("-red")
+            push_color("|red", color_stack),
+            collect_styles(styles, color_stack),
+            pop_color(color_stack)
         ),
         Spoiler(styles) => format!(
             "{}||{}||{}",
-            Weechat::color("italic"),
-            collect_styles(styles),
-            Weechat::color("-italic")
+            Weechat2::color("italic"),
+            collect_styles(styles, color_stack),
+            Weechat2::color("-italic")
         ),
         Text(string) => string.to_owned(),
         InlineCode(string) => format!(
-            "{}{}{}",
-            Weechat::color("*8"),
+            "{}{}{}{}",
+            push_color("|*8", color_stack),
             string,
-            Weechat::color("reset")
+            Weechat2::color("-bold"),
+            pop_color(color_stack)
         ),
         Code(language, text) => {
-            let (fmt, reset) = (Weechat::color("*8"), Weechat::color("reset"));
+            let (fmt, reset) = (
+                push_color("|*8", color_stack),
+                pop_color(color_stack) + Weechat2::color("-bold"),
+            );
 
             format!(
                 "```{}\n{}\n```",
@@ -74,10 +92,12 @@ fn discord_to_weechat_reducer(node: &MarkdownNode) -> String {
                     .join("\n"),
             )
         },
-        BlockQuote(styles) => format_block_quote(collect_styles(styles).lines()),
-        SingleBlockQuote(styles) => {
-            format_block_quote(collect_styles(styles).lines().map(strip_leading_bracket))
-        },
+        BlockQuote(styles) => format_block_quote(collect_styles(styles, color_stack).lines()),
+        SingleBlockQuote(styles) => format_block_quote(
+            collect_styles(styles, color_stack)
+                .lines()
+                .map(strip_leading_bracket),
+        ),
     }
 }
 
@@ -87,4 +107,30 @@ fn strip_leading_bracket(line: &str) -> &str {
 
 fn format_block_quote<'a>(lines: impl Iterator<Item = &'a str>) -> String {
     lines.fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::discord_to_weechat;
+
+    #[test]
+    fn color_stack() {
+        assert_eq!(
+            discord_to_weechat("||foo ~~strikethrough~~ baz `code` spam||"),
+            "italic||foo |red~~strikethrough~~resetcolor baz |*8code-boldresetcolor spam||-italic"
+        );
+    }
+
+    #[test]
+    fn smoke_test() {
+        assert_eq!(
+            discord_to_weechat("**_Hi___ there__**"),
+            "bolditalicHi__-italic there__-bold"
+        );
+        assert_eq!(discord_to_weechat("A _b*c_d*e_"), "A _bitalicc_d-italice_");
+        assert_eq!(
+            discord_to_weechat("__f_*o*_o__"),
+            "underlinef_italico-italic_o-underline"
+        )
+    }
 }

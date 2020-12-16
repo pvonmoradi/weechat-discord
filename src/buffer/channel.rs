@@ -2,12 +2,13 @@ use crate::{
     config::Config,
     discord::discord_connection::ConnectionInner,
     instance::Instance,
-    message_renderer::MessageRender,
+    message_renderer::{Message as RendererMessage, MessageRender},
     nicklist::Nicklist,
     refcell::RefCell,
     twilight_utils::ext::{ChannelExt, GuildChannelExt},
 };
 use parsing::{Emoji, LineEdit};
+use rand::{thread_rng, Rng};
 use std::{borrow::Cow, rc::Rc, sync::Arc};
 use tokio::sync::mpsc;
 use twilight_cache_inmemory::{
@@ -17,7 +18,7 @@ use twilight_cache_inmemory::{
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{
-        message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
+        message::MessageReaction, GuildChannel as TwilightGuildChannel,
         PrivateChannel as TwilightPrivateChannel, Reaction,
     },
     gateway::payload::MessageUpdate,
@@ -191,11 +192,11 @@ impl ChannelBuffer {
         }
     }
 
-    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
+    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[RendererMessage]) {
         self.renderer.add_bulk_msgs(cache, msgs)
     }
 
-    pub fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
+    pub fn add_msg(&self, cache: &Cache, msg: &RendererMessage, notify: bool) {
         self.renderer.add_msg(cache, msg, notify)
     }
 
@@ -393,7 +394,11 @@ impl Channel {
         let inner = self.inner.borrow();
         inner.buffer.add_bulk_msgs(
             &inner.conn.cache,
-            &messages.into_iter().rev().collect::<Vec<_>>(),
+            &messages
+                .into_iter()
+                .rev()
+                .map(|msg| msg.into())
+                .collect::<Vec<_>>(),
         );
         Ok(())
     }
@@ -416,7 +421,7 @@ impl Channel {
         }
     }
 
-    pub fn add_message(&self, cache: &Cache, msg: &Message, notify: bool) {
+    pub fn add_message(&self, cache: &Cache, msg: &RendererMessage, notify: bool) {
         self.inner.borrow().buffer.add_msg(cache, msg, notify);
     }
 
@@ -473,6 +478,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .renderer
                 .get_nth_message(line - 1)
             {
+                let msg = match msg {
+                    RendererMessage::Text(msg) => msg,
+                    RendererMessage::LocalEcho { .. } => return,
+                };
                 let orig = msg.content.clone();
                 let old = old.to_string();
                 let new = new.to_string();
@@ -506,6 +515,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .renderer
                 .get_nth_message(line - 1)
             {
+                let msg = match msg {
+                    RendererMessage::Text(msg) => msg,
+                    RendererMessage::LocalEcho { .. } => return,
+                };
                 conn.rt.spawn(async move {
                     if let Err(e) = http.delete_message(id, msg.id).await {
                         tracing::error!("Unable to delete message: {}", e);
@@ -547,6 +560,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     .renderer
                     .get_nth_message(reaction.line - 1)
                 {
+                    let msg = match msg {
+                        RendererMessage::Text(msg) => msg,
+                        RendererMessage::LocalEcho { .. } => return,
+                    };
                     conn.rt.spawn(async move {
                         if add {
                             if let Err(e) = http.create_reaction(id, msg.id, reaction_type).await {
@@ -575,28 +592,38 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
 
                 return;
             };
-            let input = input.clone();
-            conn.rt.spawn(async move {
-                match http.create_message(id).content(input) {
-                    Ok(msg) => {
-                        if let Err(e) = msg.await {
-                            tracing::error!("Failed to send message: {:#?}", e);
+            // Create a nonce to associate the local echo with the incoming message
+            let nonce = thread_rng().gen_range(0, i64::max_value() as u64);
+            conn.rt.spawn({
+                let input = input.clone();
+                async move {
+                    match http.create_message(id).nonce(nonce).content(input) {
+                        Ok(msg) => {
+                            if let Err(e) = msg.await {
+                                tracing::error!("Failed to send message: {:?}", e);
+                                Weechat::spawn_from_thread(async move {
+                                    Weechat::print(&format!(
+                                        "discord: an error occurred sending message: {}",
+                                        e
+                                    ))
+                                });
+                            };
+                        },
+                        Err(e) => {
+                            tracing::error!("Failed to create message: {:?}", e);
                             Weechat::spawn_from_thread(async move {
-                                Weechat::print(&format!(
-                                    "discord: an error occurred sending message: {}",
-                                    e
-                                ))
+                                Weechat::print("discord: message content is invalid")
                             });
-                        };
-                    },
-                    Err(e) => {
-                        tracing::error!("Failed to create message: {:#?}", e);
-                        Weechat::spawn_from_thread(async move {
-                            Weechat::print("discord: message content is invalid")
-                        });
-                    },
+                        },
+                    }
                 }
             });
+            let username = cache.current_user().unwrap().name.clone();
+            channel.inner.borrow().buffer.renderer.add_msg(
+                &cache,
+                &RendererMessage::new_echo(username, input, nonce),
+                false,
+            );
         },
     };
 }

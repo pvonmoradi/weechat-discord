@@ -160,7 +160,10 @@ impl Pins {
             .as_ref()
             .expect("guaranteed to exist")
             .0
-            .add_bulk_msgs(&cache, &messages);
+            .add_bulk_msgs(
+                &cache,
+                &messages.into_iter().map(|m| m.into()).collect::<Vec<_>>(),
+            );
 
         Ok(())
     }

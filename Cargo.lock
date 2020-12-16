@@ -1866,7 +1866,7 @@ dependencies = [
 [[package]]
 name = "twilight-cache-inmemory"
 version = "0.2.3"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -1878,7 +1878,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway"
 version = "0.2.5"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "async-tungstenite",
  "bitflags",
@@ -1900,7 +1900,7 @@ dependencies = [
 [[package]]
 name = "twilight-gateway-queue"
 version = "0.2.1"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "futures-channel",
  "futures-util",
@@ -1912,7 +1912,7 @@ dependencies = [
 [[package]]
 name = "twilight-http"
 version = "0.2.5"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1931,7 +1931,7 @@ dependencies = [
 [[package]]
 name = "twilight-mention"
 version = "0.2.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "twilight-model",
 ]
@@ -1939,7 +1939,7 @@ dependencies = [
 [[package]]
 name = "twilight-model"
 version = "0.2.4"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#820936614d0bfbaabfd5fe593de8a7e543431819"
+source = "git+https://github.com/terminal-discord/twilight?branch=next#b94260fa77412150be06cb545482ddf0f7dc807b"
 dependencies = [
  "bitflags",
  "serde",
@@ -2194,6 +2194,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "parsing",
+ "rand",
  "regex",
  "serde",
  "tokio",

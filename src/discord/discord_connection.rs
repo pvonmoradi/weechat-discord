@@ -223,27 +223,26 @@ impl DiscordConnection {
                     }
                 },
                 PluginMessage::MessageCreate { message } => {
-                    if let Some(guild_id) = message.guild_id {
+                    let channel = if let Some(guild_id) = message.guild_id {
                         let channels = match instance.borrow_guilds().get(&guild_id) {
                             Some(guild) => guild.channels(),
                             None => continue,
                         };
 
-                        let channel = match channels.get(&message.channel_id) {
-                            Some(channel) => channel,
+                        match channels.get(&message.channel_id) {
+                            Some(channel) => channel.clone(),
                             None => continue,
-                        };
-
-                        channel.add_message(&conn.cache, &message, !message.is_own(&conn.cache));
+                        }
                     } else {
                         let private_channels = instance.borrow_private_channels_mut();
-                        let channel = match private_channels.get(&message.channel_id) {
-                            Some(channel) => channel,
+                        match private_channels.get(&message.channel_id) {
+                            Some(channel) => channel.clone(),
                             None => continue,
-                        };
-
-                        channel.add_message(&conn.cache, &message, !message.is_own(&conn.cache));
-                    }
+                        }
+                    };
+                    let message = *message;
+                    let is_own = message.is_own(&conn.cache);
+                    channel.add_message(&conn.cache, &message.into(), !is_own);
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {

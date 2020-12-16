@@ -5,7 +5,7 @@ use crate::{
     message_renderer::{Message as RendererMessage, MessageRender},
     nicklist::Nicklist,
     refcell::RefCell,
-    twilight_utils::ext::{ChannelExt, GuildChannelExt},
+    twilight_utils::ext::{ChannelExt, GuildChannelExt, MessageExt},
 };
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
@@ -482,6 +482,12 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     RendererMessage::Text(msg) => msg,
                     RendererMessage::LocalEcho { .. } => return,
                 };
+
+                if !msg.is_own(&cache) {
+                    tracing::debug!("Message is own, aborting edit");
+                    Weechat::print("discord: cannot edit other users messages");
+                    return;
+                }
                 let orig = msg.content.clone();
                 let old = old.to_string();
                 let new = new.to_string();
@@ -519,6 +525,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     RendererMessage::Text(msg) => msg,
                     RendererMessage::LocalEcho { .. } => return,
                 };
+                // TODO: Check if user has permission to delete messages
                 conn.rt.spawn(async move {
                     if let Err(e) = http.delete_message(id, msg.id).await {
                         tracing::error!("Unable to delete message: {}", e);
@@ -553,6 +560,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     },
                 };
 
+                // TODO: Check if user can add reactions
                 if let Some(msg) = channel
                     .inner
                     .borrow()

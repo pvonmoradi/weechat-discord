@@ -202,6 +202,7 @@ impl DiscordConnection {
                                 &channel,
                                 &conn,
                                 &config,
+                                &instance,
                                 move |_| {
                                     if let Ok(mut channels) =
                                         instance_async.try_borrow_private_channels_mut()

@@ -117,7 +117,7 @@ impl Guild {
         if let Some(guild) = inner.conn.cache.guild(self.id) {
             inner
                 .buffer
-                .replace(GuildBuffer::new(&guild.name, guild.id, instance)?);
+                .replace(GuildBuffer::new(&guild.name, guild.id, instance.clone())?);
 
             let conn = inner.conn.clone();
             for auto_channel_id in self.guild_config.autojoin_channels() {
@@ -125,7 +125,7 @@ impl Guild {
                     if crate::twilight_utils::is_text_channel(&conn.cache, &channel) {
                         tracing::info!("Joining channel: #{}", channel.name());
 
-                        self._join_channel(&channel, &guild, &mut inner)?;
+                        self._join_channel(&channel, &guild, &mut inner, &instance)?;
                     }
                 }
             }
@@ -142,6 +142,7 @@ impl Guild {
         channel: &TwilightChannel,
         guild: &TwilightGuild,
         inner: &mut GuildInner,
+        instance: &Instance,
     ) -> anyhow::Result<()> {
         let weak_inner = Rc::downgrade(&self.inner);
         let channel_id = channel.id();
@@ -150,6 +151,7 @@ impl Guild {
             &guild,
             &inner.conn,
             &self.config,
+            instance,
             move |_| {
                 if let Some(inner) = weak_inner.upgrade() {
                     if let Ok(mut inner) = inner.try_borrow_mut() {
@@ -170,8 +172,9 @@ impl Guild {
         &self,
         channel: &TwilightChannel,
         guild: &TwilightGuild,
+        instance: &Instance,
     ) -> anyhow::Result<()> {
-        self._join_channel(channel, guild, &mut self.inner.borrow_mut())
+        self._join_channel(channel, guild, &mut self.inner.borrow_mut(), instance)
     }
 
     pub fn channels(&self) -> HashMap<ChannelId, Channel> {

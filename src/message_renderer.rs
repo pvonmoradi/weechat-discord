@@ -124,6 +124,10 @@ impl MessageRender {
         }
     }
 
+    pub fn get_nth_message(&self, index: usize) -> Option<Message> {
+        self.messages.borrow().iter().nth(index).cloned()
+    }
+
     pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
         let index = self.messages.borrow().iter().position(|it| it.id == id);
         if let Some(index) = index {

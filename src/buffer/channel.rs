@@ -1,6 +1,7 @@
 use crate::{
     config::Config,
     discord::discord_connection::ConnectionInner,
+    instance::Instance,
     message_renderer::MessageRender,
     nicklist::Nicklist,
     refcell::RefCell,
@@ -13,7 +14,7 @@ use twilight_cache_inmemory::{
     model::{CachedGuild as TwilightGuild, CachedMember},
     InMemoryCache as Cache,
 };
-use twilight_http::{request::channel::reaction::RequestReactionType, Client as HttpClient};
+use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{
         message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
@@ -43,6 +44,7 @@ impl ChannelBuffer {
         guild_id: GuildId,
         conn: &ConnectionInner,
         config: &Config,
+        instance: &Instance,
         mut close_cb: impl FnMut(&Buffer) + 'static,
     ) -> anyhow::Result<Self> {
         let clean_guild_name = crate::utils::clean_name(&guild_name);
@@ -54,8 +56,11 @@ impl ChannelBuffer {
         ))
         .input_callback({
             let conn = conn.clone();
+            let instance = instance.clone();
             move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                send_message(id, Some(guild_id), &conn, &input);
+                if let Some(channel) = instance.search_buffer(Some(guild_id), id) {
+                    send_message(&channel, &conn, &input);
+                }
                 Ok(())
             }
         })
@@ -96,6 +101,7 @@ impl ChannelBuffer {
         channel: &TwilightPrivateChannel,
         conn: &ConnectionInner,
         config: &Config,
+        instance: &Instance,
         mut close_cb: impl FnMut(&Buffer) + 'static,
     ) -> anyhow::Result<Self> {
         let id = channel.id;
@@ -106,8 +112,11 @@ impl ChannelBuffer {
         let handle = BufferBuilder::new(&buffer_id)
             .input_callback({
                 let conn = conn.clone();
+                let instance = instance.clone();
                 move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                    send_message(id, None, &conn, &input);
+                    if let Some(channel) = instance.search_buffer(None, id) {
+                        send_message(&channel, &conn, &input);
+                    }
                     Ok(())
                 }
             })
@@ -302,6 +311,7 @@ impl Channel {
         guild: &TwilightGuild,
         conn: &ConnectionInner,
         config: &Config,
+        instance: &Instance,
         close_cb: impl FnMut(&Buffer) + 'static,
     ) -> anyhow::Result<Self> {
         let nick = format!(
@@ -316,6 +326,7 @@ impl Channel {
             guild.id,
             conn,
             config,
+            instance,
             close_cb,
         )?;
         let inner = Rc::new(RefCell::new(ChannelInner::new(
@@ -334,9 +345,10 @@ impl Channel {
         channel: &TwilightPrivateChannel,
         conn: &ConnectionInner,
         config: &Config,
+        instance: &Instance,
         close_cb: impl FnMut(&Buffer) + 'static,
     ) -> anyhow::Result<Self> {
-        let channel_buffer = ChannelBuffer::private(&channel, conn, config, close_cb)?;
+        let channel_buffer = ChannelBuffer::private(&channel, conn, config, instance, close_cb)?;
         let inner = Rc::new(RefCell::new(ChannelInner::new(
             conn.clone(),
             channel_buffer,
@@ -439,27 +451,39 @@ impl Channel {
     }
 }
 
-fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner, input: &str) {
+fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
+    let channel = channel.clone();
+    let id = channel.id;
+    let guild_id = channel.guild_id;
+    let conn = conn.clone();
     let cache = conn.cache.clone();
-    let input = crate::twilight_utils::content::create_mentions(&cache, guild_id, &input);
     let http = conn.http.clone();
-    conn.rt.spawn(async move {
-        let current_user_id = cache.current_user().expect("No current user?").id;
-        match parsing::LineEdit::parse(&input) {
-            Some(LineEdit::Sub {
-                line,
-                old,
-                new,
-                options,
-            }) => {
-                if let Some(msg) = get_users_nth_message(current_user_id, &http, id, line).await {
-                    let orig = msg.content.clone();
+    let input = crate::twilight_utils::content::create_mentions(&cache, guild_id, &input);
+    match parsing::LineEdit::parse(&input) {
+        Some(LineEdit::Sub {
+            line,
+            old,
+            new,
+            options,
+        }) => {
+            if let Some(msg) = channel
+                .inner
+                .borrow()
+                .buffer
+                .renderer
+                .get_nth_message(line - 1)
+            {
+                let orig = msg.content.clone();
+                let old = old.to_string();
+                let new = new.to_string();
+                let options = options.map(ToString::to_string);
 
+                conn.rt.spawn(async move {
                     let e = http.update_message(id, msg.id);
                     let future = if options.map(|o| o.contains('g')).unwrap_or_default() {
-                        e.content(orig.replace(old, new))
+                        e.content(orig.replace(&old, &new))
                     } else {
-                        e.content(orig.replacen(old, new, 1))
+                        e.content(orig.replacen(&old, &new, 1))
                     }
                     .expect("new content is always Some");
 
@@ -468,82 +492,91 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                     } else {
                         tracing::trace!("Successfully updated message {}", msg.id);
                     };
-                } else {
-                    tracing::warn!("Unable to find message n {}", line);
-                    Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("discord: unable to locate message n = {}", line))
-                    })
-                };
-            },
-            Some(LineEdit::Delete { line }) => {
-                if let Some(msg) = get_users_nth_message(current_user_id, &http, id, line).await {
+                });
+            } else {
+                tracing::warn!("Unable to find message n {}", line);
+                Weechat::print(&format!("discord: unable to locate message n = {}", line));
+            };
+        },
+        Some(LineEdit::Delete { line }) => {
+            if let Some(msg) = channel
+                .inner
+                .borrow()
+                .buffer
+                .renderer
+                .get_nth_message(line - 1)
+            {
+                conn.rt.spawn(async move {
                     if let Err(e) = http.delete_message(id, msg.id).await {
                         tracing::error!("Unable to delete message: {}", e);
                     } else {
                         tracing::trace!("Successfully deleted message {}", msg.id);
                     };
-                } else {
-                    tracing::warn!("Unable to find message n {}", line);
-                    Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!("discord: unable to locate message n = {}", line))
-                    })
-                };
-            },
-            None => {
-                if let Some(reaction) = parsing::Reaction::parse(&input) {
-                    let reaction_type = match reaction.emoji {
-                        Emoji::Shortcode(name) => {
-                            if let Some(emoji) = discord_emoji::lookup(name) {
-                                RequestReactionType::Unicode {
-                                    name: emoji.to_string(),
-                                }
-                            } else {
-                                return;
+                });
+            } else {
+                tracing::warn!("Unable to find message n {}", line);
+                Weechat::print(&format!("discord: unable to locate message n = {}", line))
+            };
+        },
+        None => {
+            if let Some(reaction) = parsing::Reaction::parse(&input) {
+                let add = reaction.add;
+                let reaction_type = match reaction.emoji {
+                    Emoji::Shortcode(name) => {
+                        if let Some(emoji) = discord_emoji::lookup(name) {
+                            RequestReactionType::Unicode {
+                                name: emoji.to_string(),
                             }
-                        },
-                        Emoji::Custom(name, id) => RequestReactionType::Custom {
-                            id: EmojiId(id),
-                            name: Some(name.to_string()),
-                        },
-                        Emoji::Unicode(name) => RequestReactionType::Unicode {
-                            name: name.to_string(),
-                        },
-                    };
-                    if let Ok(msgs) = http
-                        .channel_messages(id)
-                        .limit((reaction.line as u64).min(100))
-                        .expect("limit of 100 enforced above")
-                        .await
-                    {
-                        if let Some(msg) = msgs.get(reaction.line - 1) {
-                            if reaction.add {
-                                if let Err(e) =
-                                    http.create_reaction(id, msg.id, reaction_type).await
-                                {
-                                    tracing::error!("Failed to add reaction: {:#?}", e);
-                                    Weechat::spawn_from_thread(async move {
-                                        Weechat::print(&format!(
-                                            "discord: an error occurred adding reaction: {}",
-                                            e
-                                        ))
-                                    });
-                                }
-                            } else if let Err(e) = http
-                                .delete_current_user_reaction(id, msg.id, reaction_type)
-                                .await
-                            {
-                                tracing::error!("Failed to remove reaction: {:#?}", e);
+                        } else {
+                            return;
+                        }
+                    },
+                    Emoji::Custom(name, id) => RequestReactionType::Custom {
+                        id: EmojiId(id),
+                        name: Some(name.to_string()),
+                    },
+                    Emoji::Unicode(name) => RequestReactionType::Unicode {
+                        name: name.to_string(),
+                    },
+                };
+
+                if let Some(msg) = channel
+                    .inner
+                    .borrow()
+                    .buffer
+                    .renderer
+                    .get_nth_message(reaction.line - 1)
+                {
+                    conn.rt.spawn(async move {
+                        if add {
+                            if let Err(e) = http.create_reaction(id, msg.id, reaction_type).await {
+                                tracing::error!("Failed to add reaction: {:#?}", e);
                                 Weechat::spawn_from_thread(async move {
                                     Weechat::print(&format!(
-                                        "discord: an error occurred removing reaction: {}",
+                                        "discord: an error occurred adding reaction: {}",
                                         e
                                     ))
                                 });
                             }
+                        } else if let Err(e) = http
+                            .delete_current_user_reaction(id, msg.id, reaction_type)
+                            .await
+                        {
+                            tracing::error!("Failed to remove reaction: {:#?}", e);
+                            Weechat::spawn_from_thread(async move {
+                                Weechat::print(&format!(
+                                    "discord: an error occurred removing reaction: {}",
+                                    e
+                                ))
+                            });
                         }
-                    };
-                    return;
-                };
+                    });
+                }
+
+                return;
+            };
+            let input = input.clone();
+            conn.rt.spawn(async move {
                 match http.create_message(id).content(input) {
                     Ok(msg) => {
                         if let Err(e) = msg.await {
@@ -558,31 +591,12 @@ fn send_message(id: ChannelId, guild_id: Option<GuildId>, conn: &ConnectionInner
                     },
                     Err(e) => {
                         tracing::error!("Failed to create message: {:#?}", e);
-                        Weechat::spawn_from_thread(async {
+                        Weechat::spawn_from_thread(async move {
                             Weechat::print("discord: message content is invalid")
-                        })
+                        });
                     },
                 }
-            },
-        };
-    });
-}
-
-async fn get_users_nth_message(
-    user: UserId,
-    http: &HttpClient,
-    channel_id: ChannelId,
-    n: usize,
-) -> Option<Message> {
-    if n > 100 {
-        tracing::warn!("n exceeds message fetch limit, retrieval will be unsuccessful");
-    }
-    http.channel_messages(channel_id)
-        .await
-        .ok()
-        .and_then(|msgs| {
-            msgs.into_iter()
-                .filter(|msg| msg.author.id == user)
-                .nth(n - 1)
-        })
+            });
+        },
+    };
 }

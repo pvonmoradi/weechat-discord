@@ -281,7 +281,7 @@ impl DiscordCommand {
                 channel.name()
             ));
 
-            let _ = weecord_guild.join_channel(&channel, &guild);
+            let _ = weecord_guild.join_channel(&channel, &guild, &self.instance);
         }
     }
 
@@ -304,8 +304,9 @@ impl DiscordCommand {
 
     fn join_channel(&self, matches: ParsedCommand) {
         if let Some((guild, weecord_guild, channel)) = self.resolve_channel_and_guild(matches) {
+            let instance = self.instance.clone();
             Weechat::spawn(async move {
-                if let Err(e) = weecord_guild.join_channel(&channel, &guild) {
+                if let Err(e) = weecord_guild.join_channel(&channel, &guild, &instance) {
                     Weechat::print(&format!("discord: unable to join channel \"{}\"", e));
                 }
             });
@@ -441,6 +442,7 @@ impl DiscordCommand {
                         &channel,
                         &conn,
                         &config,
+                        &instance,
                         move |_| {
                             if let Ok(mut channels) =
                                 instance_async.try_borrow_private_channels_mut()

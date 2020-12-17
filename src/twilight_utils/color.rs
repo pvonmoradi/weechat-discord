@@ -2,6 +2,11 @@
 pub struct Color(u32);
 
 impl Color {
+    #[cfg(feature = "syntax_highlighting")]
+    pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
+        Color((r as u32) << 16 | (g as u32) << 8 | (b as u32))
+    }
+
     pub fn new(value: u32) -> Color {
         Color(value)
     }

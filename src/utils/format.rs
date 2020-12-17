@@ -83,6 +83,9 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, color_stack: &mut Vec<&'stati
                 pop_color(color_stack) + Weechat2::color("-bold"),
             );
 
+            #[cfg(feature = "syntax_highlighting")]
+            let text = syntax::format_code(text, language);
+
             format!(
                 "```{}\n{}\n```",
                 language,
@@ -98,6 +101,49 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, color_stack: &mut Vec<&'stati
                 .lines()
                 .map(strip_leading_bracket),
         ),
+    }
+}
+
+#[cfg(feature = "syntax_highlighting")]
+mod syntax {
+    use crate::{twilight_utils::Color, Weechat2};
+    use once_cell::sync::Lazy;
+    use syntect::{
+        easy::HighlightLines,
+        highlighting::{Style, ThemeSet},
+        parsing::SyntaxSet,
+        util::LinesWithEndings,
+    };
+
+    pub fn format_code(src: &str, language: &str) -> String {
+        static PS: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
+        static TS: Lazy<ThemeSet> = Lazy::new(|| ThemeSet::load_defaults());
+
+        if let Some(syntax) = PS.find_syntax_by_token(language) {
+            let mut h = HighlightLines::new(syntax, &TS.themes["Solarized (dark)"]);
+            let mut out = String::new();
+            for line in LinesWithEndings::from(src) {
+                let ranges: Vec<(Style, &str)> = h.highlight(line, &PS);
+                out.push_str(&syntect_as_weechat_escaped(&ranges[..]));
+            }
+            out
+        } else {
+            tracing::debug!("unable to find syntax for language: {}", language);
+            src.to_string()
+        }
+    }
+
+    fn syntect_as_weechat_escaped(v: &[(Style, &str)]) -> String {
+        let mut o = String::new();
+        let resetcolor = Weechat2::color("resetcolor");
+        for (style, str) in v {
+            let fg = style.foreground;
+            let fg = Color::from_rgb(fg.r, fg.g, fg.b);
+            let colorstr = format!("{}", fg.as_8bit());
+            let color = Weechat2::color(&colorstr);
+            o.push_str(&format!("{}{}{}", color, str, resetcolor));
+        }
+        o
     }
 }
 

@@ -49,11 +49,21 @@ fn run_weechat(weechat_home: &Path) -> Result<()> {
 }
 
 fn release() -> Result<()> {
-    run("cargo", &["build", "--release"]).ignore()
+    let mut args = vec!["build".to_string(), "--release".to_string()];
+    if let Ok(features) = std::env::var("CARGO_FEATURES") {
+        args.push("--features".to_string());
+        args.extend(features.split(',').map(ToString::to_string));
+    }
+    run("cargo", &args).ignore()
 }
 
 fn debug() -> Result<()> {
-    run("cargo", &["build"]).ignore()
+    let mut args = vec!["build".to_string()];
+    if let Ok(features) = std::env::var("CARGO_FEATURES") {
+        args.push("--features".to_string());
+        args.extend(features.split(',').map(ToString::to_string));
+    }
+    run("cargo", &args).ignore()
 }
 
 fn test(test_dir: &Path) -> Result<()> {

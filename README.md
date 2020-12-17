@@ -28,6 +28,7 @@ A plugin that adds Discord support to [Weechat](https://weechat.org/)
 
 * [Installation](#installation)
   * [Building](#building)
+  * [Optional Features](#optional-features)
 * [Setup](#setup)
 * [Configuration](#configuration)
   * [Bar items](#bar-items)
@@ -75,6 +76,11 @@ dir defaults to `./test_dir/` and can be changed by setting `WEECHAT_TEST_DIR`
 
 By default, the latest `weechat-plugin.h` file is used, however a system file can be used by setting
 `WEECHAT_BUNDLED=false` and setting `WEECHAT_PLUGIN_FILE` to the absolute path of your `weechat-plugin.h` file.
+
+#### Optional Features
+
+Certain additional features can be enabled using cargo feature flags:
+* `syntax_highlighting` - Enables syntax highlighting for code blocks (uses the amazing [syntect](https://github.com/trishume/syntect))
 
 ### Setup
 

@@ -41,6 +41,7 @@ pub struct LookConfig {
     pub typing_list_max: i32,
     pub show_unknown_user_ids: bool,
     pub message_fetch_count: i32,
+    pub readonly_value: String,
 }
 
 impl Default for LookConfig {
@@ -53,6 +54,7 @@ impl Default for LookConfig {
             typing_list_max: 5,
             typing_list_style: 0,
             message_fetch_count: 50,
+            readonly_value: "🔒".to_string(),
         }
     }
 }
@@ -288,6 +290,20 @@ impl Config {
                     }),
             )
             .expect("Unable to create show unknown user ids option");
+            //readonly_string
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_string_option(
+                StringOptionSettings::new("readonly_value")
+                    .description("Value of the readonly bar item when a buffer is readonly")
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.readonly_value = option.value().to_string();
+                    }),
+            )
+            .expect("Unable to create readonly value option");
         }
 
         {

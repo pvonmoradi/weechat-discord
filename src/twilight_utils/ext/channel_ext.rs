@@ -1,13 +1,16 @@
-use crate::twilight_utils::ext::UserExt;
+use crate::twilight_utils::ext::{GuildChannelExt, UserExt};
+use twilight_cache_inmemory::{InMemoryCache as Cache, InMemoryCache};
 use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
     id::ChannelId,
 };
+use twilight_permission_calculator::prelude::Permissions;
 
 pub trait ChannelExt {
     fn name(&self) -> String;
     fn id(&self) -> ChannelId;
     fn kind(&self) -> ChannelType;
+    fn can_send(&self, cache: &Cache) -> Option<bool>;
 }
 
 impl ChannelExt for GuildChannel {
@@ -34,6 +37,10 @@ impl ChannelExt for GuildChannel {
             GuildChannel::Voice(c) => c.kind,
         }
     }
+
+    fn can_send(&self, cache: &Cache) -> Option<bool> {
+        self.has_permission_in_channel(cache, Permissions::SEND_MESSAGES)
+    }
 }
 
 impl ChannelExt for PrivateChannel {
@@ -55,6 +62,11 @@ impl ChannelExt for PrivateChannel {
     fn kind(&self) -> ChannelType {
         self.kind
     }
+
+    fn can_send(&self, cache: &Cache) -> Option<bool> {
+        let current_user = cache.current_user()?;
+        Some(self.recipients.iter().any(|rec| rec.id == current_user.id))
+    }
 }
 
 impl ChannelExt for Group {
@@ -75,5 +87,10 @@ impl ChannelExt for Group {
 
     fn kind(&self) -> ChannelType {
         self.kind
+    }
+
+    fn can_send(&self, cache: &InMemoryCache) -> Option<bool> {
+        let current_user = cache.current_user()?;
+        Some(self.recipients.iter().any(|rec| rec.id == current_user.id))
     }
 }

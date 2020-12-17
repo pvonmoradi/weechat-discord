@@ -1950,6 +1950,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "twilight-permission-calculator"
+version = "0.1.0"
+source = "git+https://github.com/twilight-rs/permission-calculator?branch=trunk#7252faeb0e44ea9ea244e586b922936c5fe585ee"
+dependencies = [
+ "tracing",
+ "twilight-model",
+]
+
+[[package]]
 name = "typenum"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2205,6 +2214,7 @@ dependencies = [
  "twilight-http",
  "twilight-mention",
  "twilight-model",
+ "twilight-permission-calculator",
  "weechat",
  "weechat-command-parser",
  "weechat-sys",

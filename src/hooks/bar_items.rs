@@ -3,6 +3,7 @@ use crate::{
     config::Config,
     discord::{discord_connection::DiscordConnection, typing_indicator::TypingTracker},
     instance::Instance,
+    twilight_utils::ext::ChannelExt,
 };
 use twilight_model::{
     channel::GuildChannel,
@@ -13,37 +14,40 @@ use weechat::{buffer::Buffer, hooks::BarItem, Weechat};
 pub struct BarItems {
     _typing: BarItem,
     _slowmode: BarItem,
+    _readonly: BarItem,
 }
 
 impl BarItems {
     pub fn add_all(connection: DiscordConnection, instance: Instance, config: Config) -> BarItems {
-        let _typing = BarItem::new("discord_typing", move |_: &Weechat, buffer: &Buffer| {
-            if let Some(channel_id) = buffer.channel_id() {
-                let guild_id = buffer.guild_id();
+        let _typing = BarItem::new("discord_typing", {
+            move |_: &Weechat, buffer: &Buffer| {
+                if let Some(channel_id) = buffer.channel_id() {
+                    let guild_id = buffer.guild_id();
 
-                match config.typing_list_style() {
-                    0 => terse_typing_list(
-                        &instance,
-                        channel_id,
-                        guild_id,
-                        config.typing_list_max() as usize,
-                    ),
-                    1 => expanded_typing_list(
-                        &instance,
-                        channel_id,
-                        guild_id,
-                        config.typing_list_max() as usize,
-                    ),
-                    _ => unreachable!(),
+                    match config.typing_list_style() {
+                        0 => terse_typing_list(
+                            &instance,
+                            channel_id,
+                            guild_id,
+                            config.typing_list_max() as usize,
+                        ),
+                        1 => expanded_typing_list(
+                            &instance,
+                            channel_id,
+                            guild_id,
+                            config.typing_list_max() as usize,
+                        ),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    "".into()
                 }
-            } else {
-                "".into()
             }
         })
         .expect("Unable to create typing bar item");
 
-        let _slowmode = BarItem::new(
-            "discord_slowmode_cooldown",
+        let _slowmode = BarItem::new("discord_slowmode_cooldown", {
+            let connection = connection.clone();
             move |_: &Weechat, buffer: &Buffer| {
                 let connection = connection.borrow();
                 let connection = match connection.as_ref() {
@@ -75,11 +79,41 @@ impl BarItems {
                     },
                     GuildChannel::Voice(_) => "".into(),
                 }
-            },
-        )
+            }
+        })
         .expect("Unable to create slowmode bar item");
 
-        BarItems { _typing, _slowmode }
+        let _readonly = BarItem::new("discord_readonly", move |_: &Weechat, buffer: &Buffer| {
+            let connection = connection.borrow();
+            let connection = match connection.as_ref() {
+                Some(conn) => conn,
+                None => return "".into(),
+            };
+
+            let cache = &connection.cache;
+
+            let channel_id = match buffer.channel_id() {
+                Some(channel_id) => channel_id,
+                None => return "".into(),
+            };
+
+            let channel = match cache.guild_channel(channel_id) {
+                Some(channel) => channel,
+                None => return "".into(),
+            };
+
+            match channel.can_send(cache) {
+                Some(false) => "🔒".into(),
+                _ => "".into(),
+            }
+        })
+        .expect("Unable to create readonly bar item");
+
+        BarItems {
+            _typing,
+            _slowmode,
+            _readonly,
+        }
     }
 }
 

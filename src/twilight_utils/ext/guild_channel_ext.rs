@@ -1,15 +1,17 @@
-use crate::twilight_utils::ext::CachedGuildExt;
+use crate::twilight_utils::ext::{CachedGuildExt, ChannelExt};
 use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
     guild::Permissions,
+    id::RoleId,
 };
 
 pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
     fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()>;
+    fn has_permission_in_channel(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
 }
 
 impl GuildChannelExt for GuildChannel {
@@ -54,5 +56,32 @@ impl GuildChannelExt for GuildChannel {
                     .collect())
             },
         }
+    }
+
+    fn has_permission_in_channel(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
+        let current_user = cache.current_user()?;
+
+        let guild_id = self.guild_id().expect("guild channel must have a guild id");
+        let member = cache.member(guild_id, current_user.id)?;
+
+        let roles: Vec<_> = member
+            .roles
+            .iter()
+            .chain(Some(&RoleId(guild_id.0)))
+            .flat_map(|&role_id| cache.role(role_id))
+            .map(|role| (role.id, role.permissions))
+            .collect();
+
+        let ref_roles = roles.iter().collect::<Vec<_>>();
+        let calc =
+            twilight_permission_calculator::Calculator::new(guild_id, current_user.id, &ref_roles);
+        let perms = calc.in_channel(self.kind(), self.permission_overwrites());
+
+        if let Ok(perms) = perms {
+            if perms.contains(permissions) {
+                return Some(true);
+            }
+        }
+        Some(false)
     }
 }

@@ -40,19 +40,19 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, color_stack: &mut Vec<&'stati
     use MarkdownNode::*;
     match node {
         Bold(styles) => format!(
-            "{}{}{}",
+            "{}**{}**{}",
             Weechat2::color("bold"),
             collect_styles(styles, color_stack),
             Weechat2::color("-bold")
         ),
         Italic(styles) => format!(
-            "{}{}{}",
+            "{}_{}_{}",
             Weechat2::color("italic"),
             collect_styles(styles, color_stack),
             Weechat2::color("-italic")
         ),
         Underline(styles) => format!(
-            "{}{}{}",
+            "{}__{}__{}",
             Weechat2::color("underline"),
             collect_styles(styles, color_stack),
             Weechat2::color("-underline")
@@ -71,7 +71,7 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, color_stack: &mut Vec<&'stati
         ),
         Text(string) => string.to_owned(),
         InlineCode(string) => format!(
-            "{}{}{}{}",
+            "{}`{}`{}{}",
             push_color("|*8", color_stack),
             string,
             Weechat2::color("-bold"),
@@ -117,7 +117,7 @@ mod tests {
     fn color_stack() {
         assert_eq!(
             discord_to_weechat("||foo ~~strikethrough~~ baz `code` spam||"),
-            "italic||foo |red~~strikethrough~~resetcolor baz |*8code-boldresetcolor spam||-italic"
+            "italic||foo |red~~strikethrough~~resetcolor baz |*8`code`-boldresetcolor spam||-italic"
         );
     }
 
@@ -125,12 +125,15 @@ mod tests {
     fn smoke_test() {
         assert_eq!(
             discord_to_weechat("**_Hi___ there__**"),
-            "bolditalicHi__-italic there__-bold"
+            "bold**italic_Hi___-italic there__**-bold"
         );
-        assert_eq!(discord_to_weechat("A _b*c_d*e_"), "A _bitalicc_d-italice_");
+        assert_eq!(
+            discord_to_weechat("A _b*c_d*e_"),
+            "A _bitalic_c_d_-italice_"
+        );
         assert_eq!(
             discord_to_weechat("__f_*o*_o__"),
-            "underlinef_italico-italic_o-underline"
+            "underline__f_italic_o_-italic_o__-underline"
         )
     }
 }

@@ -50,18 +50,18 @@ fn run_weechat(weechat_home: &Path) -> Result<()> {
 
 fn release() -> Result<()> {
     let mut args = vec!["build".to_string(), "--release".to_string()];
-    if let Ok(features) = std::env::var("CARGO_FEATURES") {
+    if let Ok(features) = std::env::var("WEECORD_FEATURES") {
         args.push("--features".to_string());
-        args.extend(features.split(',').map(ToString::to_string));
+        args.push(features);
     }
     run("cargo", &args).abort_on_failure()
 }
 
 fn debug() -> Result<()> {
     let mut args = vec!["build".to_string()];
-    if let Ok(features) = std::env::var("CARGO_FEATURES") {
+    if let Ok(features) = std::env::var("WEECORD_FEATURES") {
         args.push("--features".to_string());
-        args.extend(features.split(',').map(ToString::to_string));
+        args.push(features);
     }
     run("cargo", &args).abort_on_failure()
 }

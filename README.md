@@ -82,6 +82,8 @@ By default, the latest `weechat-plugin.h` file is used, however a system file ca
 Certain additional features can be enabled using cargo feature flags:
 * `syntax_highlighting` - Enables syntax highlighting for code blocks (uses the amazing [syntect](https://github.com/trishume/syntect))
 
+Features can be enabled when using xtask by setting the `WEECORD_FEATURES` environment variable.
+
 ### Setup
 
 You must first obtain a login token.

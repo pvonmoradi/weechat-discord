@@ -88,7 +88,7 @@ impl Signals {
                 }
 
                 if let Some(SignalData::Buffer(buffer)) = data {
-                    if buffer.input().starts_with('/') {
+                    if buffer.input().len() < 2 || buffer.input().starts_with('/') {
                         return ReturnCode::Ok;
                     }
 

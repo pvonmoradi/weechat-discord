@@ -21,8 +21,6 @@ weecord-debug = ["accountable-refcell"]
 path = "parsing"
 
 [dependencies]
-glob = "0.3.0"
-dirs = "3.0.1"
 anyhow = "1.0.33"
 tracing = "0.1.21"
 regex = "1.4.1"
@@ -59,9 +57,6 @@ features = ["rt-threaded", "sync", "macros"]
 [dependencies.discord-emoji]
 git = "https://github.com/terminal-discord/discord-emoji"
 branch = "main"
-
-[dependencies.make_rs]
-git = "https://github.com/Noskcaj19/make_rs"
 
 [dependencies.weechat-command-parser]
 git = "https://github.com/terminal-discord/weechat-command-parser"

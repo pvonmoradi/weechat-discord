@@ -54,7 +54,7 @@ fn release() -> Result<()> {
         args.push("--features".to_string());
         args.extend(features.split(',').map(ToString::to_string));
     }
-    run("cargo", &args).ignore()
+    run("cargo", &args).abort_on_failure()
 }
 
 fn debug() -> Result<()> {
@@ -63,7 +63,7 @@ fn debug() -> Result<()> {
         args.push("--features".to_string());
         args.extend(features.split(',').map(ToString::to_string));
     }
-    run("cargo", &args).ignore()
+    run("cargo", &args).abort_on_failure()
 }
 
 fn test(test_dir: &Path) -> Result<()> {
@@ -89,4 +89,23 @@ fn create_test_plugins_dir(test_dir: &Path) -> Result<()> {
 
 fn create_plugins_dir(dir: &Path) -> Result<()> {
     create_dir(dir.join("plugins/"))
+}
+
+trait ResultHelper2 {
+    fn abort_on_failure(self) -> anyhow::Result<()>;
+}
+
+impl<E> ResultHelper2 for std::result::Result<std::process::ExitStatus, E> {
+    fn abort_on_failure(self) -> anyhow::Result<()> {
+        if let Ok(e) = self {
+            if !e.success() {
+                return if let Some(code) = e.code() {
+                    Err(anyhow::anyhow!("Process exited with status code {}", code))
+                } else {
+                    Err(anyhow::anyhow!("Process exited with failure"))
+                };
+            }
+        }
+        Ok(())
+    }
 }

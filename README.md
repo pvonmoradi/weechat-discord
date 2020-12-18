@@ -59,15 +59,15 @@ then needs to be installed to the `plugins/` directory of your weechat home.
 This can be done automatically with the project build tool.
 
 ```
-cargo run -- install
+cargo xtask install
 ```
 
 Other commands include:
 
-* `cargo run -- test` - Builds and installs in a test directory
-* `cargo run -- run` - Builds and installs globally for release
-* `cargo run -- fmt` - Builds and formats the repo
-* `cargo run` - Is the same as `cargo run -- test`
+* `cargo xtask test` - Builds and installs in a test directory
+* `cargo xtask run` - Builds and installs globally for release
+* `cargo xtask fmt` - Builds and formats the repo
+* `cargo xtask` - Is the same as `cargo xtask test`
 
 The global weechat home directory defaults to `~/.weechat` and can be changed by setting `WEECHAT_HOME` and the test
 dir defaults to `./test_dir/` and can be changed by setting `WEECHAT_TEST_DIR`
@@ -165,4 +165,4 @@ Weechat does not search for macos dynamic libraries (.dylib) by default, this ca
 ## Contributing
 
 PRs are welcome.
-Please ensure that the source is formatted by running `cargo run -- fmt` (the code builds on stable but uses nightly rustfmt). 
+Please ensure that the source is formatted by running `cargo xtask fmt` (the code builds on stable but uses nightly rustfmt). 

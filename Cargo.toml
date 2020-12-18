@@ -23,7 +23,6 @@ path = "parsing"
 [dependencies]
 glob = "0.3.0"
 dirs = "3.0.1"
-libc = "0.2.79"
 anyhow = "1.0.33"
 tracing = "0.1.21"
 regex = "1.4.1"
@@ -39,17 +38,6 @@ optional = true
 default-features = false
 features = ["parsing", "assets", "dump-load", "regex-onig"]
 
-[dependencies.twilight-permission-calculator]
-git = "https://github.com/twilight-rs/permission-calculator"
-branch = "trunk"
-
-[patch.crates-io]
-twilight-model = { git = "https://github.com/terminal-discord/twilight", branch = "next" }
-
-[dependencies.discord-emoji]
-git = "https://github.com/terminal-discord/discord-emoji"
-branch = "main"
-
 [dependencies.serde]
 version = "1.0.117"
 features = ["derive"]
@@ -63,15 +51,21 @@ version = "0.2.13"
 default_features = false
 features = ["fmt", "ansi", "smallvec", "env-filter"]
 
+[dependencies.tokio]
+version = "0.2.22"
+features = ["rt-threaded", "sync", "macros"]
+
+
+[dependencies.discord-emoji]
+git = "https://github.com/terminal-discord/discord-emoji"
+branch = "main"
+
 [dependencies.make_rs]
 git = "https://github.com/Noskcaj19/make_rs"
 
 [dependencies.weechat-command-parser]
 git = "https://github.com/terminal-discord/weechat-command-parser"
 
-[dependencies.tokio]
-version = "0.2.22"
-features = ["rt-threaded", "sync", "macros"]
 
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
@@ -101,3 +95,10 @@ branch = "next"
 [dependencies.twilight-mention]
 git = "https://github.com/terminal-discord/twilight"
 branch = "next"
+
+[dependencies.twilight-permission-calculator]
+git = "https://github.com/twilight-rs/permission-calculator"
+branch = "trunk"
+
+[patch.crates-io]
+twilight-model = { git = "https://github.com/terminal-discord/twilight", branch = "next" }

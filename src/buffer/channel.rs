@@ -2,10 +2,14 @@ use crate::{
     config::Config,
     discord::discord_connection::ConnectionInner,
     instance::Instance,
+    match_map,
     message_renderer::{Message as RendererMessage, MessageRender},
     nicklist::Nicklist,
     refcell::RefCell,
-    twilight_utils::ext::{ChannelExt, GuildChannelExt, MessageExt},
+    twilight_utils::{
+        ext::{CacheExt, ChannelExt, GuildChannelExt, MessageExt},
+        DynamicChannel,
+    },
 };
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
@@ -22,6 +26,7 @@ use twilight_model::{
         PrivateChannel as TwilightPrivateChannel, Reaction,
     },
     gateway::payload::MessageUpdate,
+    guild::Permissions,
     id::{ChannelId, EmojiId, GuildId, MessageId, UserId},
     user::User,
 };
@@ -484,8 +489,14 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 };
 
                 if !msg.is_own(&cache) {
-                    tracing::debug!("Message is own, aborting edit");
-                    Weechat::print("discord: cannot edit other users messages");
+                    if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
+                        if !has_manage {
+                            Weechat::print("discord: you don't have permission to edit other users messages in this channel");
+                            tracing::trace!(?channel.id, "Not editing message, user does not have permission");
+                        }
+                    } else {
+                        tracing::warn!(?channel.id, ?msg.id, "Unable to determine if user has manage messages permission, attempting to edit anyway");
+                    }
                     return;
                 }
                 let orig = msg.content.clone();
@@ -525,6 +536,17 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     RendererMessage::Text(msg) => msg,
                     RendererMessage::LocalEcho { .. } => return,
                 };
+                if !msg.is_own(&cache) {
+                    if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
+                        if !has_manage {
+                            Weechat::print("discord: you don't have permission to delete other users messages in this channel");
+                            tracing::trace!(?channel.id, "Not deleting message, user does not have permission");
+                            return;
+                        }
+                    } else {
+                        tracing::warn!(?channel.id, ?msg.id, "Unable to determine if user has manage messages permission, attempting to delete anyway");
+                    }
+                }
                 // TODO: Check if user has permission to delete messages
                 conn.rt.spawn(async move {
                     if let Err(e) = http.delete_message(id, msg.id).await {
@@ -541,23 +563,9 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
         None => {
             if let Some(reaction) = parsing::Reaction::parse(&input) {
                 let add = reaction.add;
-                let reaction_type = match reaction.emoji {
-                    Emoji::Shortcode(name) => {
-                        if let Some(emoji) = discord_emoji::lookup(name) {
-                            RequestReactionType::Unicode {
-                                name: emoji.to_string(),
-                            }
-                        } else {
-                            return;
-                        }
-                    },
-                    Emoji::Custom(name, id) => RequestReactionType::Custom {
-                        id: EmojiId(id),
-                        name: Some(name.to_string()),
-                    },
-                    Emoji::Unicode(name) => RequestReactionType::Unicode {
-                        name: name.to_string(),
-                    },
+                let reaction_type = match request_from_reaction(&reaction) {
+                    Some(reaction) => reaction,
+                    None => return,
                 };
 
                 // TODO: Check if user can add reactions
@@ -600,6 +608,22 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
 
                 return;
             };
+
+            if let Some(can_send) = cache
+                .dynamic_channel(channel.id)
+                .and_then(|channel| channel.can_send(&cache))
+            {
+                if !can_send {
+                    Weechat::print(
+                        "discord: you don't have permission to send messages in this channel",
+                    );
+                    tracing::trace!(?channel.id, "Not sending message, user does not have permission");
+                    return;
+                }
+            } else {
+                tracing::warn!(?channel.id, "Unable to determine if user has send permission, attempting to send anyway");
+            }
+
             // Create a nonce to associate the local echo with the incoming message
             let nonce = thread_rng().gen_range(0, i64::max_value() as u64);
             conn.rt.spawn({
@@ -634,4 +658,40 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
             );
         },
     };
+}
+
+fn has_manage_message_perm(channel: &Channel, cache: &Cache) -> Option<bool> {
+    if let Some(manage) = match_map!(
+        cache.dynamic_channel(channel.id),
+        channel,
+        Some(DynamicChannel::Guild(channel))
+    )
+    .and_then(|discord_channel| {
+        discord_channel.has_permission(&cache, Permissions::MANAGE_MESSAGES)
+    }) {
+        Some(manage)
+    } else {
+        None
+    }
+}
+
+fn request_from_reaction(reaction: &parsing::Reaction) -> Option<RequestReactionType> {
+    Some(match reaction.emoji {
+        Emoji::Shortcode(name) => {
+            if let Some(emoji) = discord_emoji::lookup(name) {
+                RequestReactionType::Unicode {
+                    name: emoji.to_string(),
+                }
+            } else {
+                return None;
+            }
+        },
+        Emoji::Custom(name, id) => RequestReactionType::Custom {
+            id: EmojiId(id),
+            name: Some(name.to_string()),
+        },
+        Emoji::Unicode(name) => RequestReactionType::Unicode {
+            name: name.to_string(),
+        },
+    })
 }

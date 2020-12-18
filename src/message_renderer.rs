@@ -1,5 +1,5 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionInner, refcell::RefCell,
+    config::Config, discord::discord_connection::ConnectionInner, match_map, refcell::RefCell,
     twilight_utils::ext::MessageExt,
 };
 use std::{collections::VecDeque, rc::Rc, sync::Arc};
@@ -10,15 +10,6 @@ use twilight_model::{
     id::{ChannelId, GuildId, MessageId, UserId},
 };
 use weechat::{buffer::BufferHandle, Weechat};
-
-macro_rules! match_map {
-    ($expression:expr, $v:expr, $( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
-        match $expression {
-            $( $pattern )|+ $( if $guard )? => Some($v),
-            _ => None
-        }
-    }
-}
 
 #[derive(Clone)]
 pub enum Message {

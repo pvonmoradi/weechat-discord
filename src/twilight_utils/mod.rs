@@ -9,9 +9,12 @@ use twilight_model::{
 
 mod color;
 pub mod content;
+mod dynamic_channel;
 pub mod ext;
 pub mod mention;
+
 pub use color::*;
+pub use dynamic_channel::*;
 pub use mention::*;
 
 pub fn search_cached_striped_guild_name(cache: &Cache, target: &str) -> Option<Arc<CachedGuild>> {

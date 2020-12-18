@@ -5,6 +5,16 @@ mod format;
 pub use flag::Flag;
 pub use format::discord_to_weechat;
 
+#[macro_export]
+macro_rules! match_map {
+    ($expression:expr, $v:expr, $( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
+        match $expression {
+            $( $pattern )|+ $( if $guard )? => Some($v),
+            _ => None
+        }
+    }
+}
+
 pub fn clean_name(name: &str) -> String {
     clean_name_with_case(&name.to_lowercase())
 }

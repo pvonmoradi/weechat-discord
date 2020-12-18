@@ -11,7 +11,7 @@ pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
     fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()>;
-    fn has_permission_in_channel(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
+    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
 }
 
 impl GuildChannelExt for GuildChannel {
@@ -58,7 +58,7 @@ impl GuildChannelExt for GuildChannel {
         }
     }
 
-    fn has_permission_in_channel(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
+    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
         let current_user = cache.current_user()?;
 
         let guild_id = self.guild_id().expect("guild channel must have a guild id");

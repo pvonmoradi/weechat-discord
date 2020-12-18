@@ -22,9 +22,9 @@ pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
 }
 
 static LINE_SUB_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(\d)?s/(.*?(?<!\\))/(.*?(?<!\\))(?:/|$)(\w+)?").unwrap());
+    Lazy::new(|| Regex::new(r"^(\d+)?s/(.*?(?<!\\))/(.*?(?<!\\))(?:/|$)(\w+)?").unwrap());
 static REACTION_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(\d)?([+\-])(<:.+:(\d+)>|.*).*$").unwrap());
+    Lazy::new(|| Regex::new(r"^(\d+)?([+\-])(<:.+:(\d+)>|.*).*$").unwrap());
 
 #[derive(Debug)]
 pub enum LineEdit<'a> {

@@ -1,6 +1,6 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionInner, message_renderer::MessageRender,
-    refcell::RefCell, twilight_utils::ext::ChannelExt,
+    config::Config, discord::discord_connection::ConnectionInner,
+    message_renderer::WeechatRenderer, refcell::RefCell, twilight_utils::ext::ChannelExt,
 };
 use std::rc::Rc;
 use tokio::sync::mpsc;
@@ -10,7 +10,7 @@ use weechat::{
     Weechat,
 };
 
-pub struct PinsBuffer(MessageRender);
+pub struct PinsBuffer(WeechatRenderer);
 
 impl PinsBuffer {
     pub fn new(
@@ -43,7 +43,7 @@ impl PinsBuffer {
         }
         buffer.set_localvar("channel_id", &channel_id.0.to_string());
 
-        Ok(PinsBuffer(MessageRender::new(
+        Ok(PinsBuffer(WeechatRenderer::new(
             conn,
             Rc::new(handle),
             config,
@@ -65,7 +65,7 @@ impl Drop for PinsInner {
             return;
         }
         if let Some(buffer) = self.buffer.as_ref() {
-            if let Ok(buffer) = buffer.0.buffer_handle.upgrade() {
+            if let Ok(buffer) = buffer.0.buffer_handle().upgrade() {
                 buffer.close();
             }
         }
@@ -160,10 +160,7 @@ impl Pins {
             .as_ref()
             .expect("guaranteed to exist")
             .0
-            .add_bulk_msgs(
-                &cache,
-                &messages.into_iter().map(|m| m.into()).collect::<Vec<_>>(),
-            );
+            .add_bulk_msgs(messages.into_iter());
 
         Ok(())
     }

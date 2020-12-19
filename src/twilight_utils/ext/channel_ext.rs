@@ -23,7 +23,6 @@ impl ChannelExt for DynamicChannel {
             DynamicChannel::Private(ch) => ch.name(),
             DynamicChannel::Group(ch) => ch.name(),
         }
-        .to_string()
     }
 
     fn id(&self) -> ChannelId {

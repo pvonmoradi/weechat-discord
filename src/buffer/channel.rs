@@ -3,7 +3,7 @@ use crate::{
     discord::discord_connection::ConnectionInner,
     instance::Instance,
     match_map,
-    message_renderer::{Message as RendererMessage, MessageRender},
+    message_renderer::{Message as RendererMessage, WeechatRenderer},
     nicklist::Nicklist,
     refcell::RefCell,
     twilight_utils::{
@@ -22,7 +22,7 @@ use twilight_cache_inmemory::{
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{
-        message::MessageReaction, GuildChannel as TwilightGuildChannel,
+        message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
         PrivateChannel as TwilightPrivateChannel, Reaction,
     },
     gateway::payload::MessageUpdate,
@@ -36,7 +36,7 @@ use weechat::{
 };
 
 struct ChannelBuffer {
-    pub renderer: MessageRender,
+    pub renderer: WeechatRenderer,
     pub nicklist: Nicklist,
 }
 
@@ -98,7 +98,7 @@ impl ChannelBuffer {
 
         let handle = Rc::new(handle);
         Ok(Self {
-            renderer: MessageRender::new(conn, Rc::clone(&handle), config),
+            renderer: WeechatRenderer::new(conn, Rc::clone(&handle), config),
             nicklist: Nicklist::new(conn, handle),
         })
     }
@@ -154,7 +154,7 @@ impl ChannelBuffer {
 
         let handle = Rc::new(handle);
         Ok(Self {
-            renderer: MessageRender::new(&conn, Rc::clone(&handle), config),
+            renderer: WeechatRenderer::new(&conn, Rc::clone(&handle), config),
             nicklist: Nicklist::new(conn, handle),
         })
     }
@@ -192,17 +192,18 @@ impl ChannelBuffer {
     }
 
     pub fn close(&self) {
-        if let Ok(buffer) = self.renderer.buffer_handle.upgrade() {
+        if let Ok(buffer) = self.renderer.buffer_handle().upgrade() {
             buffer.close();
         }
     }
 
-    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[RendererMessage]) {
-        self.renderer.add_bulk_msgs(cache, msgs)
+    // TODO: Convert this to an iterator
+    pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = Message>) {
+        self.renderer.add_bulk_msgs(msgs)
     }
 
-    pub fn add_msg(&self, cache: &Cache, msg: &RendererMessage, notify: bool) {
-        self.renderer.add_msg(cache, msg, notify)
+    pub fn add_msg(&self, msg: Message, notify: bool) {
+        self.renderer.add_msg(msg, notify)
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
@@ -232,10 +233,10 @@ impl ChannelBuffer {
                 });
             }
         });
-        self.renderer.redraw_buffer(cache, &[]);
+        self.renderer.redraw_buffer(&[]);
     }
 
-    pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
+    pub fn remove_reaction(&self, reaction: Reaction) {
         self.renderer.update_message(reaction.message_id, |msg| {
             // TODO: Use Vec::drain_filter when it stabilizes
             if let Some((i, reaction)) = msg
@@ -251,19 +252,19 @@ impl ChannelBuffer {
                 }
             }
         });
-        self.renderer.redraw_buffer(cache, &[]);
+        self.renderer.redraw_buffer(&[]);
     }
 
-    pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
-        self.renderer.remove_msg(cache, id)
+    pub fn remove_msg(&self, id: MessageId) {
+        self.renderer.remove_msg(id)
     }
 
-    pub fn update_msg(&self, cache: &Cache, update: MessageUpdate) {
-        self.renderer.apply_message_update(cache, update)
+    pub fn update_msg(&self, update: MessageUpdate) {
+        self.renderer.apply_message_update(update)
     }
 
-    pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
-        self.renderer.redraw_buffer(cache, ignore_users)
+    pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
+        self.renderer.redraw_buffer(ignore_users)
     }
 
     pub fn add_members(&self, members: &[Arc<CachedMember>]) {
@@ -397,14 +398,7 @@ impl Channel {
         let messages = rx.recv().await.unwrap();
 
         let inner = self.inner.borrow();
-        inner.buffer.add_bulk_msgs(
-            &inner.conn.cache,
-            &messages
-                .into_iter()
-                .rev()
-                .map(|msg| msg.into())
-                .collect::<Vec<_>>(),
-        );
+        inner.buffer.add_bulk_msgs(messages.into_iter().rev());
         Ok(())
     }
 
@@ -426,31 +420,28 @@ impl Channel {
         }
     }
 
-    pub fn add_message(&self, cache: &Cache, msg: &RendererMessage, notify: bool) {
-        self.inner.borrow().buffer.add_msg(cache, msg, notify);
+    pub fn add_message(&self, msg: Message, notify: bool) {
+        self.inner.borrow().buffer.add_msg(msg, notify);
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
         self.inner.borrow().buffer.add_reaction(cache, reaction);
     }
 
-    pub fn remove_reaction(&self, cache: &Cache, reaction: Reaction) {
-        self.inner.borrow().buffer.remove_reaction(cache, reaction);
+    pub fn remove_reaction(&self, reaction: Reaction) {
+        self.inner.borrow().buffer.remove_reaction(reaction);
     }
 
-    pub fn remove_message(&self, cache: &Cache, msg_id: MessageId) {
-        self.inner.borrow().buffer.remove_msg(cache, msg_id);
+    pub fn remove_message(&self, msg_id: MessageId) {
+        self.inner.borrow().buffer.remove_msg(msg_id);
     }
 
-    pub fn update_message(&self, cache: &Cache, update: MessageUpdate) {
-        self.inner.borrow().buffer.update_msg(cache, update);
+    pub fn update_message(&self, update: MessageUpdate) {
+        self.inner.borrow().buffer.update_msg(update);
     }
 
-    pub fn redraw(&self, cache: &Cache, ignore_users: &[UserId]) {
-        self.inner
-            .borrow()
-            .buffer
-            .redraw_buffer(cache, ignore_users);
+    pub fn redraw(&self, ignore_users: &[UserId]) {
+        self.inner.borrow().buffer.redraw_buffer(ignore_users);
     }
 
     pub fn set_closed(&self) {
@@ -651,11 +642,12 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 }
             });
             let username = cache.current_user().unwrap().name.clone();
-            channel.inner.borrow().buffer.renderer.add_msg(
-                &cache,
-                &RendererMessage::new_echo(username, input, nonce),
-                false,
-            );
+            channel
+                .inner
+                .borrow()
+                .buffer
+                .renderer
+                .add_local_echo(username, input, nonce);
         },
     };
 }

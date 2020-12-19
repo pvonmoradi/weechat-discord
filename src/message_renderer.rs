@@ -1,8 +1,11 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionInner, match_map, refcell::RefCell,
+    config::Config,
+    discord::discord_connection::ConnectionInner,
+    match_map,
     twilight_utils::ext::MessageExt,
+    weechat2::{MessageRenderer, WeechatMessage},
 };
-use std::{collections::VecDeque, rc::Rc, sync::Arc};
+use std::rc::Rc;
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::{Message as DiscordMessage, ReactionType},
@@ -22,14 +25,12 @@ pub enum Message {
     Text(DiscordMessage),
 }
 
-impl From<DiscordMessage> for Message {
-    fn from(msg: DiscordMessage) -> Self {
+impl Message {
+    pub fn new(msg: DiscordMessage) -> Self {
         Self::Text(msg)
     }
-}
 
-impl Message {
-    pub fn new_echo(author: String, content: String, nonce: u64) -> Message {
+    pub fn new_echo(author: String, content: String, nonce: u64) -> Self {
         Self::LocalEcho {
             author,
             content,
@@ -37,196 +38,37 @@ impl Message {
             nonce,
         }
     }
+}
 
-    pub fn nonce(&self) -> Option<u64> {
+impl WeechatMessage<MessageId, State> for Message {
+    fn render(&self, state: &mut State) -> (String, String) {
         match self {
-            Message::LocalEcho { nonce, .. } => Some(*nonce),
-            Message::Text(msg) => msg.nonce.as_ref().and_then(|n| n.parse().ok()),
-        }
-    }
-}
-
-pub struct MessageRender {
-    pub buffer_handle: Rc<BufferHandle>,
-    conn: ConnectionInner,
-    config: Config,
-    messages: Arc<RefCell<VecDeque<Message>>>,
-}
-
-impl MessageRender {
-    pub fn new(
-        connection: &ConnectionInner,
-        buffer_handle: Rc<BufferHandle>,
-        config: &Config,
-    ) -> MessageRender {
-        MessageRender {
-            buffer_handle,
-            conn: connection.clone(),
-            config: config.clone(),
-            messages: Arc::new(RefCell::new(VecDeque::new())),
-        }
-    }
-
-    fn print_msg(
-        &self,
-        cache: &Cache,
-        msg: &Message,
-        notify: bool,
-        unknown_members: &mut Vec<UserId>,
-    ) {
-        let tags = MessageRender::msg_tags(cache, msg, notify);
-        let buffer = self
-            .buffer_handle
-            .upgrade()
-            .expect("message renderer outlived buffer");
-        match msg {
             Message::LocalEcho {
-                author,
-                content,
-                timestamp,
-                ..
-            } => buffer.print_date_tags(
-                *timestamp,
-                &[],
-                &format!(
-                    "{}\t{}{}{}",
-                    author,
+                author, content, ..
+            } => (
+                author.clone(),
+                format!(
+                    "{}{}{}",
                     Weechat::color("244"),
                     content,
                     Weechat::color("resetcolor")
                 ),
             ),
-            Message::Text(msg) => {
-                let (prefix, body) = render_msg(cache, &self.config, msg, unknown_members);
-                buffer.print_date_tags(
-                    chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
-                        .expect("Discord returned an invalid datetime")
-                        .timestamp(),
-                    &tags,
-                    &format!("{}\t{}", prefix, body),
-                );
-            },
-        };
-    }
-
-    /// Clear the buffer and reprint all messages
-    pub fn redraw_buffer(&self, cache: &Cache, ignore_users: &[UserId]) {
-        self.buffer_handle
-            .upgrade()
-            .expect("message renderer outlived buffer")
-            .clear();
-        let mut unknown_members = Vec::new();
-        for message in self.messages.borrow().iter().rev() {
-            self.print_msg(cache, &message, false, &mut unknown_members);
-        }
-
-        // TODO: Use drain_filter when it stabilizes
-        for user in ignore_users {
-            // TODO: Make unknown_members a hashset?
-            if let Some(pos) = unknown_members.iter().position(|x| x == user) {
-                unknown_members.remove(pos);
-            }
-        }
-
-        if let Some(first_msg) = self.messages.borrow().front() {
-            if !unknown_members.is_empty() {
-                if let Message::Text(first_msg) = first_msg {
-                    if let Some(guild_id) = first_msg.guild_id {
-                        self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
-                    }
-                }
-            }
+            Message::Text(msg) => render_msg(
+                &state.conn.cache,
+                &state.config,
+                msg,
+                &mut state.unknown_members,
+            ),
         }
     }
 
-    pub fn add_bulk_msgs(&self, cache: &Cache, msgs: &[Message]) {
-        let mut unknown_members = Vec::new();
-        let max_msgs = self.config.max_buffer_messages() as usize;
-        let mut messages = self.messages.borrow_mut();
-        messages.extend(msgs.iter().rev().take(max_msgs).cloned());
-        messages.truncate(max_msgs);
-        for msg in messages.iter().rev() {
-            self.print_msg(cache, msg, false, &mut unknown_members);
-        }
-
-        if let Some(Message::Text(first_msg)) = msgs.first() {
-            if let Some(guild_id) = first_msg.guild_id {
-                self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
-            }
-        }
-    }
-
-    pub fn add_msg(&self, cache: &Cache, msg: &Message, notify: bool) {
-        if let Some(incoming_nonce) = msg.nonce() {
-            let echo_index = self
-                .messages
-                .borrow()
-                .iter()
-                .flat_map(|msg| match_map!(msg, *nonce, Message::LocalEcho { nonce, .. }))
-                .position(|msg_nonce| msg_nonce == incoming_nonce);
-
-            if let Some(echo_index) = echo_index {
-                self.messages.borrow_mut().remove(echo_index);
-                self.redraw_buffer(cache, &[]);
-            }
-        }
-
-        let mut unknown_members = Vec::new();
-        self.print_msg(cache, msg, notify, &mut unknown_members);
-
-        let mut messages = self.messages.borrow_mut();
-        messages.push_front(msg.clone());
-        messages.truncate(self.config.max_buffer_messages() as usize);
-
-        if let Message::Text(msg) = msg {
-            if let Some(guild_id) = msg.guild_id {
-                self.fetch_guild_members(unknown_members, msg.channel_id, guild_id);
-            }
-        }
-    }
-
-    pub fn update_message<F>(&self, id: MessageId, f: F)
-    where
-        F: FnOnce(&mut DiscordMessage),
-    {
-        if let Some(msg) = self
-            .messages
-            .borrow_mut()
-            .iter_mut()
-            .flat_map(|msg| match_map!(msg, msg, Message::Text(msg)))
-            .find(|msg| msg.id == id)
-        {
-            f(msg)
-        }
-    }
-
-    pub fn get_nth_message(&self, index: usize) -> Option<Message> {
-        self.messages.borrow().iter().nth(index).cloned()
-    }
-
-    pub fn remove_msg(&self, cache: &Cache, id: MessageId) {
-        let index = self
-            .messages
-            .borrow()
-            .iter()
-            .flat_map(|msg| match_map!(msg, msg, Message::Text(msg)))
-            .position(|it| it.id == id);
-        if let Some(index) = index {
-            self.messages.borrow_mut().remove(index);
-        }
-        self.redraw_buffer(cache, &[]);
-    }
-
-    pub fn apply_message_update(&self, cache: &Cache, update: MessageUpdate) {
-        self.update_message(update.id, |msg| msg.update(update));
-        self.redraw_buffer(cache, &[]);
-    }
-
-    fn msg_tags(cache: &Cache, msg: &Message, notify: bool) -> Vec<&'static str> {
+    fn tags(&self, state: &mut State, notify: bool) -> Vec<&'static str> {
         let mut tags = Vec::new();
 
-        match msg {
+        match self {
             Message::Text(msg) => {
+                let cache = &state.conn.cache;
                 let private = cache.private_channel(msg.channel_id).is_some();
 
                 let mentioned = cache
@@ -253,15 +95,176 @@ impl MessageRender {
         tags
     }
 
+    fn timestamp(&self, _: &mut State) -> i64 {
+        match self {
+            Message::LocalEcho { timestamp, .. } => *timestamp,
+            Message::Text(msg) => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
+                .expect("Discord returned an invalid datetime")
+                .timestamp(),
+        }
+    }
+
+    fn id(&self, _: &mut State) -> MessageId {
+        match self {
+            Message::LocalEcho { nonce, .. } => MessageId(*nonce),
+            Message::Text(msg) => msg.id,
+        }
+    }
+}
+
+pub struct State {
+    conn: ConnectionInner,
+    config: Config,
+    unknown_members: Vec<UserId>,
+}
+
+pub struct WeechatRenderer {
+    renderer: MessageRenderer<Message, MessageId, State>,
+}
+
+impl WeechatRenderer {
+    pub fn new(
+        connection: &ConnectionInner,
+        buffer_handle: Rc<BufferHandle>,
+        config: &Config,
+    ) -> Self {
+        Self {
+            renderer: MessageRenderer::new(
+                buffer_handle,
+                config.max_buffer_messages() as usize,
+                State {
+                    conn: connection.clone(),
+                    config: config.clone(),
+                    unknown_members: Vec::new(),
+                },
+            ),
+        }
+    }
+
+    pub fn buffer_handle(&self) -> Rc<BufferHandle> {
+        self.renderer.buffer_handle()
+    }
+
+    /// Clear the buffer and reprint all messages
+    pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
+        self.renderer.state().borrow_mut().unknown_members.clear();
+
+        self.renderer.redraw_buffer();
+
+        let state = self.renderer.state();
+        {
+            let mut state = state.borrow_mut();
+            let unknown_members = &mut state.unknown_members;
+            // TODO: Use drain_filter when it stabilizes
+            for user in ignore_users {
+                // TODO: Make unknown_members a hashset?
+                if let Some(pos) = unknown_members.iter().position(|x| x == user) {
+                    unknown_members.remove(pos);
+                }
+            }
+        }
+
+        if let Some(first_msg) = self.renderer.messages().borrow().front() {
+            let unknown_members = &state.borrow().unknown_members;
+            if !unknown_members.is_empty() {
+                if let Message::Text(first_msg) = first_msg {
+                    if let Some(guild_id) = first_msg.guild_id {
+                        self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // TODO: Convert this to an iterator
+    pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = DiscordMessage>) {
+        self.renderer.state().borrow_mut().unknown_members.clear();
+
+        let mut msgs = msgs.into_iter().peekable();
+        let guild_id = msgs
+            .peek()
+            .and_then(|msg| msg.guild_id.map(|g| (g, msg.channel_id)));
+
+        self.renderer.add_bulk_msgs(msgs.map(Message::new));
+
+        if let Some((guild_id, channel_id)) = guild_id {
+            self.fetch_guild_members(
+                &self.renderer.state().borrow().unknown_members,
+                channel_id,
+                guild_id,
+            );
+        }
+    }
+
+    pub fn add_local_echo(&self, author: String, content: String, nonce: u64) {
+        self.renderer
+            .add_msg(Message::new_echo(author, content, nonce), false)
+    }
+
+    pub fn add_msg(&self, msg: DiscordMessage, notify: bool) {
+        if let Some(incoming_nonce) = msg.nonce.as_ref().and_then(|n| n.parse::<u64>().ok()) {
+            let echo_index = self
+                .renderer
+                .messages()
+                .borrow()
+                .iter()
+                .flat_map(|msg| match_map!(msg, *nonce, Message::LocalEcho { nonce, .. }))
+                .position(|msg_nonce| msg_nonce == incoming_nonce);
+
+            if let Some(echo_index) = echo_index {
+                self.renderer.remove(echo_index);
+                self.redraw_buffer(&[]);
+            }
+        }
+
+        self.renderer.state().borrow_mut().unknown_members.clear();
+
+        self.renderer.add_msg(Message::new(msg.clone()), notify);
+
+        if let Some(guild_id) = msg.guild_id {
+            self.fetch_guild_members(
+                &self.renderer.state().borrow().unknown_members,
+                msg.channel_id,
+                guild_id,
+            );
+        }
+    }
+
+    pub fn update_message<F>(&self, id: MessageId, f: F)
+    where
+        F: FnOnce(&mut DiscordMessage),
+    {
+        self.renderer.update_message(id, |msg| match msg {
+            Message::LocalEcho { .. } => {},
+            Message::Text(msg) => f(msg),
+        })
+    }
+
+    pub fn get_nth_message(&self, index: usize) -> Option<Message> {
+        self.renderer.get_nth_message(index)
+    }
+
+    pub fn remove_msg(&self, id: MessageId) {
+        self.renderer.remove_msg(id)
+    }
+
+    pub fn apply_message_update(&self, update: MessageUpdate) {
+        self.update_message(update.id, |msg| msg.update(update));
+        self.redraw_buffer(&[]);
+    }
+
     fn fetch_guild_members(
         &self,
-        unknown_members: Vec<UserId>,
+        unknown_members: &[UserId],
         channel_id: ChannelId,
         guild_id: GuildId,
     ) {
         // All messages should be the same guild and channel
-        let shard = self.conn.shard.clone();
-        self.conn.rt.spawn(async move {
+        let state = self.renderer.state();
+        let conn = &state.borrow().conn;
+        let shard = conn.shard.clone();
+        let unknown_members = unknown_members.to_vec();
+        conn.rt.spawn(async move {
             match shard
                 .command(
                     &RequestGuildMembers::builder(guild_id)

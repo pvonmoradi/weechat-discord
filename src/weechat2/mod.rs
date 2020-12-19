@@ -1,3 +1,6 @@
+mod renderer;
+
+pub use renderer::*;
 #[cfg_attr(test, allow(unused_imports))]
 use weechat::Weechat;
 

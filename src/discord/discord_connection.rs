@@ -242,7 +242,7 @@ impl DiscordConnection {
                     };
                     let message = *message;
                     let is_own = message.is_own(&conn.cache);
-                    channel.add_message(&conn.cache, &message.into(), !is_own);
+                    channel.add_message(message, !is_own);
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {
@@ -256,7 +256,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.remove_message(&conn.cache, event.id);
+                        channel.remove_message(event.id);
                     } else {
                         let private_channels = instance.borrow_private_channels_mut();
                         let channel = match private_channels.get(&event.channel_id) {
@@ -264,7 +264,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.remove_message(&conn.cache, event.id);
+                        channel.remove_message(event.id);
                     }
                 },
                 PluginMessage::MessageUpdate { message } => {
@@ -279,7 +279,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.update_message(&conn.cache, *message);
+                        channel.update_message(*message);
                     } else {
                         let private_channels = instance.borrow_private_channels_mut();
                         let channel = match private_channels.get(&message.channel_id) {
@@ -287,7 +287,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.update_message(&conn.cache, *message);
+                        channel.update_message(*message);
                     }
                 },
                 PluginMessage::MemberChunk(member_chunk) => {
@@ -310,7 +310,7 @@ impl DiscordConnection {
                             Some(channel) => channel,
                             None => continue,
                         };
-                        channel.redraw(&conn.cache, &member_chunk.not_found);
+                        channel.redraw(&member_chunk.not_found);
                     }
                 },
                 PluginMessage::TypingStart(typing) => {
@@ -397,7 +397,7 @@ impl DiscordConnection {
                                 None => continue,
                             };
 
-                            channel.remove_reaction(&conn.cache, reaction);
+                            channel.remove_reaction(reaction);
                         },
                         _ => {
                             let private_channels = instance.borrow_private_channels_mut();
@@ -406,7 +406,7 @@ impl DiscordConnection {
                                 None => continue,
                             };
 
-                            channel.remove_reaction(&conn.cache, reaction);
+                            channel.remove_reaction(reaction);
                         },
                     }
                 },

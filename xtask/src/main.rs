@@ -33,6 +33,7 @@ fn main() {
         .cmd("install_test", install_test)
         .cmd("test", test)
         .cmd("build", release)
+        .cmd("check", check)
         .cmd("install", install_release)
         .cmd("run", run_weechat)
         .cmd("fmt", format)
@@ -59,6 +60,15 @@ fn release() -> Result<()> {
 
 fn debug() -> Result<()> {
     let mut args = vec!["build".to_string()];
+    if let Ok(features) = std::env::var("WEECORD_FEATURES") {
+        args.push("--features".to_string());
+        args.push(features);
+    }
+    run("cargo", &args).abort_on_failure()
+}
+
+fn check() -> Result<()> {
+    let mut args = vec!["check".to_string()];
     if let Ok(features) = std::env::var("WEECORD_FEATURES") {
         args.push("--features".to_string());
         args.push(features);

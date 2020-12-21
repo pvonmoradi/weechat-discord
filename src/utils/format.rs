@@ -116,8 +116,8 @@ mod syntax {
     };
 
     pub fn format_code(src: &str, language: &str) -> String {
-        static PS: Lazy<SyntaxSet> = Lazy::new(|| SyntaxSet::load_defaults_newlines());
-        static TS: Lazy<ThemeSet> = Lazy::new(|| ThemeSet::load_defaults());
+        static PS: Lazy<SyntaxSet> = Lazy::new(SyntaxSet::load_defaults_newlines);
+        static TS: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
 
         if let Some(syntax) = PS.find_syntax_by_token(language) {
             let mut h = HighlightLines::new(syntax, &TS.themes["Solarized (dark)"]);

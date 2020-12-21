@@ -197,7 +197,6 @@ impl ChannelBuffer {
         }
     }
 
-    // TODO: Convert this to an iterator
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = Message>) {
         self.renderer.add_bulk_msgs(msgs)
     }
@@ -477,6 +476,8 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 let msg = match msg {
                     RendererMessage::Text(msg) => msg,
                     RendererMessage::LocalEcho { .. } => return,
+                    #[cfg(feature = "images")]
+                    RendererMessage::Image { msg, .. } => msg,
                 };
 
                 if !msg.is_own(&cache) {
@@ -526,6 +527,8 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 let msg = match msg {
                     RendererMessage::Text(msg) => msg,
                     RendererMessage::LocalEcho { .. } => return,
+                    #[cfg(feature = "images")]
+                    RendererMessage::Image { msg, .. } => msg,
                 };
                 if !msg.is_own(&cache) {
                     if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
@@ -570,6 +573,8 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     let msg = match msg {
                         RendererMessage::Text(msg) => msg,
                         RendererMessage::LocalEcho { .. } => return,
+                        #[cfg(feature = "images")]
+                        RendererMessage::Image { msg, .. } => msg,
                     };
                     conn.rt.spawn(async move {
                         if add {

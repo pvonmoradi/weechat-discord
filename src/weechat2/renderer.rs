@@ -14,8 +14,20 @@ pub struct MessageRenderer<M: WeechatMessage<I, S> + Clone, I: Eq, S> {
     messages: Rc<RefCell<VecDeque<M>>>,
     buffer_handle: Rc<BufferHandle>,
     state: Rc<RefCell<S>>,
-    max_buffer_messages: usize,
+    max_buffer_messages: Rc<usize>,
     phantom_id: PhantomData<I>,
+}
+
+impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> Clone for MessageRenderer<M, I, S> {
+    fn clone(&self) -> Self {
+        Self {
+            messages: Rc::clone(&self.messages),
+            buffer_handle: Rc::clone(&self.buffer_handle),
+            state: Rc::clone(&self.state),
+            max_buffer_messages: Rc::clone(&self.max_buffer_messages),
+            phantom_id: self.phantom_id,
+        }
+    }
 }
 
 impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
@@ -23,7 +35,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         Self {
             buffer_handle,
             state: Rc::new(RefCell::new(state)),
-            max_buffer_messages,
+            max_buffer_messages: Rc::new(max_buffer_messages),
             messages: Rc::new(RefCell::new(VecDeque::new())),
             phantom_id: PhantomData,
         }
@@ -72,13 +84,13 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
 
         let mut messages = self.messages.borrow_mut();
         messages.push_front(msg);
-        messages.truncate(self.max_buffer_messages);
+        messages.truncate(*self.max_buffer_messages);
     }
 
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = M>) {
         let mut messages = self.messages.borrow_mut();
-        messages.extend(msgs.rev().take(self.max_buffer_messages));
-        messages.truncate(self.max_buffer_messages);
+        messages.extend(msgs.rev().take(*self.max_buffer_messages));
+        messages.truncate(*self.max_buffer_messages);
         for msg in messages.iter().rev() {
             self.print_msg(msg, false);
         }

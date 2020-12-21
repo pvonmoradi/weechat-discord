@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 default = ["onig"]
 
 syntax_highlighting = ["syntect"]
+images = ["image", "termimage", "reqwest"]
 
 pcre = ["parsing/pcre"]
 onig = ["parsing/onig"]
@@ -29,6 +30,19 @@ once_cell = "1.4.1"
 futures = "0.3.6"
 parking_lot = "0.11.0"
 rand = "0.7.3"
+
+[dependencies.reqwest]
+version = "0.10.10"
+optional = true
+
+[dependencies.image]
+version = "0.23.12"
+optional = true
+
+[dependencies.termimage]
+package = "libtermimg"
+optional = true
+git = "https://github.com/terminal-discord/libtermimg"
 
 [dependencies.syntect]
 version = "4.5.0"

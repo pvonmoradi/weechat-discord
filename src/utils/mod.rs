@@ -1,6 +1,8 @@
 pub mod color;
 mod flag;
 mod format;
+#[cfg(feature = "images")]
+pub mod image;
 
 pub use flag::Flag;
 pub use format::discord_to_weechat;

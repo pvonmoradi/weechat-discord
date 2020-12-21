@@ -1,3 +1,5 @@
+#[cfg(feature = "images")]
+use crate::utils::image::*;
 use crate::{
     config::Config,
     discord::discord_connection::ConnectionInner,
@@ -5,6 +7,8 @@ use crate::{
     twilight_utils::ext::MessageExt,
     weechat2::{MessageRenderer, WeechatMessage},
 };
+#[cfg(feature = "images")]
+use image::DynamicImage;
 use std::rc::Rc;
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
@@ -13,6 +17,14 @@ use twilight_model::{
     id::{ChannelId, GuildId, MessageId, UserId},
 };
 use weechat::{buffer::BufferHandle, Weechat};
+
+#[cfg(feature = "images")]
+#[derive(Clone)]
+pub struct LoadedImage {
+    pub image: DynamicImage,
+    pub height: u64,
+    pub width: u64,
+}
 
 #[derive(Clone)]
 pub enum Message {
@@ -23,6 +35,11 @@ pub enum Message {
         nonce: u64,
     },
     Text(DiscordMessage),
+    #[cfg(feature = "images")]
+    Image {
+        images: Vec<LoadedImage>,
+        msg: DiscordMessage,
+    },
 }
 
 impl Message {
@@ -60,36 +77,55 @@ impl WeechatMessage<MessageId, State> for Message {
                 msg,
                 &mut state.unknown_members,
             ),
+            #[cfg(feature = "images")]
+            Message::Image { msg, images } => {
+                let (prefix, mut body) = render_msg(
+                    &state.conn.cache,
+                    &state.config,
+                    msg,
+                    &mut state.unknown_members,
+                );
+
+                for image in images {
+                    body += &render_img(&image.image);
+                }
+
+                (prefix, body)
+            },
         }
     }
 
     fn tags(&self, state: &mut State, notify: bool) -> Vec<&'static str> {
         let mut tags = Vec::new();
 
-        match self {
-            Message::Text(msg) => {
-                let cache = &state.conn.cache;
-                let private = cache.private_channel(msg.channel_id).is_some();
+        let mut discord_msg_tags = |msg: &DiscordMessage| {
+            let cache = &state.conn.cache;
+            let private = cache.private_channel(msg.channel_id).is_some();
 
-                let mentioned = cache
-                    .current_user()
-                    .map(|user| msg.mentions.contains_key(&user.id))
-                    .unwrap_or(false);
+            let mentioned = cache
+                .current_user()
+                .map(|user| msg.mentions.contains_key(&user.id))
+                .unwrap_or(false);
 
-                if notify {
-                    if mentioned {
-                        tags.push("notify_highlight");
-                    }
-
-                    if private {
-                        tags.push("notify_private");
-                    }
-
-                    if !(mentioned || private) {
-                        tags.push("notify_message");
-                    }
+            if notify {
+                if mentioned {
+                    tags.push("notify_highlight");
                 }
-            },
+
+                if private {
+                    tags.push("notify_private");
+                }
+
+                if !(mentioned || private) {
+                    tags.push("notify_message");
+                }
+            }
+        };
+
+        match self {
+            #[cfg(feature = "images")]
+            Message::Image { msg, .. } => discord_msg_tags(msg),
+            Message::Text(msg) => discord_msg_tags(msg),
             Message::LocalEcho { .. } => {},
         }
         tags
@@ -101,6 +137,10 @@ impl WeechatMessage<MessageId, State> for Message {
             Message::Text(msg) => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
                 .expect("Discord returned an invalid datetime")
                 .timestamp(),
+            #[cfg(feature = "images")]
+            Message::Image { msg, .. } => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
+                .expect("Discord returned an invalid datetime")
+                .timestamp(),
         }
     }
 
@@ -108,6 +148,8 @@ impl WeechatMessage<MessageId, State> for Message {
         match self {
             Message::LocalEcho { nonce, .. } => MessageId(*nonce),
             Message::Text(msg) => msg.id,
+            #[cfg(feature = "images")]
+            Message::Image { msg, .. } => msg.id,
         }
     }
 }
@@ -120,6 +162,7 @@ pub struct State {
 
 pub struct WeechatRenderer {
     renderer: MessageRenderer<Message, MessageId, State>,
+    conn: ConnectionInner,
 }
 
 impl WeechatRenderer {
@@ -138,6 +181,7 @@ impl WeechatRenderer {
                     unknown_members: Vec::new(),
                 },
             ),
+            conn: connection.clone(),
         }
     }
 
@@ -176,7 +220,6 @@ impl WeechatRenderer {
         }
     }
 
-    // TODO: Convert this to an iterator
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = DiscordMessage>) {
         self.renderer.state().borrow_mut().unknown_members.clear();
 
@@ -185,7 +228,14 @@ impl WeechatRenderer {
             .peek()
             .and_then(|msg| msg.guild_id.map(|g| (g, msg.channel_id)));
 
-        self.renderer.add_bulk_msgs(msgs.map(Message::new));
+        let msgs = msgs.map(|msg| {
+            #[cfg(feature = "images")]
+            self.load_images(&msg);
+
+            Message::new(msg)
+        });
+
+        self.renderer.add_bulk_msgs(msgs.into_iter());
 
         if let Some((guild_id, channel_id)) = guild_id {
             self.fetch_guild_members(
@@ -193,6 +243,42 @@ impl WeechatRenderer {
                 channel_id,
                 guild_id,
             );
+        }
+    }
+
+    #[cfg(feature = "images")]
+    fn load_images(&self, msg: &DiscordMessage) {
+        for candidate in find_image_candidates(&msg) {
+            let renderer = self.renderer.clone();
+            let rt = self.conn.rt.clone();
+            let msg_id = msg.id;
+            Weechat::spawn(async move {
+                if let Some(image) = fetch_inline_image(&rt, &candidate.url).await {
+                    let image = resize_image(
+                        &image,
+                        (4, 8),
+                        (candidate.height as u16 / 6, candidate.width as u16 / 6),
+                    );
+                    renderer.update_message(msg_id, |msg| {
+                        let loaded_image = LoadedImage {
+                            image,
+                            height: candidate.height,
+                            width: candidate.width,
+                        };
+                        match msg {
+                            Message::Text(discord_msg) => {
+                                *msg = Message::Image {
+                                    images: vec![loaded_image],
+                                    msg: discord_msg.clone(),
+                                }
+                            },
+                            Message::Image { images, .. } => images.push(loaded_image),
+                            _ => {},
+                        }
+                    });
+                    renderer.redraw_buffer();
+                }
+            });
         }
     }
 
@@ -217,6 +303,9 @@ impl WeechatRenderer {
             }
         }
 
+        #[cfg(feature = "images")]
+        self.load_images(&msg);
+
         self.renderer.state().borrow_mut().unknown_members.clear();
 
         self.renderer.add_msg(Message::new(msg.clone()), notify);
@@ -237,6 +326,8 @@ impl WeechatRenderer {
         self.renderer.update_message(id, |msg| match msg {
             Message::LocalEcho { .. } => {},
             Message::Text(msg) => f(msg),
+            #[cfg(feature = "images")]
+            Message::Image { msg, .. } => f(msg),
         })
     }
 
@@ -260,8 +351,7 @@ impl WeechatRenderer {
         guild_id: GuildId,
     ) {
         // All messages should be the same guild and channel
-        let state = self.renderer.state();
-        let conn = &state.borrow().conn;
+        let conn = &self.conn;
         let shard = conn.shard.clone();
         let unknown_members = unknown_members.to_vec();
         conn.rt.spawn(async move {

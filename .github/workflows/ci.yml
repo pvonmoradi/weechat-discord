@@ -47,10 +47,17 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
-        run: cargo test
+        run: cargo xtask test
+
+      - name: Run tests (features)
+        run: cargo xtask test
+        env:
+          WEECORD_FEATURES: syntax_highlighting,images
 
       - name: Build binaries
-        run: cargo build --release
+        run: cargo xtask build
+        env:
+          WEECORD_FEATURES: syntax_highlighting,images
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v2

@@ -494,6 +494,64 @@ impl DiscordCommand {
         });
     }
 
+    fn discord_format(&self, matches: ParsedCommand, weechat: &Weechat, raw: &str) {
+        let conn = self.connection.borrow();
+        let conn = match conn.as_ref() {
+            Some(conn) => conn.clone(),
+            None => {
+                Weechat::print("discord: must be connected to view pinned messages");
+                return;
+            },
+        };
+
+        let cmd = matches.command();
+        let msg = matches.rest(raw);
+
+        let msg = match cmd {
+            "me" => format!("_{}_", msg),
+            "tableflip" => format!("{} (╯°□°）╯︵ ┻━┻", msg),
+            "unflip" => format!("{} ┬─┬ ノ( ゜-゜ノ)", msg),
+            "shrug" => format!("{} ¯\\_(ツ)_/¯", msg),
+            "spoiler" => format!("||{}||", msg),
+            _ => unreachable!(),
+        };
+
+        let buffer = weechat.current_buffer();
+        let channel_id = buffer.channel_id();
+
+        if let Some(channel_id) = channel_id {
+            let http = conn.http.clone();
+            conn.rt.spawn(async move {
+                let future = match http.create_message(channel_id).content(msg) {
+                    Ok(future) => future,
+                    Err(e) => {
+                        tracing::error!(
+                            channel.id = channel_id.0,
+                            "an error occurred creating message: {}",
+                            e
+                        );
+                        Weechat::print("discord: the message is too long");
+                        return;
+                    },
+                };
+                if let Err(e) = future.await {
+                    tracing::error!(
+                        channel.id = channel_id.0,
+                        "an error occurred sending message in this channel: {}",
+                        e
+                    );
+                    Weechat::print("discord: an error occurred sending the message");
+                }
+            });
+        } else {
+            tracing::warn!(
+                "buffer has no associated channel id: {}",
+                buffer.full_name()
+            );
+            Weechat::print("discord: this is not a discord buffer");
+        }
+    }
+
     fn process_debug_matches(&self, matches: ParsedCommand, weechat: &Weechat) {
         match matches.subcommand() {
             Some(("buffer", _)) => {
@@ -597,6 +655,11 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             )
             .subcommand(WeechatCommand::new("token").arg("token", true))
             .subcommand(WeechatCommand::new("pins"))
+            .subcommand(WeechatCommand::new("me"))
+            .subcommand(WeechatCommand::new("tableflip"))
+            .subcommand(WeechatCommand::new("unflip"))
+            .subcommand(WeechatCommand::new("shrug"))
+            .subcommand(WeechatCommand::new("spoiler"))
             .parse_from(args.iter());
 
         let matches = match matches {
@@ -617,6 +680,12 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             Some(("token", matches)) => self.token(matches),
             Some(("query", matches)) => self.query(matches),
             Some(("pins", _)) => self.pins(weechat),
+            // Use or-patterns when they stabilize (rust #54883)
+            Some(("me", matches))
+            | Some(("tableflip", matches))
+            | Some(("unflip", matches))
+            | Some(("shrug", matches))
+            | Some(("spoiler", matches)) => self.discord_format(matches, weechat, &args.join(" ")),
             Some(("debug", matches)) => self.process_debug_matches(matches, weechat),
             _ => {},
         };
@@ -632,12 +701,14 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_argument("query <user-name>")
             .add_argument("pins")
+            .add_argument("me|tableflip|unflip|shrug|spoiler")
             .add_argument("debug buffer|shutdown|members")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
             .add_completion("query %(discord_dm)")
             .add_completion("pins")
+            .add_completion("me|tableflip|unflip|shrug|spoiler")
             .add_completion("debug buffer|shutdown|members"),
         DiscordCommand {
             instance,

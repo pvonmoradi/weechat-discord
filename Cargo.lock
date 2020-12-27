@@ -2551,7 +2551,7 @@ dependencies = [
 [[package]]
 name = "weechat-command-parser"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/weechat-command-parser#7184bae61c1e2903d1c28fc3e257c9710a749532"
+source = "git+https://github.com/terminal-discord/weechat-command-parser#0f542d2351e61a52f7de9c6325fc8b662c6993fa"
 
 [[package]]
 name = "weechat-discord"

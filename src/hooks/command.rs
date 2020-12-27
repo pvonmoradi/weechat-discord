@@ -632,6 +632,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_argument("query <user-name>")
             .add_argument("pins")
+            .add_argument("debug buffer|shutdown|members")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")

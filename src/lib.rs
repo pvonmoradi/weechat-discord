@@ -9,7 +9,6 @@ pub use weechat2::Weechat2;
 
 mod buffer;
 mod config;
-mod debug;
 mod discord;
 mod hooks;
 mod instance;
@@ -43,12 +42,12 @@ impl Plugin for Weecord {
                     // Set the default log level to warn
                     .add_directive(LevelFilter::WARN.into()),
             )
-            .with_writer(move || debug::Debug)
+            .with_writer(move || buffer::debug::Debug)
             .without_time()
             .try_init();
 
         if config.auto_open_tracing() {
-            let _ = debug::Debug::create_buffer();
+            let _ = buffer::debug::Debug::create_buffer();
         }
 
         let instance = Instance::new();

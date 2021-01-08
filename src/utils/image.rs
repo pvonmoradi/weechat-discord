@@ -43,8 +43,13 @@ pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> Option<DynamicImage>
     let url = url.to_string();
     rt.spawn(async move {
         tracing::trace!("Fetching inline image at: {}", url);
-        match reqwest::get(&url).await {
-            Ok(response) => match response.bytes().await {
+
+        let client = hyper::Client::builder()
+            .build::<_, hyper::Body>(hyper_rustls::HttpsConnector::with_native_roots());
+
+        let uri = url.parse().expect("Discord sent an invalid uri");
+        match client.get(uri).await {
+            Ok(response) => match hyper::body::to_bytes(response).await {
                 Ok(body) => {
                     tracing::trace!("Successfully loaded image");
                     match image::load_from_memory(body.as_ref()) {

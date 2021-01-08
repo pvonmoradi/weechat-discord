@@ -104,7 +104,7 @@ impl WeechatMessage<MessageId, State> for Message {
 
             let mentioned = cache
                 .current_user()
-                .map(|user| msg.mentions.contains_key(&user.id))
+                .map(|user| msg.mentions.iter().any(|m| m.id == user.id))
                 .unwrap_or(false);
 
             if notify {
@@ -278,7 +278,8 @@ impl WeechatRenderer {
                     });
                     renderer.redraw_buffer();
                 }
-            });
+            })
+            .detach();
         }
     }
 
@@ -558,59 +559,66 @@ fn render_msg(
         },
         _ => {
             let (prefix, body) = match msg.kind {
-                RecipientAdd | GuildMemberJoin => {
-                    ("join", format!("{} joined the group.", bold(&author)))
-                },
-                RecipientRemove => ("quit", format!("{} left the group.", bold(&author))),
+                RecipientAdd | GuildMemberJoin => (
+                    weechat::Prefix::Join,
+                    format!("{} joined the group.", bold(&author)),
+                ),
+                RecipientRemove => (
+                    weechat::Prefix::Quit,
+                    format!("{} left the group.", bold(&author)),
+                ),
                 ChannelNameChange => (
-                    "network",
+                    weechat::Prefix::Network,
                     format!(
                         "{} changed the channel name to {}.",
                         bold(&author),
                         bold(&msg.content)
                     ),
                 ),
-                Call => ("network", format!("{} started a call.", bold(&author))),
+                Call => (
+                    weechat::Prefix::Network,
+                    format!("{} started a call.", bold(&author)),
+                ),
                 ChannelIconChange => (
-                    "network",
+                    weechat::Prefix::Network,
                     format!("{} changed the channel icon.", bold(&author)),
                 ),
                 ChannelMessagePinned => (
-                    "network",
+                    weechat::Prefix::Network,
                     format!("{} pinned a message to this channel", bold(&author)),
                 ),
                 UserPremiumSub => (
-                    "network",
+                    weechat::Prefix::Network,
                     format!("{} boosted this channel with nitro", bold(&author)),
                 ),
                 UserPremiumSubTier1 => (
-                    "network",
+                    weechat::Prefix::Network,
                     "This channel has achieved nitro level 1".to_string(),
                 ),
                 UserPremiumSubTier2 => (
-                    "network",
+                    weechat::Prefix::Network,
                     "This channel has achieved nitro level 2".to_string(),
                 ),
                 UserPremiumSubTier3 => (
-                    "network",
+                    weechat::Prefix::Network,
                     "This channel has achieved nitro level 3".to_string(),
                 ),
                 // TODO: What do these mean?
                 GuildDiscoveryDisqualified => (
-                    "network",
+                    weechat::Prefix::Network,
                     "This server has been disqualified from Discovery".to_string(),
                 ),
                 GuildDiscoveryRequalified => (
-                    "network",
+                    weechat::Prefix::Network,
                     "This server has been requalified for Discovery".to_string(),
                 ),
                 ChannelFollowAdd => (
-                    "network",
+                    weechat::Prefix::Network,
                     format!("This channel is now following {}", bold(&msg.content)),
                 ),
                 Regular | Reply => unreachable!(),
             };
-            (Weechat::prefix(&prefix).to_owned(), body)
+            (Weechat::prefix(prefix), body)
         },
     }
 }

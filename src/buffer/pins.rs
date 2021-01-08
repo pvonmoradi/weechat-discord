@@ -126,7 +126,7 @@ impl Pins {
             PinsBuffer::new(&name, self.guild_id, self.channel_id, &conn, &self.config)?;
         self.inner.borrow_mut().buffer.replace(pins_buffer);
 
-        let (mut tx, mut rx) = mpsc::channel(100);
+        let (tx, mut rx) = mpsc::channel(100);
 
         {
             let guild_id = self.guild_id;

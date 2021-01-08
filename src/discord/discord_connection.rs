@@ -7,6 +7,7 @@ use crate::{
     twilight_utils::ext::{MemberExt, MessageExt, UserExt},
 };
 use anyhow::Result;
+use futures::StreamExt;
 use once_cell::sync::Lazy;
 use std::{
     collections::{HashMap, HashSet},
@@ -16,7 +17,6 @@ use std::{
 };
 use tokio::{
     runtime::Runtime,
-    stream::StreamExt,
     sync::{
         mpsc::{Receiver, Sender},
         oneshot::channel,
@@ -336,9 +336,9 @@ impl DiscordConnection {
                             time: typing.timestamp,
                         });
                         Weechat::bar_item_update("discord_typing");
-                        let (mut tx, mut rx) = tokio::sync::mpsc::channel(1);
+                        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
                         conn.rt.spawn(async move {
-                            tokio::time::delay_for(Duration::from_secs(10)).await;
+                            tokio::time::sleep(Duration::from_secs(10)).await;
                             let _ = tx.send(()).await;
                         });
 
@@ -349,7 +349,8 @@ impl DiscordConnection {
                                 instance.borrow_typing_tracker_mut().sweep();
                                 Weechat::bar_item_update("discord_typing");
                             }
-                        });
+                        })
+                        .detach();
                     }
                 },
                 PluginMessage::ChannelUpdate(channel_update) => {
@@ -415,7 +416,7 @@ impl DiscordConnection {
     }
 
     // Runs on Tokio runtime
-    async fn handle_gateway_event(event: GatewayEvent, mut tx: Sender<PluginMessage>) {
+    async fn handle_gateway_event(event: GatewayEvent, tx: Sender<PluginMessage>) {
         match event {
             GatewayEvent::Ready(ready) => tx
                 .send(PluginMessage::Connected { user: ready.user })

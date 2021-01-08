@@ -20,7 +20,12 @@ impl Completions {
             "Completion for Discord servers",
             move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
                 // `list` should not have any completion items
-                if completion.arguments().splitn(3, ' ').nth(1) == Some("list") {
+                if completion
+                    .arguments()
+                    .and_then(|a| a.splitn(3, ' ').nth(1).map(ToString::to_string))
+                    .as_deref()
+                    == Some("list")
+                {
                     return Ok(());
                 }
 
@@ -39,54 +44,55 @@ impl Completions {
         .expect("Unable to hook discord guild completion");
 
         let connection_clone = connection.clone();
-        let _channel_completion_hook =
-            CompletionHook::new(
-                "discord_channel",
-                "Completion for Discord channels",
-                move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
-                    // Get the previous argument which should be the guild name
-                    let guild_name = match completion.arguments().splitn(4, ' ').nth(2) {
-                        Some(guild_name) => guild_name.to_string(),
-                        None => return Err(()),
-                    };
-                    let connection = connection_clone.borrow();
-                    let connection = match connection.as_ref() {
-                        Some(connection) => connection,
-                        None => return Err(())
-                    };
+        let _channel_completion_hook = CompletionHook::new(
+            "discord_channel",
+            "Completion for Discord channels",
+            move |_: &Weechat, _: &Buffer, _: Cow<str>, completion: &Completion| {
+                // Get the previous argument which should be the guild name
+                let guild_name = match completion
+                    .arguments()
+                    .and_then(|a| a.splitn(4, ' ').nth(2).map(ToString::to_string))
+                {
+                    Some(guild_name) => guild_name,
+                    None => return Err(()),
+                };
+                let connection = connection_clone.borrow();
+                let connection = match connection.as_ref() {
+                    Some(connection) => connection,
+                    None => return Err(()),
+                };
 
-                    let cache = connection.cache.clone();
+                let cache = connection.cache.clone();
 
-                    match crate::twilight_utils::search_cached_striped_guild_name(
-                        &cache,
-                        &guild_name,
-                    )
-                    {
-                        Some(guild) => {
-                            if let Some(channels) = cache
-                                .channel_ids_in_guild(guild.id)
-                            {
-                                for channel_id in channels {
-                                    match cache.guild_channel(channel_id) {
-                                        Some(channel) => {
-                                            if !crate::twilight_utils::is_text_channel(&cache, channel.as_ref()) { continue; }
-                                            completion.add(&utils::clean_name(&channel.name()));
+                match crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name) {
+                    Some(guild) => {
+                        if let Some(channels) = cache.channel_ids_in_guild(guild.id) {
+                            for channel_id in channels {
+                                match cache.guild_channel(channel_id) {
+                                    Some(channel) => {
+                                        if !crate::twilight_utils::is_text_channel(
+                                            &cache,
+                                            channel.as_ref(),
+                                        ) {
+                                            continue;
                                         }
-                                        None => {
-                                            tracing::trace!(id = %channel_id, "Unable to find channel in cache");
-                                        }
-                                    }
+                                        completion.add(&utils::clean_name(&channel.name()));
+                                    },
+                                    None => {
+                                        tracing::trace!(id = %channel_id, "Unable to find channel in cache");
+                                    },
                                 }
                             }
                         }
-                        None => {
-                            tracing::trace!(name = %guild_name, "Unable to find guild");
-                        }
-                    }
-                    Ok(())
-                },
-            )
-                .expect("Unable to hook discord channel completion");
+                    },
+                    None => {
+                        tracing::trace!(name = %guild_name, "Unable to find guild");
+                    },
+                }
+                Ok(())
+            },
+        )
+        .expect("Unable to hook discord channel completion");
 
         let connection_clone = connection;
         let _dm_completion_hook = CompletionHook::new(

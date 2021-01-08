@@ -79,7 +79,7 @@ impl DiscordCommand {
                             ));
                         },
                     };
-                });
+                }).detach();
             }
         }
     }
@@ -123,7 +123,8 @@ impl DiscordCommand {
                         Weechat::print(&format!("discord: could not find server: {}", guild_name));
                     },
                 };
-            });
+            })
+            .detach();
         }
     }
 
@@ -149,7 +150,8 @@ impl DiscordCommand {
                             Weechat::print(&format!("  #{:?}", channel_id));
                         }
                     }
-                });
+                })
+                .detach();
             }
         } else {
             for (guild_id, guild) in self.instance.borrow_guilds().clone().into_iter() {
@@ -204,7 +206,8 @@ impl DiscordCommand {
                     Weechat::print(&format!("discord: could not find server: {}", guild_name));
                 },
             };
-        });
+        })
+        .detach();
     }
 
     fn noautoconnect_guild(&self, matches: ParsedCommand) {
@@ -254,7 +257,8 @@ impl DiscordCommand {
                     ));
                 },
             };
-        });
+        })
+        .detach();
     }
 
     fn process_server_matches(&self, matches: ParsedCommand) {
@@ -309,7 +313,8 @@ impl DiscordCommand {
                 if let Err(e) = weecord_guild.join_channel(&channel, &guild, &instance) {
                     Weechat::print(&format!("discord: unable to join channel \"{}\"", e));
                 }
-            });
+            })
+            .detach();
         }
     }
 
@@ -457,7 +462,8 @@ impl DiscordCommand {
                             .borrow_private_channels_mut()
                             .insert(channel.id, channel);
                     }
-                });
+                })
+                .detach();
                 return;
             }
         }
@@ -491,7 +497,8 @@ impl DiscordCommand {
             instance
                 .borrow_pins_mut()
                 .insert((guild_id.unwrap(), channel_id.unwrap()), pins);
-        });
+        })
+        .detach();
     }
 
     fn discord_format(&self, matches: ParsedCommand, weechat: &Weechat, raw: &str) {

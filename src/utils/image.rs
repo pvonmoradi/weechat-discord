@@ -39,7 +39,7 @@ pub fn find_image_candidates(msg: &Message) -> Vec<InlineImageCandidate> {
 
 /// Wraps reqwest fetch so this function can be called on a weechat future
 pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> Option<DynamicImage> {
-    let (mut tx, mut rx) = tokio::sync::mpsc::channel(1);
+    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     let url = url.to_string();
     rt.spawn(async move {
         tracing::trace!("Fetching inline image at: {}", url);

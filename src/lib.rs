@@ -66,7 +66,8 @@ impl Plugin for Weecord {
                         DiscordConnection::handle_events(rx, &connection, config, instance).await;
                     }
                 }
-            });
+            })
+            .detach();
         };
 
         let _hooks = hooks::Hooks::hook_all(

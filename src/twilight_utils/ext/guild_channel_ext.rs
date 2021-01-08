@@ -72,9 +72,8 @@ impl GuildChannelExt for GuildChannel {
             .map(|role| (role.id, role.permissions))
             .collect();
 
-        let ref_roles = roles.iter().collect::<Vec<_>>();
         let calc =
-            twilight_permission_calculator::Calculator::new(guild_id, current_user.id, &ref_roles);
+            twilight_permission_calculator::Calculator::new(guild_id, current_user.id, &roles);
         let perms = calc.in_channel(self.kind(), self.permission_overwrites());
 
         if let Ok(perms) = perms {

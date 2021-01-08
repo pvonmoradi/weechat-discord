@@ -47,7 +47,8 @@ impl Signals {
                                     .send_guild_subscription(guild_id, channel_id)
                                     .await;
                             }
-                        });
+                        })
+                        .detach();
                         Weechat::spawn({
                             let channel = channel.clone();
                             async move {
@@ -61,7 +62,8 @@ impl Signals {
                                     );
                                 }
                             }
-                        });
+                        })
+                        .detach();
                         if let Err(e) = channel.load_users() {
                             tracing::error!(
                                 ?guild_id,

@@ -1,5 +1,9 @@
 use twilight_cache_inmemory::InMemoryCache as Cache;
-use twilight_model::{channel::Message, gateway::payload::MessageUpdate};
+use twilight_model::{
+    channel::{message::Mention, Message},
+    gateway::payload::MessageUpdate,
+    user::UserFlags,
+};
 
 pub trait MessageExt {
     fn is_own(&self, cache: &Cache) -> bool;
@@ -22,7 +26,17 @@ impl MessageExt for Message {
         self.channel_id = update.channel_id;
         self.edited_timestamp = update.edited_timestamp;
         for user in update.mentions.unwrap_or_default() {
-            self.mentions.insert(user.id, user);
+            let mention = Mention {
+                avatar: user.avatar.clone(),
+                bot: user.bot,
+                discriminator: user.discriminator.clone(),
+                id: user.id,
+                // TODO: Should this be popualted somehow?
+                member: None,
+                name: user.name.clone(),
+                public_flags: user.public_flags.unwrap_or_else(UserFlags::empty),
+            };
+            self.mentions.push(mention);
         }
         if let Some(attachments) = update.attachments {
             self.attachments = attachments

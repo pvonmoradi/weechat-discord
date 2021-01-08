@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::{Channel, ChannelType, GuildChannel, TextChannel},
@@ -18,7 +17,7 @@ async fn guild_emojis_updates() {
     cache.update(&GuildCreate(fake_guild(guild_id)));
 
     assert!(cache.emojis(guild_id).unwrap().is_empty());
-    let emoji = Emoji {
+    let emojis = vec![Emoji {
         animated: false,
         available: false,
         id: EmojiId(1),
@@ -27,9 +26,7 @@ async fn guild_emojis_updates() {
         require_colons: false,
         roles: vec![],
         user: None,
-    };
-    let mut emojis = HashMap::new();
-    emojis.insert(emoji.id, emoji);
+    }];
     cache.update(&GuildEmojisUpdate { emojis, guild_id });
 
     assert!(cache.emojis(guild_id).unwrap().contains(&EmojiId(1)));
@@ -51,6 +48,7 @@ async fn guild_roles_updates() {
         name: "foo".to_string(),
         permissions: Permissions::CREATE_INVITE,
         position: 0,
+        tags: None,
     };
     cache.update(&RoleCreate { guild_id, role });
 

@@ -248,7 +248,6 @@ pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use twilight_cache_inmemory::InMemoryCache as Cache;
     use twilight_model::{
         channel::{Channel, ChannelType, GuildChannel, TextChannel},
@@ -270,6 +269,7 @@ mod tests {
             name: "foo".to_string(),
             permissions: Permissions::CREATE_INVITE,
             position: 0,
+            tags: None,
         };
         cache.update(&RoleCreate {
             guild_id: GuildId(0),
@@ -366,29 +366,28 @@ mod tests {
     #[tokio::test]
     async fn emojis() {
         let cache = Cache::new();
-        let mut emojis = HashMap::new();
-        let emoji = Emoji {
-            animated: false,
-            available: false,
-            id: EmojiId(1),
-            managed: false,
-            name: "random-emoji".to_string(),
-            require_colons: false,
-            roles: vec![],
-            user: None,
-        };
-        emojis.insert(emoji.id, emoji);
-        let emoji = Emoji {
-            animated: false,
-            available: false,
-            id: EmojiId(2),
-            managed: false,
-            name: "emoji-two".to_string(),
-            require_colons: false,
-            roles: vec![],
-            user: None,
-        };
-        emojis.insert(emoji.id, emoji);
+        let emojis = vec![
+            Emoji {
+                animated: false,
+                available: false,
+                id: EmojiId(1),
+                managed: false,
+                name: "random-emoji".to_string(),
+                require_colons: false,
+                roles: vec![],
+                user: None,
+            },
+            Emoji {
+                animated: false,
+                available: false,
+                id: EmojiId(2),
+                managed: false,
+                name: "emoji-two".to_string(),
+                require_colons: false,
+                roles: vec![],
+                user: None,
+            },
+        ];
         cache.update(&GuildEmojisUpdate {
             emojis,
             guild_id: GuildId(0),
@@ -409,7 +408,7 @@ mod tests {
     #[test]
     fn evil_pony() {
         let cache = Cache::new();
-        let mut emojis = HashMap::new();
+        let mut emojis = Vec::new();
         for (i, n) in ["one", "two", "three", "four", "five", "six"]
             .iter()
             .enumerate()
@@ -424,7 +423,7 @@ mod tests {
                 roles: vec![],
                 user: None,
             };
-            emojis.insert(emoji.id, emoji);
+            emojis.push(emoji);
         }
         cache.update(&GuildEmojisUpdate {
             emojis,

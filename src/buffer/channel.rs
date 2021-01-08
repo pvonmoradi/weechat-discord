@@ -368,7 +368,7 @@ impl Channel {
     }
 
     pub async fn load_history(&self) -> anyhow::Result<()> {
-        let (mut tx, mut rx) = mpsc::channel(100);
+        let (tx, mut rx) = mpsc::channel(100);
         let conn = self.inner.borrow().conn.clone();
         {
             let id = self.id;
@@ -621,7 +621,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
             }
 
             // Create a nonce to associate the local echo with the incoming message
-            let nonce = thread_rng().gen_range(0, i64::max_value() as u64);
+            let nonce = thread_rng().gen_range(0..=i64::max_value() as u64);
             conn.rt.spawn({
                 let input = input.clone();
                 async move {

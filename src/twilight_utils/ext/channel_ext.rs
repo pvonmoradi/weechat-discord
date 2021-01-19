@@ -92,9 +92,8 @@ impl ChannelExt for PrivateChannel {
         self.kind
     }
 
-    fn can_send(&self, cache: &Cache) -> Option<bool> {
-        let current_user = cache.current_user()?;
-        Some(self.recipients.iter().any(|rec| rec.id == current_user.id))
+    fn can_send(&self, _cache: &Cache) -> Option<bool> {
+        Some(true)
     }
 }
 

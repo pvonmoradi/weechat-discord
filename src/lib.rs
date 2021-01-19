@@ -19,6 +19,7 @@ mod twilight_utils;
 mod utils;
 mod weechat2;
 
+pub const PLUGIN_NAME: &str = "weecord";
 pub static SHUTTING_DOWN: Flag = Flag::new();
 
 pub struct Weecord {

@@ -21,8 +21,15 @@ impl PinsBuffer {
         config: &Config,
     ) -> anyhow::Result<Self> {
         let clean_buffer_name = crate::utils::clean_name(&name);
-        // TODO: Check for existing buffer before creating one
-        let handle = BufferBuilder::new(&format!("discord.pins.{}", clean_buffer_name))
+        let buffer_name = format!("discord.pins.{}", clean_buffer_name);
+
+        let weechat = unsafe { Weechat::weechat() };
+
+        if let Some(buffer) = weechat.buffer_search(crate::PLUGIN_NAME, &buffer_name) {
+            buffer.close();
+        };
+
+        let handle = BufferBuilder::new(&buffer_name)
             .close_callback({
                 let name = format!("Pins for {}", name);
                 move |_: &Weechat, _: &Buffer| {

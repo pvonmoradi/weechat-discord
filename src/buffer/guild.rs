@@ -21,8 +21,16 @@ pub struct GuildBuffer(BufferHandle);
 impl GuildBuffer {
     pub fn new(name: &str, id: GuildId, instance: Instance) -> anyhow::Result<Self> {
         let clean_guild_name = crate::utils::clean_name(&name);
+        let buffer_name = format!("discord.{}", clean_guild_name);
+
+        let weechat = unsafe { Weechat::weechat() };
+
+        if let Some(buffer) = weechat.buffer_search(crate::PLUGIN_NAME, &buffer_name) {
+            buffer.close();
+        };
+
         // TODO: Check for existing buffer before creating one
-        let handle = BufferBuilder::new(&format!("discord.{}", clean_guild_name))
+        let handle = BufferBuilder::new(&buffer_name)
             .close_callback({
                 let name = name.to_string();
                 move |_: &Weechat, _: &Buffer| {

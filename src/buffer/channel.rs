@@ -55,31 +55,35 @@ impl ChannelBuffer {
     ) -> anyhow::Result<Self> {
         let clean_guild_name = crate::utils::clean_name(&guild_name);
         let clean_channel_name = crate::utils::clean_name(&name);
-        // TODO: Check for existing buffer before creating one
-        let handle = BufferBuilder::new(&format!(
-            "discord.{}.{}",
-            clean_guild_name, clean_channel_name
-        ))
-        .input_callback({
-            let conn = conn.clone();
-            let instance = instance.clone();
-            move |_: &Weechat, _: &Buffer, input: Cow<str>| {
-                if let Some(channel) = instance.search_buffer(Some(guild_id), id) {
-                    send_message(&channel, &conn, &input);
+        let buffer_name = format!("discord.{}.{}", clean_guild_name, clean_channel_name);
+
+        let weechat = unsafe { Weechat::weechat() };
+
+        if let Some(buffer) = weechat.buffer_search(crate::PLUGIN_NAME, &buffer_name) {
+            buffer.close();
+        };
+
+        let handle = BufferBuilder::new(&buffer_name)
+            .input_callback({
+                let conn = conn.clone();
+                let instance = instance.clone();
+                move |_: &Weechat, _: &Buffer, input: Cow<str>| {
+                    if let Some(channel) = instance.search_buffer(Some(guild_id), id) {
+                        send_message(&channel, &conn, &input);
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
-        })
-        .close_callback({
-            let name = name.to_string();
-            move |_: &Weechat, buffer: &Buffer| {
-                tracing::trace!(buffer.id=%id, buffer.name=%name, "Buffer close");
-                close_cb(buffer);
-                Ok(())
-            }
-        })
-        .build()
-        .map_err(|_| anyhow::anyhow!("Unable to create channel buffer"))?;
+            })
+            .close_callback({
+                let name = name.to_string();
+                move |_: &Weechat, buffer: &Buffer| {
+                    tracing::trace!(buffer.id=%id, buffer.name=%name, "Buffer close");
+                    close_cb(buffer);
+                    Ok(())
+                }
+            })
+            .build()
+            .map_err(|_| anyhow::anyhow!("Unable to create channel buffer"))?;
 
         let buffer = handle
             .upgrade()
@@ -114,6 +118,12 @@ impl ChannelBuffer {
 
         let short_name = Self::short_name(&channel.recipients);
         let buffer_id = Self::buffer_id(&channel.recipients);
+
+        let weechat = unsafe { Weechat::weechat() };
+
+        if let Some(buffer) = weechat.buffer_search(crate::PLUGIN_NAME, &buffer_id) {
+            buffer.close();
+        };
 
         let handle = BufferBuilder::new(&buffer_id)
             .input_callback({

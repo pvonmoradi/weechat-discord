@@ -122,7 +122,7 @@ checksum = "1482821306169ec4d07f6aca392a4681f66c75c9918aa49641a2595db64053cb"
 [[package]]
 name = "make_rs"
 version = "0.1.0"
-source = "git+https://github.com/Noskcaj19/make_rs#7e5ec7093eda158a4e2992cf1af15622d4bd977e"
+source = "git+https://github.com/Noskcaj19/make_rs#951b9db920881f3bc9983a75bc67748f4ea9895e"
 dependencies = [
  "anyhow",
  "glob",

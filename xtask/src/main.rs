@@ -7,25 +7,10 @@ fn main() {
 
     let test_dir = PathBuf::from(&env_or("WEECHAT_TEST_DIR", "./test_dir"));
 
-    let test = {
-        let test_dir = test_dir.clone();
-        move || test(&test_dir)
-    };
-
-    let run_weechat = {
-        let weechat_home = weechat_home.clone();
-        move || run_weechat(&weechat_home)
-    };
-
-    let install_test = {
-        let test_dir = test_dir;
-        move || install_test(&test_dir)
-    };
-
-    let install_release = {
-        let weechat_home = weechat_home;
-        move || install_release(&weechat_home)
-    };
+    let test = || test(&test_dir);
+    let run_weechat = || run_weechat(&weechat_home);
+    let install_test = || install_test(&test_dir);
+    let install_release = || install_release(&weechat_home);
 
     Maker::with()
         .default("test")

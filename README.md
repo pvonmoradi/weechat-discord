@@ -85,6 +85,8 @@ Certain additional features can be enabled using cargo feature flags:
 
 Features can be enabled when using xtask by setting the `WEECORD_FEATURES` environment variable.
 
+All features are enabled for Github Actions builds.
+
 ### Setup
 
 You must first obtain a login token.

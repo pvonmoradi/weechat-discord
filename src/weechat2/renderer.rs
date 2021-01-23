@@ -53,7 +53,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         self.state.clone()
     }
 
-    fn print_msg(&self, msg: &M, notify: bool) {
+    fn print_msg(&self, msg: &M, notify: bool, log: bool) {
         let buffer = self
             .buffer_handle
             .upgrade()
@@ -61,9 +61,13 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
 
         let mut state = self.state.borrow_mut();
         let (prefix, suffix) = msg.render(&mut state);
+        let mut tags = msg.tags(&mut state, notify);
+        if !log {
+            tags.push("no_log");
+        }
         buffer.print_date_tags(
             msg.timestamp(&mut state),
-            &msg.tags(&mut state, notify),
+            &tags,
             &format!("{}\t{}", prefix, suffix),
         );
     }
@@ -75,12 +79,12 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
             .clear();
 
         for message in self.messages.borrow().iter().rev() {
-            self.print_msg(&message, false);
+            self.print_msg(&message, false, false);
         }
     }
 
     pub fn add_msg(&self, msg: M, notify: bool) {
-        self.print_msg(&msg, notify);
+        self.print_msg(&msg, notify, true);
 
         let mut messages = self.messages.borrow_mut();
         messages.push_front(msg);
@@ -92,7 +96,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages.extend(msgs.rev().take(*self.max_buffer_messages));
         messages.truncate(*self.max_buffer_messages);
         for msg in messages.iter().rev() {
-            self.print_msg(msg, false);
+            self.print_msg(msg, false, false);
         }
     }
 

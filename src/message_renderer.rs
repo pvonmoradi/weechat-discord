@@ -124,9 +124,14 @@ impl WeechatMessage<MessageId, State> for Message {
 
         match self {
             #[cfg(feature = "images")]
-            Message::Image { msg, .. } => discord_msg_tags(msg),
+            Message::Image { msg, .. } => {
+                discord_msg_tags(msg);
+                tags.push("no_log");
+            },
             Message::Text(msg) => discord_msg_tags(msg),
-            Message::LocalEcho { .. } => {},
+            Message::LocalEcho { .. } => {
+                tags.push("no_log");
+            },
         }
         tags
     }

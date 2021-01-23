@@ -151,8 +151,12 @@ fn strip_leading_bracket(line: &str) -> &str {
     &line[line.find("> ").map(|x| x + 2).unwrap_or(0)..]
 }
 
+pub fn fold_lines<'a>(lines: impl Iterator<Item = &'a str>, sep: &'a str) -> String {
+    lines.fold(String::new(), |acc, x| format!("{}{}{}\n", acc, sep, x))
+}
+
 fn format_block_quote<'a>(lines: impl Iterator<Item = &'a str>) -> String {
-    lines.fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x))
+    fold_lines(lines, "▎")
 }
 
 #[cfg(test)]

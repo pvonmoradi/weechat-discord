@@ -5,6 +5,7 @@ use crate::{
     discord::discord_connection::ConnectionInner,
     match_map,
     twilight_utils::ext::MessageExt,
+    utils::fold_lines,
     weechat2::{MessageRenderer, WeechatMessage},
 };
 #[cfg(feature = "images")]
@@ -421,23 +422,67 @@ fn render_msg(
         msg_content.push_str(&attachment.proxy_url);
     }
 
+    msg_content.push_str(&format_embeds(&msg, !msg_content.is_empty()));
+
+    msg_content.push_str(&format_reactions(&msg));
+
+    let (prefix, author) = format_author_prefix(cache, &config, msg);
+
+    use twilight_model::channel::message::MessageType::*;
+    match msg.kind {
+        Regular => (prefix, crate::utils::discord_to_weechat(&msg_content)),
+        Reply if msg.referenced_message.is_none() => {
+            (prefix, crate::utils::discord_to_weechat(&msg_content))
+        },
+        Reply => match msg.referenced_message.as_ref() {
+            Some(ref_msg) => {
+                let (ref_prefix, ref_msg_content) =
+                    render_msg(cache, config, ref_msg, &mut Vec::new());
+
+                let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
+                (
+                    prefix,
+                    format!(
+                        "{}:\n{}{}",
+                        ref_prefix,
+                        ref_msg_content,
+                        crate::utils::discord_to_weechat(&msg_content)
+                    ),
+                )
+            },
+            // TODO: Currently never called due to the first Reply block above
+            //       Nested replies contain only ids, so cache lookup is needed
+            None => (
+                prefix,
+                format!(
+                    "<nested reply>\n{}",
+                    crate::utils::discord_to_weechat(&msg_content)
+                ),
+            ),
+        },
+        _ => format_event_message(msg, &author),
+    }
+}
+
+fn format_embeds(msg: &DiscordMessage, leading_newline: bool) -> String {
+    let mut out = String::new();
     for embed in &msg.embeds {
-        if !msg_content.is_empty() {
-            msg_content.push('\n');
+        if leading_newline {
+            out.push('\n');
         }
         if let Some(ref provider) = embed.provider {
             if let Some(name) = &provider.name {
-                msg_content.push('▎');
-                msg_content.push_str(name);
+                out.push('▎');
+                out.push_str(name);
                 if let Some(url) = &provider.url {
-                    msg_content.push_str(&format!(" ({})", url));
+                    out.push_str(&format!(" ({})", url));
                 }
-                msg_content.push('\n');
+                out.push('\n');
             }
         }
         if let Some(ref author) = embed.author {
-            msg_content.push('▎');
-            msg_content.push_str(&format!(
+            out.push('▎');
+            out.push_str(&format!(
                 "{}{}{}",
                 Weechat::color("bold"),
                 // TODO: Should we do something else here if None?
@@ -445,52 +490,40 @@ fn render_msg(
                 Weechat::color("reset"),
             ));
             if let Some(url) = &author.url {
-                msg_content.push_str(&format!(" ({})", url));
+                out.push_str(&format!(" ({})", url));
             }
-            msg_content.push('\n');
+            out.push('\n');
         }
         if let Some(ref title) = embed.title {
-            msg_content.push_str(
-                &title
-                    .lines()
-                    .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
-            );
-            msg_content.push('\n');
+            out.push_str(&fold_lines(title.lines(), "▎"));
+
+            out.push('\n');
         }
         if let Some(ref description) = embed.description {
-            msg_content.push_str(
-                &description
-                    .lines()
-                    .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
-            );
-            msg_content.push('\n');
+            out.push_str(&fold_lines(description.lines(), "▎"));
+            out.push('\n');
         }
         for field in &embed.fields {
-            msg_content.push_str(&field.name);
-            msg_content.push_str(
-                &field
-                    .value
-                    .lines()
-                    .fold(String::new(), |acc, x| format!("{}: {}\n", acc, x)),
-            );
-            msg_content.push('\n');
+            out.push_str(&field.name);
+            out.push_str(&fold_lines(field.value.lines(), ": "));
+            out.push('\n');
         }
         if let Some(ref footer) = embed.footer {
-            msg_content.push_str(
-                &footer
-                    .text
-                    .lines()
-                    .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
-            );
-            msg_content.push('\n');
+            out.push_str(&fold_lines(footer.text.lines(), "▎"));
+            out.push('\n');
         }
     }
 
+    out
+}
+
+fn format_reactions(msg: &DiscordMessage) -> String {
+    let mut out = String::new();
     if !msg.reactions.is_empty() {
-        msg_content.push_str(&format!(" {}", Weechat::color("8")));
+        out.push_str(&format!(" {}", Weechat::color("8")));
     }
 
-    msg_content.push_str(
+    out.push_str(
         &msg.reactions
             .iter()
             .flat_map(|reaction| {
@@ -505,9 +538,13 @@ fn render_msg(
     );
 
     if !msg.reactions.is_empty() {
-        msg_content.push_str(&Weechat::color("-8"));
+        out.push_str(&Weechat::color("-8"));
     }
 
+    out
+}
+
+fn format_author_prefix(cache: &Cache, config: &&Config, msg: &DiscordMessage) -> (String, String) {
     let mut prefix = String::new();
 
     prefix.push_str(&crate::utils::color::colorize_string(
@@ -532,104 +569,72 @@ fn render_msg(
         &config.nick_suffix(),
         &config.nick_suffix_color(),
     ));
+    (prefix, author)
+}
 
+fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) {
     use twilight_model::channel::message::MessageType::*;
-    match msg.kind {
-        Regular => (prefix, crate::utils::discord_to_weechat(&msg_content)),
-        Reply if msg.referenced_message.is_none() => {
-            (prefix, crate::utils::discord_to_weechat(&msg_content))
-        },
-        Reply => match msg.referenced_message.as_ref() {
-            Some(ref_msg) => {
-                let (ref_prefix, ref_msg_content) =
-                    render_msg(cache, config, ref_msg, &mut Vec::new());
-                let ref_msg_content = ref_msg_content
-                    .lines()
-                    .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x));
-                (
-                    prefix,
-                    format!(
-                        "{}:\n{}{}",
-                        ref_prefix,
-                        ref_msg_content,
-                        crate::utils::discord_to_weechat(&msg_content)
-                    ),
-                )
-            },
-            // TODO: Currently never called due to the first Reply block above
-            //       Nested replies contain only ids, so cache lookup is needed
-            None => (
-                prefix,
-                format!(
-                    "<nested reply>\n{}",
-                    crate::utils::discord_to_weechat(&msg_content)
-                ),
+    let (prefix, body) = match msg.kind {
+        RecipientAdd | GuildMemberJoin => (
+            weechat::Prefix::Join,
+            format!("{} joined the group.", bold(&author)),
+        ),
+        RecipientRemove => (
+            weechat::Prefix::Quit,
+            format!("{} left the group.", bold(&author)),
+        ),
+        ChannelNameChange => (
+            weechat::Prefix::Network,
+            format!(
+                "{} changed the channel name to {}.",
+                bold(&author),
+                bold(&msg.content)
             ),
-        },
-        _ => {
-            let (prefix, body) = match msg.kind {
-                RecipientAdd | GuildMemberJoin => (
-                    weechat::Prefix::Join,
-                    format!("{} joined the group.", bold(&author)),
-                ),
-                RecipientRemove => (
-                    weechat::Prefix::Quit,
-                    format!("{} left the group.", bold(&author)),
-                ),
-                ChannelNameChange => (
-                    weechat::Prefix::Network,
-                    format!(
-                        "{} changed the channel name to {}.",
-                        bold(&author),
-                        bold(&msg.content)
-                    ),
-                ),
-                Call => (
-                    weechat::Prefix::Network,
-                    format!("{} started a call.", bold(&author)),
-                ),
-                ChannelIconChange => (
-                    weechat::Prefix::Network,
-                    format!("{} changed the channel icon.", bold(&author)),
-                ),
-                ChannelMessagePinned => (
-                    weechat::Prefix::Network,
-                    format!("{} pinned a message to this channel", bold(&author)),
-                ),
-                UserPremiumSub => (
-                    weechat::Prefix::Network,
-                    format!("{} boosted this channel with nitro", bold(&author)),
-                ),
-                UserPremiumSubTier1 => (
-                    weechat::Prefix::Network,
-                    "This channel has achieved nitro level 1".to_string(),
-                ),
-                UserPremiumSubTier2 => (
-                    weechat::Prefix::Network,
-                    "This channel has achieved nitro level 2".to_string(),
-                ),
-                UserPremiumSubTier3 => (
-                    weechat::Prefix::Network,
-                    "This channel has achieved nitro level 3".to_string(),
-                ),
-                // TODO: What do these mean?
-                GuildDiscoveryDisqualified => (
-                    weechat::Prefix::Network,
-                    "This server has been disqualified from Discovery".to_string(),
-                ),
-                GuildDiscoveryRequalified => (
-                    weechat::Prefix::Network,
-                    "This server has been requalified for Discovery".to_string(),
-                ),
-                ChannelFollowAdd => (
-                    weechat::Prefix::Network,
-                    format!("This channel is now following {}", bold(&msg.content)),
-                ),
-                Regular | Reply => unreachable!(),
-            };
-            (Weechat::prefix(prefix), body)
-        },
-    }
+        ),
+        Call => (
+            weechat::Prefix::Network,
+            format!("{} started a call.", bold(&author)),
+        ),
+        ChannelIconChange => (
+            weechat::Prefix::Network,
+            format!("{} changed the channel icon.", bold(&author)),
+        ),
+        ChannelMessagePinned => (
+            weechat::Prefix::Network,
+            format!("{} pinned a message to this channel", bold(&author)),
+        ),
+        UserPremiumSub => (
+            weechat::Prefix::Network,
+            format!("{} boosted this channel with nitro", bold(&author)),
+        ),
+        UserPremiumSubTier1 => (
+            weechat::Prefix::Network,
+            "This channel has achieved nitro level 1".to_string(),
+        ),
+        UserPremiumSubTier2 => (
+            weechat::Prefix::Network,
+            "This channel has achieved nitro level 2".to_string(),
+        ),
+        UserPremiumSubTier3 => (
+            weechat::Prefix::Network,
+            "This channel has achieved nitro level 3".to_string(),
+        ),
+        // TODO: What do these mean?
+        GuildDiscoveryDisqualified => (
+            weechat::Prefix::Network,
+            "This server has been disqualified from Discovery".to_string(),
+        ),
+        GuildDiscoveryRequalified => (
+            weechat::Prefix::Network,
+            "This server has been requalified for Discovery".to_string(),
+        ),
+        ChannelFollowAdd => (
+            weechat::Prefix::Network,
+            format!("This channel is now following {}", bold(&msg.content)),
+        ),
+        Regular | Reply => unreachable!(),
+    };
+    (Weechat::prefix(prefix), body)
 }
 
 fn bold(body: &str) -> String {

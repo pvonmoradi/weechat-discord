@@ -5,7 +5,7 @@ mod format;
 pub mod image;
 
 pub use flag::Flag;
-pub use format::discord_to_weechat;
+pub use format::{discord_to_weechat, fold_lines};
 
 #[macro_export]
 macro_rules! match_map {

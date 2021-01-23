@@ -484,10 +484,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .get_nth_message(line - 1)
             {
                 let msg = match msg {
-                    RendererMessage::Text(msg) => msg,
+                    RendererMessage::Text(msg) => *msg,
                     RendererMessage::LocalEcho { .. } => return,
                     #[cfg(feature = "images")]
-                    RendererMessage::Image { msg, .. } => msg,
+                    RendererMessage::Image { msg, .. } => *msg,
                 };
 
                 if !msg.is_own(&cache) {

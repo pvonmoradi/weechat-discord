@@ -35,17 +35,17 @@ pub enum Message {
         timestamp: i64,
         nonce: u64,
     },
-    Text(DiscordMessage),
+    Text(Box<DiscordMessage>),
     #[cfg(feature = "images")]
     Image {
         images: Vec<LoadedImage>,
-        msg: DiscordMessage,
+        msg: Box<DiscordMessage>,
     },
 }
 
 impl Message {
     pub fn new(msg: DiscordMessage) -> Self {
-        Self::Text(msg)
+        Self::Text(Box::new(msg))
     }
 
     pub fn new_echo(author: String, content: String, nonce: u64) -> Self {

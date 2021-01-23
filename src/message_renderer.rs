@@ -295,7 +295,7 @@ impl WeechatRenderer {
                 .messages()
                 .borrow()
                 .iter()
-                .flat_map(|msg| match_map!(msg, *nonce, Message::LocalEcho { nonce, .. }))
+                .flat_map(|msg| match_map!(msg, Message::LocalEcho { nonce, .. } => *nonce))
                 .position(|msg_nonce| msg_nonce == incoming_nonce);
 
             if let Some(echo_index) = echo_index {

@@ -9,7 +9,7 @@ pub use format::discord_to_weechat;
 
 #[macro_export]
 macro_rules! match_map {
-    ($expression:expr, $v:expr, $( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
+    ($expression:expr, $( $pattern:pat )|+ $( if $guard: expr )? => $v:expr $(,)?) => {
         match $expression {
             $( $pattern )|+ $( if $guard )? => Some($v),
             _ => None

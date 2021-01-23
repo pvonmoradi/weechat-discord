@@ -42,6 +42,7 @@ pub struct LookConfig {
     pub show_unknown_user_ids: bool,
     pub message_fetch_count: i32,
     pub readonly_value: String,
+    pub image_max_height: i32,
 }
 
 impl Default for LookConfig {
@@ -55,6 +56,7 @@ impl Default for LookConfig {
             typing_list_style: 0,
             message_fetch_count: 50,
             readonly_value: "🔒".to_string(),
+            image_max_height: 15,
         }
     }
 }
@@ -290,7 +292,6 @@ impl Config {
                     }),
             )
             .expect("Unable to create show unknown user ids option");
-            //readonly_string
 
             let inner_clone = Weak::clone(&inner);
             sec.new_string_option(
@@ -304,6 +305,22 @@ impl Config {
                     }),
             )
             .expect("Unable to create readonly value option");
+
+            let inner_clone = Weak::clone(&inner);
+            sec.new_integer_option(
+                IntegerOptionSettings::new("image_max_height")
+                    .description("Maximum height for inline images")
+                    .min(0)
+                    .max(1000)
+                    .default_value(40)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.image_max_height = option.value();
+                    }),
+            )
+            .expect("Unable to create image max height option");
         }
 
         {
@@ -421,6 +438,10 @@ impl Config {
         self.inner.borrow().look.typing_list_style
     }
 
+    pub fn image_max_height(&self) -> i32 {
+        self.inner.borrow().look.image_max_height
+    }
+
     pub fn persist(&self) {
         let config = self.config.borrow();
         let general = config
@@ -497,6 +518,10 @@ impl Config {
                 },
                 false,
             );
+
+        look.search_option("image_max_height")
+            .expect("image max height option must exist")
+            .set(&self.image_max_height().to_string(), false);
     }
 }
 

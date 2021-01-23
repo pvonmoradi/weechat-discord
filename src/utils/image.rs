@@ -96,12 +96,12 @@ pub fn render_img(img: &DynamicImage) -> String {
 pub fn resize_image(
     img: &DynamicImage,
     cell_size: (u32, u32),
-    max_size: (u16, u16),
+    max_size: (u32, u32),
 ) -> DynamicImage {
     use image::GenericImageView;
     let img = img.resize(
-        (u32::from(max_size.0)) * cell_size.0,
-        (u32::from(max_size.1)) * cell_size.1,
+        max_size.0 * cell_size.0,
+        max_size.1 * cell_size.1,
         image::imageops::FilterType::Nearest,
     );
 

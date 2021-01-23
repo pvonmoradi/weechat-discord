@@ -86,6 +86,9 @@ impl WeechatMessage<MessageId, State> for Message {
                     &mut state.unknown_members,
                 );
 
+                if !images.is_empty() {
+                    body += "\n";
+                }
                 for image in images {
                     body += &render_img(&image.image);
                 }
@@ -167,6 +170,8 @@ pub struct State {
 
 pub struct WeechatRenderer {
     renderer: MessageRenderer<Message, MessageId, State>,
+    #[cfg(feature = "images")]
+    config: Config,
     conn: ConnectionInner,
 }
 
@@ -186,6 +191,8 @@ impl WeechatRenderer {
                     unknown_members: Vec::new(),
                 },
             ),
+            #[cfg(feature = "images")]
+            config: config.clone(),
             conn: connection.clone(),
         }
     }
@@ -257,13 +264,10 @@ impl WeechatRenderer {
             let renderer = self.renderer.clone();
             let rt = self.conn.rt.clone();
             let msg_id = msg.id;
+            let max_height = self.config.image_max_height() as u32;
             Weechat::spawn(async move {
                 if let Some(image) = fetch_inline_image(&rt, &candidate.url).await {
-                    let image = resize_image(
-                        &image,
-                        (4, 8),
-                        (candidate.height as u16 / 6, candidate.width as u16 / 6),
-                    );
+                    let image = resize_image(&image, (4, 8), (max_height, u16::max_value() as u32));
                     renderer.update_message(msg_id, |msg| {
                         let loaded_image = LoadedImage {
                             image,

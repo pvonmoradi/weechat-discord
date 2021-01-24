@@ -19,6 +19,7 @@ Use at your own risk, using this program could get your account or ip disabled, 
 ---
 
 ![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)
+[![Discord](https://img.shields.io/discord/715036059712356372?label=discord&logo=discord&logoColor=white)](https://discord.gg/BcPku6R)
 
 A plugin that adds Discord to [Weechat](https://weechat.org/)
 

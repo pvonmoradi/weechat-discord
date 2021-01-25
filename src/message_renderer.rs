@@ -202,6 +202,9 @@ impl WeechatRenderer {
         self.renderer.buffer_handle()
     }
 
+    pub fn set_last_read_id(&self, id: MessageId) {
+        self.renderer.set_last_read_id(id);
+    }
     /// Clear the buffer and reprint all messages
     pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
         self.renderer.state().borrow_mut().unknown_members.clear();

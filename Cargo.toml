@@ -114,7 +114,7 @@ git = "https://github.com/terminal-discord/twilight"
 branch = "next"
 
 [dependencies.twilight-permission-calculator]
-git = "https://github.com/terminal-discord/permission-calculator"
+git = "https://github.com/twilight-rs/permission-calculator"
 branch = "trunk"
 
 [patch.crates-io]

@@ -1,5 +1,5 @@
 use crate::refcell::RefCell;
-use std::{collections::VecDeque, marker::PhantomData, rc::Rc};
+use std::{collections::VecDeque, rc::Rc};
 use weechat::buffer::BufferHandle;
 
 pub trait WeechatMessage<I, S> {
@@ -15,7 +15,7 @@ pub struct MessageRenderer<M: WeechatMessage<I, S> + Clone, I: Eq, S> {
     buffer_handle: Rc<BufferHandle>,
     state: Rc<RefCell<S>>,
     max_buffer_messages: Rc<usize>,
-    phantom_id: PhantomData<I>,
+    last_read_id: Rc<RefCell<Option<I>>>,
 }
 
 impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> Clone for MessageRenderer<M, I, S> {
@@ -25,7 +25,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> Clone for MessageRenderer<M, I, 
             buffer_handle: Rc::clone(&self.buffer_handle),
             state: Rc::clone(&self.state),
             max_buffer_messages: Rc::clone(&self.max_buffer_messages),
-            phantom_id: self.phantom_id,
+            last_read_id: Rc::clone(&self.last_read_id),
         }
     }
 }
@@ -37,7 +37,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
             state: Rc::new(RefCell::new(state)),
             max_buffer_messages: Rc::new(max_buffer_messages),
             messages: Rc::new(RefCell::new(VecDeque::new())),
-            phantom_id: PhantomData,
+            last_read_id: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -51,6 +51,10 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
 
     pub fn state(&self) -> Rc<RefCell<S>> {
         self.state.clone()
+    }
+
+    pub fn set_last_read_id(&self, id: I) {
+        *self.last_read_id.borrow_mut() = Some(id);
     }
 
     fn print_msg(&self, msg: &M, notify: bool, log: bool) {
@@ -73,14 +77,14 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
     }
 
     pub fn redraw_buffer(&self) {
+        tracing::trace!("Redrawing buffer");
         self.buffer_handle
             .upgrade()
             .expect("message renderer outlived buffer")
             .clear();
 
-        for message in self.messages.borrow().iter().rev() {
-            self.print_msg(&message, false, false);
-        }
+        let last_read_id = self.last_read_id.borrow();
+        self.render_history(self.messages.borrow().iter().rev(), &last_read_id);
     }
 
     pub fn add_msg(&self, msg: M, notify: bool) {
@@ -95,8 +99,28 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         let mut messages = self.messages.borrow_mut();
         messages.extend(msgs.rev().take(*self.max_buffer_messages));
         messages.truncate(*self.max_buffer_messages);
-        for msg in messages.iter().rev() {
+
+        let last_read_id = self.last_read_id.borrow();
+        self.render_history(messages.iter().rev(), &last_read_id)
+    }
+
+    fn render_history<'a>(
+        &'a self,
+        messages: impl Iterator<Item = &'a M>,
+        last_read_id: &Option<I>,
+    ) {
+        let mut backlog = true;
+        for msg in messages {
             self.print_msg(msg, false, false);
+            if let Some(last_read_id) = &*last_read_id {
+                if &msg.id(&mut self.state.borrow_mut()) == last_read_id {
+                    backlog = false;
+                    self.buffer_handle.upgrade().unwrap().mark_read();
+                }
+            }
+        }
+        if backlog {
+            self.buffer_handle.upgrade().unwrap().mark_read();
         }
     }
 

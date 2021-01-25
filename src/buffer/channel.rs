@@ -407,6 +407,13 @@ impl Channel {
         let messages = rx.recv().await.unwrap();
 
         let inner = self.inner.borrow();
+        if let Some(read_state) = inner.conn.cache.read_state(self.id) {
+            tracing::trace!(channel.id=?self.id, "Last read message id: {}", read_state.last_message_id);
+            inner
+                .buffer
+                .renderer
+                .set_last_read_id(read_state.last_message_id);
+        }
         inner.buffer.add_bulk_msgs(messages.into_iter().rev());
         Ok(())
     }

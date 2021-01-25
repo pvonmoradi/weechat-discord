@@ -69,6 +69,7 @@ async fn guild_members_updates() {
         joined_at: None,
         mute: false,
         nick: None,
+        pending: false,
         premium_since: None,
         roles: vec![],
         user: User {

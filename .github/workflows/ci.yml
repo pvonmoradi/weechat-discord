@@ -47,10 +47,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
-        run: cargo xtask test
+        run: cargo xtask tests
 
       - name: Run tests (features)
-        run: cargo xtask test
+        run: cargo xtask tests
         env:
           WEECORD_FEATURES: syntax_highlighting,images
 

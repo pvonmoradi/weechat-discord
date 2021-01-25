@@ -506,6 +506,25 @@ impl DiscordCommand {
         .detach();
     }
 
+    fn more_history(&self, buffer: &Buffer) {
+        if let Some(channel_id) = buffer.channel_id() {
+            if let Some(channel) = self.instance.search_buffer(buffer.guild_id(), channel_id) {
+                Weechat::spawn(async move {
+                    if let Err(e) = channel.load_history().await {
+                        tracing::error!("Failed to load more history: {}", e);
+                    }
+                })
+                .detach();
+                return;
+            }
+        }
+        Weechat::print("discord: Not a Discord buffer");
+        tracing::warn!(
+            buffer.name = buffer.name().to_string().as_str(),
+            "Unable to find Discord channel"
+        );
+    }
+
     fn discord_format(&self, matches: ParsedCommand, weechat: &Weechat, raw: &str) {
         let conn = self.connection.borrow();
         let conn = match conn.as_ref() {
@@ -628,7 +647,7 @@ impl DiscordCommand {
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
-    fn callback(&mut self, weechat: &Weechat, _: &Buffer, arguments: Args) {
+    fn callback(&mut self, weechat: &Weechat, buffer: &Buffer, arguments: Args) {
         let args = arguments.collect::<Vec<_>>();
 
         let matches = WeechatCommand::new("/discord")
@@ -667,6 +686,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             )
             .subcommand(WeechatCommand::new("token").arg("token", true))
             .subcommand(WeechatCommand::new("pins"))
+            .subcommand(WeechatCommand::new("more_history"))
             .subcommand(WeechatCommand::new("me"))
             .subcommand(WeechatCommand::new("tableflip"))
             .subcommand(WeechatCommand::new("unflip"))
@@ -692,6 +712,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             Some(("token", matches)) => self.token(matches),
             Some(("query", matches)) => self.query(matches),
             Some(("pins", _)) => self.pins(weechat),
+            Some(("more_history", _)) => self.more_history(buffer),
             // Use or-patterns when they stabilize (rust #54883)
             Some(("me", matches))
             | Some(("tableflip", matches))
@@ -713,6 +734,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("channel join|autojoin|noautojoin <server-name> <channel-name>")
             .add_argument("query <user-name>")
             .add_argument("pins")
+            .add_argument("more_history")
             .add_argument("me|tableflip|unflip|shrug|spoiler")
             .add_argument("debug buffer|shutdown|members")
             .add_completion("token")
@@ -720,6 +742,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
             .add_completion("query %(discord_dm)")
             .add_completion("pins")
+            .add_completion("more_history")
             .add_completion("me|tableflip|unflip|shrug|spoiler")
             .add_completion("debug buffer|shutdown|members"),
         DiscordCommand {

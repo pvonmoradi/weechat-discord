@@ -10,7 +10,7 @@ pub fn colorize_string(text: &str, color: &str) -> String {
             "{}{}{}",
             Weechat2::color(color),
             text,
-            Weechat2::color("reset")
+            Weechat2::color("resetcolor")
         )
     }
 }

@@ -379,6 +379,7 @@ impl Channel {
 
     pub async fn load_history(&self) -> anyhow::Result<()> {
         let (tx, mut rx) = mpsc::channel(100);
+        let last_msg = self.inner.borrow().buffer.renderer.nth_oldest_message(0);
         let conn = self.inner.borrow().conn.clone();
         {
             let id = self.id;
@@ -386,13 +387,26 @@ impl Channel {
 
             let conn_clone = conn.clone();
             conn.rt.spawn(async move {
-                let mut messages: Vec<_> = conn_clone
-                    .http
-                    .channel_messages(id)
-                    .limit(msg_count)
-                    .unwrap()
-                    .await
-                    .unwrap();
+                let mut messages: Vec<_> = match last_msg {
+                    Some(last_msg) => {
+                        tracing::trace!("Getting history before id: {}", last_msg.id());
+                        conn_clone
+                            .http
+                            .channel_messages(id)
+                            .limit(msg_count)
+                            .unwrap()
+                            .before(last_msg.id())
+                            .await
+                            .unwrap()
+                    },
+                    None => conn_clone
+                        .http
+                        .channel_messages(id)
+                        .limit(msg_count)
+                        .unwrap()
+                        .await
+                        .unwrap(),
+                };
 
                 // This is a bit of a hack because the returned messages have no guild id, even if
                 // they are from a guild channel

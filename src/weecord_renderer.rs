@@ -56,6 +56,15 @@ impl Message {
             nonce,
         }
     }
+
+    pub fn id(&self) -> MessageId {
+        match self {
+            Message::LocalEcho { nonce, .. } => MessageId(*nonce),
+            Message::Text(msg) => msg.id,
+            #[cfg(feature = "images")]
+            Message::Image { msg, .. } => msg.id,
+        }
+    }
 }
 
 impl WeechatMessage<MessageId, State> for Message {
@@ -154,12 +163,7 @@ impl WeechatMessage<MessageId, State> for Message {
     }
 
     fn id(&self, _: &mut State) -> MessageId {
-        match self {
-            Message::LocalEcho { nonce, .. } => MessageId(*nonce),
-            Message::Text(msg) => msg.id,
-            #[cfg(feature = "images")]
-            Message::Image { msg, .. } => msg.id,
-        }
+        self.id()
     }
 }
 
@@ -347,6 +351,10 @@ impl WeecordRenderer {
 
     pub fn get_nth_message(&self, index: usize) -> Option<Message> {
         self.inner.get_nth_message(index)
+    }
+
+    pub fn nth_oldest_message(&self, index: usize) -> Option<Message> {
+        self.inner.nth_oldest_message(index)
     }
 
     pub fn remove_msg(&self, id: MessageId) {

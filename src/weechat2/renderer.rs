@@ -138,6 +138,10 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         self.messages.borrow().iter().nth(index).cloned()
     }
 
+    pub fn nth_oldest_message(&self, index: usize) -> Option<M> {
+        self.messages.borrow().iter().rev().nth(index).cloned()
+    }
+
     pub fn remove_msg(&self, id: I) {
         {
             let mut state = self.state.borrow_mut();

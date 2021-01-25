@@ -109,18 +109,13 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages: impl Iterator<Item = &'a M>,
         last_read_id: &Option<I>,
     ) {
-        let mut backlog = true;
         for msg in messages {
             self.print_msg(msg, false, false);
             if let Some(last_read_id) = &*last_read_id {
                 if &msg.id(&mut self.state.borrow_mut()) == last_read_id {
-                    backlog = false;
                     self.buffer_handle.upgrade().unwrap().mark_read();
                 }
             }
-        }
-        if backlog {
-            self.buffer_handle.upgrade().unwrap().mark_read();
         }
     }
 

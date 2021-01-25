@@ -1,16 +1,22 @@
-use crate::twilight_utils::ext::{CachedGuildExt, ChannelExt};
+use crate::twilight_utils::ext::ChannelExt;
 use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
     guild::Permissions,
-    id::RoleId,
+    id::{RoleId, UserId},
 };
 
 pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
     fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()>;
+    fn member_has_permission(
+        &self,
+        cache: &Cache,
+        member: UserId,
+        permissions: Permissions,
+    ) -> Option<bool>;
     fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
 }
 
@@ -36,17 +42,18 @@ impl GuildChannelExt for GuildChannel {
             GuildChannel::Category(_) => Err(()),
             GuildChannel::Voice(_) => Err(()),
             GuildChannel::Text(channel) => {
-                let guild = cache.guild(channel.guild_id.ok_or(())?).ok_or(())?;
-
                 let members = cache.members(channel.guild_id.ok_or(())?).ok_or(())?;
 
                 Ok(members
                     .iter()
                     .filter_map(|member| {
-                        let guild = Arc::clone(&guild);
-                        if guild
-                            .permissions_in(cache, channel.id, member.user.id)
-                            .contains(Permissions::READ_MESSAGE_HISTORY)
+                        if self
+                            .member_has_permission(
+                                cache,
+                                member.user.id,
+                                Permissions::READ_MESSAGE_HISTORY,
+                            )
+                            .unwrap_or(false)
                         {
                             Some(Arc::clone(member))
                         } else {
@@ -58,11 +65,14 @@ impl GuildChannelExt for GuildChannel {
         }
     }
 
-    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
-        let current_user = cache.current_user()?;
-
+    fn member_has_permission(
+        &self,
+        cache: &Cache,
+        member_id: UserId,
+        permissions: Permissions,
+    ) -> Option<bool> {
         let guild_id = self.guild_id().expect("guild channel must have a guild id");
-        let member = cache.member(guild_id, current_user.id)?;
+        let member = cache.member(guild_id, member_id)?;
 
         let roles: Vec<_> = member
             .roles
@@ -72,8 +82,7 @@ impl GuildChannelExt for GuildChannel {
             .map(|role| (role.id, role.permissions))
             .collect();
 
-        let calc =
-            twilight_permission_calculator::Calculator::new(guild_id, current_user.id, &roles);
+        let calc = twilight_permission_calculator::Calculator::new(guild_id, member_id, &roles);
         let perms = calc.in_channel(self.kind(), self.permission_overwrites());
 
         if let Ok(perms) = perms {
@@ -82,5 +91,11 @@ impl GuildChannelExt for GuildChannel {
             }
         }
         Some(false)
+    }
+
+    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
+        let current_user = cache.current_user()?;
+
+        self.member_has_permission(cache, current_user.id, permissions)
     }
 }

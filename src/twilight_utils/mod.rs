@@ -1,4 +1,4 @@
-use crate::{twilight_utils::ext::CachedGuildExt, utils};
+use crate::{twilight_utils::ext::GuildChannelExt, utils};
 use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache as Cache};
 use twilight_model::{
@@ -66,19 +66,9 @@ pub fn search_cached_stripped_guild_channel_name(
 }
 
 pub fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
-    let current_user = match cache.current_user() {
-        Some(user) => user,
-        None => return false,
-    };
-
-    let guild = match cache.guild(channel.guild_id().expect("GuildChannel must have guild id")) {
-        Some(guild) => guild,
-        None => return false,
-    };
-
-    if !guild
-        .permissions_in(cache, channel.id(), current_user.id)
-        .contains(Permissions::READ_MESSAGE_HISTORY)
+    if !channel
+        .has_permission(cache, Permissions::READ_MESSAGE_HISTORY)
+        .unwrap_or(false)
     {
         return false;
     }

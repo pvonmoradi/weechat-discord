@@ -1,6 +1,6 @@
 use crate::{
-    config::Config, discord::discord_connection::ConnectionInner,
-    message_renderer::WeechatRenderer, refcell::RefCell, twilight_utils::ext::ChannelExt,
+    config::Config, discord::discord_connection::ConnectionInner, refcell::RefCell,
+    twilight_utils::ext::ChannelExt, weecord_renderer::WeecordRenderer,
 };
 use std::rc::Rc;
 use tokio::sync::mpsc;
@@ -10,7 +10,7 @@ use weechat::{
     Weechat,
 };
 
-pub struct PinsBuffer(WeechatRenderer);
+pub struct PinsBuffer(WeecordRenderer);
 
 impl PinsBuffer {
     pub fn new(
@@ -50,7 +50,7 @@ impl PinsBuffer {
         }
         buffer.set_localvar("channel_id", &channel_id.0.to_string());
 
-        Ok(PinsBuffer(WeechatRenderer::new(
+        Ok(PinsBuffer(WeecordRenderer::new(
             conn,
             Rc::new(handle),
             config,

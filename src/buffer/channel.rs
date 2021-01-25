@@ -3,13 +3,13 @@ use crate::{
     discord::discord_connection::ConnectionInner,
     instance::Instance,
     match_map,
-    message_renderer::{Message as RendererMessage, WeechatRenderer},
     nicklist::Nicklist,
     refcell::RefCell,
     twilight_utils::{
         ext::{CacheExt, ChannelExt, GuildChannelExt, MessageExt},
         DynamicChannel,
     },
+    weecord_renderer::{Message as RendererMessage, WeecordRenderer},
 };
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
@@ -36,7 +36,7 @@ use weechat::{
 };
 
 struct ChannelBuffer {
-    pub renderer: WeechatRenderer,
+    pub renderer: WeecordRenderer,
     pub nicklist: Nicklist,
 }
 
@@ -102,7 +102,7 @@ impl ChannelBuffer {
 
         let handle = Rc::new(handle);
         Ok(Self {
-            renderer: WeechatRenderer::new(conn, Rc::clone(&handle), config),
+            renderer: WeecordRenderer::new(conn, Rc::clone(&handle), config),
             nicklist: Nicklist::new(conn, handle),
         })
     }
@@ -164,7 +164,7 @@ impl ChannelBuffer {
 
         let handle = Rc::new(handle);
         Ok(Self {
-            renderer: WeechatRenderer::new(&conn, Rc::clone(&handle), config),
+            renderer: WeecordRenderer::new(&conn, Rc::clone(&handle), config),
             nicklist: Nicklist::new(conn, handle),
         })
     }

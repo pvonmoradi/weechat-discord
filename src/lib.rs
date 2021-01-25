@@ -12,12 +12,12 @@ mod config;
 mod discord;
 mod hooks;
 mod instance;
-mod message_renderer;
 mod nicklist;
 mod refcell;
 mod twilight_utils;
 mod utils;
 mod weechat2;
+mod weecord_renderer;
 
 pub const PLUGIN_NAME: &str = "weecord";
 pub static SHUTTING_DOWN: Flag = Flag::new();

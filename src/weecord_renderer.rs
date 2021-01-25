@@ -169,21 +169,21 @@ pub struct State {
     unknown_members: Vec<UserId>,
 }
 
-pub struct WeechatRenderer {
-    renderer: MessageRenderer<Message, MessageId, State>,
+pub struct WeecordRenderer {
+    inner: MessageRenderer<Message, MessageId, State>,
     #[cfg(feature = "images")]
     config: Config,
     conn: ConnectionInner,
 }
 
-impl WeechatRenderer {
+impl WeecordRenderer {
     pub fn new(
         connection: &ConnectionInner,
         buffer_handle: Rc<BufferHandle>,
         config: &Config,
     ) -> Self {
         Self {
-            renderer: MessageRenderer::new(
+            inner: MessageRenderer::new(
                 buffer_handle,
                 config.max_buffer_messages() as usize,
                 State {
@@ -199,19 +199,19 @@ impl WeechatRenderer {
     }
 
     pub fn buffer_handle(&self) -> Rc<BufferHandle> {
-        self.renderer.buffer_handle()
+        self.inner.buffer_handle()
     }
 
     pub fn set_last_read_id(&self, id: MessageId) {
-        self.renderer.set_last_read_id(id);
+        self.inner.set_last_read_id(id);
     }
     /// Clear the buffer and reprint all messages
     pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
-        self.renderer.state().borrow_mut().unknown_members.clear();
+        self.inner.state().borrow_mut().unknown_members.clear();
 
-        self.renderer.redraw_buffer();
+        self.inner.redraw_buffer();
 
-        let state = self.renderer.state();
+        let state = self.inner.state();
         {
             let mut state = state.borrow_mut();
             let unknown_members = &mut state.unknown_members;
@@ -224,7 +224,7 @@ impl WeechatRenderer {
             }
         }
 
-        if let Some(first_msg) = self.renderer.messages().borrow().front() {
+        if let Some(first_msg) = self.inner.messages().borrow().front() {
             let unknown_members = &state.borrow().unknown_members;
             if !unknown_members.is_empty() {
                 if let Message::Text(first_msg) = first_msg {
@@ -237,7 +237,7 @@ impl WeechatRenderer {
     }
 
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = DiscordMessage>) {
-        self.renderer.state().borrow_mut().unknown_members.clear();
+        self.inner.state().borrow_mut().unknown_members.clear();
 
         let mut msgs = msgs.into_iter().peekable();
         let guild_id = msgs
@@ -251,11 +251,11 @@ impl WeechatRenderer {
             Message::new(msg)
         });
 
-        self.renderer.add_bulk_msgs(msgs.into_iter());
+        self.inner.add_bulk_msgs(msgs.into_iter());
 
         if let Some((guild_id, channel_id)) = guild_id {
             self.fetch_guild_members(
-                &self.renderer.state().borrow().unknown_members,
+                &self.inner.state().borrow().unknown_members,
                 channel_id,
                 guild_id,
             );
@@ -265,7 +265,7 @@ impl WeechatRenderer {
     #[cfg(feature = "images")]
     fn load_images(&self, msg: &DiscordMessage) {
         for candidate in find_image_candidates(&msg) {
-            let renderer = self.renderer.clone();
+            let renderer = self.inner.clone();
             let rt = self.conn.rt.clone();
             let msg_id = msg.id;
             let max_height = self.config.image_max_height() as u32;
@@ -297,14 +297,14 @@ impl WeechatRenderer {
     }
 
     pub fn add_local_echo(&self, author: String, content: String, nonce: u64) {
-        self.renderer
+        self.inner
             .add_msg(Message::new_echo(author, content, nonce), false)
     }
 
     pub fn add_msg(&self, msg: DiscordMessage, notify: bool) {
         if let Some(incoming_nonce) = msg.nonce.as_ref().and_then(|n| n.parse::<u64>().ok()) {
             let echo_index = self
-                .renderer
+                .inner
                 .messages()
                 .borrow()
                 .iter()
@@ -312,7 +312,7 @@ impl WeechatRenderer {
                 .position(|msg_nonce| msg_nonce == incoming_nonce);
 
             if let Some(echo_index) = echo_index {
-                self.renderer.remove(echo_index);
+                self.inner.remove(echo_index);
                 self.redraw_buffer(&[]);
             }
         }
@@ -320,13 +320,13 @@ impl WeechatRenderer {
         #[cfg(feature = "images")]
         self.load_images(&msg);
 
-        self.renderer.state().borrow_mut().unknown_members.clear();
+        self.inner.state().borrow_mut().unknown_members.clear();
 
-        self.renderer.add_msg(Message::new(msg.clone()), notify);
+        self.inner.add_msg(Message::new(msg.clone()), notify);
 
         if let Some(guild_id) = msg.guild_id {
             self.fetch_guild_members(
-                &self.renderer.state().borrow().unknown_members,
+                &self.inner.state().borrow().unknown_members,
                 msg.channel_id,
                 guild_id,
             );
@@ -337,7 +337,7 @@ impl WeechatRenderer {
     where
         F: FnOnce(&mut DiscordMessage),
     {
-        self.renderer.update_message(id, |msg| match msg {
+        self.inner.update_message(id, |msg| match msg {
             Message::LocalEcho { .. } => {},
             Message::Text(msg) => f(msg),
             #[cfg(feature = "images")]
@@ -346,11 +346,11 @@ impl WeechatRenderer {
     }
 
     pub fn get_nth_message(&self, index: usize) -> Option<Message> {
-        self.renderer.get_nth_message(index)
+        self.inner.get_nth_message(index)
     }
 
     pub fn remove_msg(&self, id: MessageId) {
-        self.renderer.remove_msg(id)
+        self.inner.remove_msg(id)
     }
 
     pub fn apply_message_update(&self, update: MessageUpdate) {

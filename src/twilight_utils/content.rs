@@ -278,7 +278,7 @@ mod tests {
 
         assert_eq!(
             clean_all(&cache, "hello <@&1>!", None, false, &mut vec![]),
-            "hello 16@fooreset!"
+            "hello 16@fooresetcolor!"
         );
     }
 

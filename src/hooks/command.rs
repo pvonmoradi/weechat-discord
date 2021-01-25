@@ -5,15 +5,20 @@ use crate::{
     instance::Instance,
     twilight_utils::ext::UserExt,
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_model::channel::GuildChannel;
 use weechat::{
     buffer::Buffer,
-    hooks::{Command, CommandSettings},
-    Args, Weechat,
+    hooks::{Command, CommandRun, CommandSettings},
+    Args, ReturnCode, Weechat,
 };
 use weechat_command_parser::{Command as WeechatCommand, ParsedCommand};
+
+pub struct Commands {
+    pub _discord_command: Command,
+    pub _me_hook: CommandRun,
+}
 
 pub struct DiscordCommand {
     instance: Instance,
@@ -699,8 +704,8 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
     }
 }
 
-pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -> Command {
-    Command::new(
+pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -> Commands {
+    let _discord_command = Command::new(
         CommandSettings::new("discord")
             .description("Discord integration for weechat")
             .add_argument("token <token>")
@@ -723,5 +728,19 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             config,
         },
     )
-    .expect("Failed to create command")
+    .expect("Failed to create command");
+
+    let _me_hook = CommandRun::new("/me", |_: &Weechat, buffer: &Buffer, command: Cow<str>| {
+        if let Some(text) = command.splitn(2, ' ').nth(1) {
+            let string = format!("/discord me {}", text.trim_start());
+            let _ = buffer.run_command(&string);
+        }
+        ReturnCode::Ok
+    })
+    .expect("Unable to hook me command run");
+
+    Commands {
+        _discord_command,
+        _me_hook,
+    }
 }

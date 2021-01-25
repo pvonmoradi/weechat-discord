@@ -8,6 +8,7 @@ mod options;
 mod signals;
 
 pub use bar_items::BarItems;
+pub use command::Commands;
 pub use completions::Completions;
 pub use options::Options;
 pub use signals::Signals;
@@ -15,7 +16,7 @@ pub use weechat::hooks::Command;
 
 pub struct Hooks {
     _completions: Completions,
-    _command: Command,
+    _command: Commands,
     _options: Options,
     _signals: Signals,
     _bar_items: BarItems,

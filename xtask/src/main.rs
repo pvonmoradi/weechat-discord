@@ -114,10 +114,10 @@ impl<E> ResultHelper2 for std::result::Result<std::process::ExitStatus, E> {
     fn abort_on_failure(self) -> anyhow::Result<()> {
         if let Ok(e) = self {
             if !e.success() {
-                return if let Some(code) = e.code() {
-                    Err(anyhow::anyhow!("Process exited with status code {}", code))
+                if let Some(code) = e.code() {
+                    std::process::exit(code);
                 } else {
-                    Err(anyhow::anyhow!("Process exited with failure"))
+                    std::process::exit(1);
                 };
             }
         }

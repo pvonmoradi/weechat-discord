@@ -512,7 +512,7 @@ impl DiscordCommand {
         };
 
         let cmd = matches.command();
-        let msg = matches.rest(raw);
+        let msg = matches.rest(raw).trim_start();
 
         let msg = match cmd {
             "me" => format!("_{}_", msg),

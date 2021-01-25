@@ -110,113 +110,120 @@ impl Config {
         {
             let inner = Rc::downgrade(&inner);
             let general_section_option = ConfigSectionSettings::new("general");
-            let mut sec = weechat_config
+            let mut general = weechat_config
                 .new_section(general_section_option)
                 .expect("Unable to create general section");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_string_option(
-                StringOptionSettings::new("token")
-                    .description("Discord auth token. Supports secure data")
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().token = Some(option.value().to_string());
-                    }),
-            )
-            .expect("Unable to create token option");
+            general
+                .new_string_option(
+                    StringOptionSettings::new("token")
+                        .description("Discord auth token. Supports secure data")
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
+                            inner.borrow_mut().token = Some(option.value().to_string());
+                        }),
+                )
+                .expect("Unable to create token option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_string_option(
-                StringOptionSettings::new("log_directive")
-                    .description("tracing-style env-logger directive to configure plugin logging")
-                    .default_value("weecord=warn")
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
+            general
+                .new_string_option(
+                    StringOptionSettings::new("log_directive")
+                        .description(
+                            "tracing-style env-logger directive to configure plugin logging",
+                        )
+                        .default_value("weecord=warn")
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
 
-                        inner.borrow_mut().log_directive = option.value().to_string();
-                    })
-                    .set_check_callback(|_: &Weechat, _: &StringOption, value| {
-                        EnvFilter::try_new(value.as_ref()).is_ok()
-                    }),
-            )
-            .expect("Unable to create tracing level option");
-
-            let inner_clone = Weak::clone(&inner);
-            sec.new_string_option(
-                StringOptionSettings::new("autojoin_private")
-                    .description("List of private channels to autojoin")
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-
-                        let mut channels: Vec<_> = option
-                            .value()
-                            .split(',')
-                            .map(|ch| ch.parse().map(ChannelId))
-                            .flatten()
-                            .collect();
-
-                        channels.sort();
-                        channels.dedup();
-
-                        option.set(
-                            &channels
-                                .iter()
-                                .map(|c| c.0.to_string())
-                                .collect::<Vec<_>>()
-                                .join(","),
-                            false,
-                        );
-
-                        inner.borrow_mut().autojoin_private = channels;
-                    }),
-            )
-            .expect("Unable to create autojoin private option");
+                            inner.borrow_mut().log_directive = option.value().to_string();
+                        })
+                        .set_check_callback(|_: &Weechat, _: &StringOption, value| {
+                            EnvFilter::try_new(value.as_ref()).is_ok()
+                        }),
+                )
+                .expect("Unable to create tracing level option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
-                IntegerOptionSettings::new("max_buffer_messages")
-                    .description("maximum number of messages to store in the internal buffer")
-                    .default_value(4096)
-                    .max(i32::max_value())
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
+            general
+                .new_string_option(
+                    StringOptionSettings::new("autojoin_private")
+                        .description("List of private channels to autojoin")
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
 
-                        inner.borrow_mut().max_buffer_messages = option.value();
-                    }),
-            )
-            .expect("Unable to create max buffer messages option");
+                            let mut channels: Vec<_> = option
+                                .value()
+                                .split(',')
+                                .map(|ch| ch.parse().map(ChannelId))
+                                .flatten()
+                                .collect();
+
+                            channels.sort();
+                            channels.dedup();
+
+                            option.set(
+                                &channels
+                                    .iter()
+                                    .map(|c| c.0.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                                false,
+                            );
+
+                            inner.borrow_mut().autojoin_private = channels;
+                        }),
+                )
+                .expect("Unable to create autojoin private option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_boolean_option(
-                BooleanOptionSettings::new("send_typing")
-                    .description("Should typing status be sent to discord")
-                    .set_change_callback(move |_, option| {
-                        let inner = inner_clone
-                            .upgrade()
-                            .expect("Outer config has outlived inner config");
-                        inner.borrow_mut().send_typing = option.value();
-                    }),
-            )
-            .expect("Unable to create send typing option");
+            general
+                .new_integer_option(
+                    IntegerOptionSettings::new("max_buffer_messages")
+                        .description("maximum number of messages to store in the internal buffer")
+                        .default_value(4096)
+                        .max(i32::max_value())
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
+
+                            inner.borrow_mut().max_buffer_messages = option.value();
+                        }),
+                )
+                .expect("Unable to create max buffer messages option");
+
+            let inner_clone = Weak::clone(&inner);
+            general
+                .new_boolean_option(
+                    BooleanOptionSettings::new("send_typing")
+                        .description("Should typing status be sent to discord")
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
+                            inner.borrow_mut().send_typing = option.value();
+                        }),
+                )
+                .expect("Unable to create send typing option");
         }
 
         {
             let inner = Rc::downgrade(&inner);
             let look_section_options = ConfigSectionSettings::new("look");
-            let mut sec = weechat_config
+            let mut look = weechat_config
                 .new_section(look_section_options)
                 .expect("Unable to create look section");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_boolean_option(
+            look.new_boolean_option(
                 BooleanOptionSettings::new("open_tracing_window")
                     .description("Should the tracing window be opened automatically")
                     .set_change_callback(move |_, option| {
@@ -229,7 +236,7 @@ impl Config {
             .expect("Unable to create tracing window option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
+            look.new_integer_option(
                 IntegerOptionSettings::new("message_fetch_count")
                     .description("Number of messages to fetch when opening a buffer")
                     .default_value(50)
@@ -245,7 +252,7 @@ impl Config {
             .expect("Unable to create message fetch count option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
+            look.new_integer_option(
                 IntegerOptionSettings::new("typing_list_max")
                     .description("Maximum number of users to display in the typing list")
                     .min(0)
@@ -262,7 +269,7 @@ impl Config {
             .expect("Unable to create typing list max option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
+            look.new_integer_option(
                 IntegerOptionSettings::new("typing_list_style")
                     .description("Style of the typing list")
                     .default_value(0)
@@ -279,7 +286,7 @@ impl Config {
             .expect("Unable to create typing list style option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_boolean_option(
+            look.new_boolean_option(
                 BooleanOptionSettings::new("show_unknown_user_ids")
                     .description(
                         "Should unknown users be shown as @<user-id> instead of @unknown-user",
@@ -294,9 +301,10 @@ impl Config {
             .expect("Unable to create show unknown user ids option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_string_option(
+            look.new_string_option(
                 StringOptionSettings::new("readonly_value")
                     .description("Value of the readonly bar item when a buffer is readonly")
+                    .default_value("🔒")
                     .set_change_callback(move |_, option| {
                         let inner = inner_clone
                             .upgrade()
@@ -307,7 +315,7 @@ impl Config {
             .expect("Unable to create readonly value option");
 
             let inner_clone = Weak::clone(&inner);
-            sec.new_integer_option(
+            look.new_integer_option(
                 IntegerOptionSettings::new("image_max_height")
                     .description("Maximum height for inline images")
                     .min(0)

@@ -40,6 +40,7 @@ impl GuildConfig {
 
         let inner_clone = Weak::clone(&weak_inner);
         let autoconnect = BooleanOptionSettings::new(format!("{}.autoconnect", id.0))
+            .description("Should this guild autoconnect")
             .set_change_callback(move |_, option| {
                 let inner = inner_clone.upgrade().expect("Config has outlived guild");
 
@@ -52,6 +53,7 @@ impl GuildConfig {
 
         let inner_clone = Weak::clone(&weak_inner);
         let autojoin_channels = StringOptionSettings::new(format!("{}.autojoin", id.0))
+            .description("The list of all channels to automatically join")
             .set_check_callback(|_: &Weechat, _: &StringOption, value| {
                 if value.is_empty() {
                     true

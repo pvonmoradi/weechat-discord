@@ -1,4 +1,8 @@
-use crate::{discord::discord_connection::DiscordConnection, twilight_utils::ext::UserExt, utils};
+use crate::{
+    discord::discord_connection::DiscordConnection,
+    twilight_utils::ext::{GuildChannelExt, UserExt},
+    utils,
+};
 use std::borrow::Cow;
 use weechat::{
     buffer::Buffer,
@@ -70,10 +74,7 @@ impl Completions {
                             for channel_id in channels {
                                 match cache.guild_channel(channel_id) {
                                     Some(channel) => {
-                                        if !crate::twilight_utils::is_text_channel(
-                                            &cache,
-                                            channel.as_ref(),
-                                        ) {
+                                        if !channel.is_text_channel(&cache) {
                                             continue;
                                         }
                                         completion.add(&utils::clean_name(&channel.name()));

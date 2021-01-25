@@ -1,11 +1,7 @@
 use crate::{twilight_utils::ext::GuildChannelExt, utils};
 use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache as Cache};
-use twilight_model::{
-    channel::{ChannelType, GuildChannel},
-    guild::Permissions,
-    id::GuildId,
-};
+use twilight_model::{channel::GuildChannel, id::GuildId};
 
 mod color;
 pub mod content;
@@ -52,7 +48,7 @@ pub fn search_cached_stripped_guild_channel_name(
         .expect("guild_ids never fails");
     for channel_id in channels {
         if let Some(channel) = cache.guild_channel(channel_id) {
-            if !crate::twilight_utils::is_text_channel(cache, &channel) {
+            if !channel.is_text_channel(cache) {
                 continue;
             }
             if utils::clean_name(&channel.name()) == utils::clean_name(target) {
@@ -63,21 +59,6 @@ pub fn search_cached_stripped_guild_channel_name(
         }
     }
     None
-}
-
-pub fn is_text_channel(cache: &Cache, channel: &GuildChannel) -> bool {
-    if !channel
-        .has_permission(cache, Permissions::READ_MESSAGE_HISTORY)
-        .unwrap_or(false)
-    {
-        return false;
-    }
-
-    match channel {
-        GuildChannel::Category(c) => c.kind == ChannelType::GuildText,
-        GuildChannel::Text(c) => c.kind == ChannelType::GuildText,
-        GuildChannel::Voice(_) => false,
-    }
 }
 
 pub fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> String {

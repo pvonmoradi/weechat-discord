@@ -1,8 +1,8 @@
 use crate::twilight_utils::ext::ChannelExt;
 use std::sync::Arc;
-use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache, InMemoryCache};
 use twilight_model::{
-    channel::{permission_overwrite::PermissionOverwrite, GuildChannel},
+    channel::{permission_overwrite::PermissionOverwrite, ChannelType, GuildChannel},
     guild::Permissions,
     id::{RoleId, UserId},
 };
@@ -18,6 +18,7 @@ pub trait GuildChannelExt {
         permissions: Permissions,
     ) -> Option<bool>;
     fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
+    fn is_text_channel(&self, cache: &Cache) -> bool;
 }
 
 impl GuildChannelExt for GuildChannel {
@@ -97,5 +98,20 @@ impl GuildChannelExt for GuildChannel {
         let current_user = cache.current_user()?;
 
         self.member_has_permission(cache, current_user.id, permissions)
+    }
+
+    fn is_text_channel(&self, cache: &InMemoryCache) -> bool {
+        if !self
+            .has_permission(cache, Permissions::READ_MESSAGE_HISTORY)
+            .unwrap_or(false)
+        {
+            return false;
+        }
+
+        match self {
+            GuildChannel::Category(c) => c.kind == ChannelType::GuildText,
+            GuildChannel::Text(c) => c.kind == ChannelType::GuildText,
+            GuildChannel::Voice(_) => false,
+        }
     }
 }

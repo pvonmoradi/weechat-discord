@@ -4,6 +4,7 @@ use crate::{
     discord::discord_connection::ConnectionInner,
     instance::Instance,
     refcell::RefCell,
+    twilight_utils::ext::GuildChannelExt,
 };
 use std::{collections::HashMap, rc::Rc};
 use twilight_cache_inmemory::model::CachedGuild as TwilightGuild;
@@ -130,7 +131,7 @@ impl Guild {
             let conn = inner.conn.clone();
             for auto_channel_id in self.guild_config.autojoin_channels() {
                 if let Some(channel) = conn.cache.guild_channel(auto_channel_id) {
-                    if crate::twilight_utils::is_text_channel(&conn.cache, &channel) {
+                    if channel.is_text_channel(&conn.cache) {
                         tracing::info!("Joining channel: #{}", channel.name());
 
                         self._join_channel(&channel, &guild, &mut inner, &instance)?;

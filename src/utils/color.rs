@@ -1,6 +1,5 @@
 use crate::{twilight_utils::ext::MemberExt, Weechat2};
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
-use weechat::Weechat;
 
 pub fn colorize_string(text: &str, color: &str) -> String {
     if text.is_empty() || color.is_empty() {
@@ -31,7 +30,7 @@ pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -
 }
 
 pub fn colorize_weechat_nick(nick: &str) -> String {
-    let color = Weechat::info_get("nick_color_name", nick).unwrap_or_else(|| "reset".into());
+    let color = Weechat2::info_get("nick_color_name", nick).unwrap_or_else(|| "reset".into());
 
     colorize_string(nick, &color)
 }

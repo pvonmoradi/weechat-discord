@@ -409,9 +409,9 @@ fn render_msg(
     msg: &DiscordMessage,
     unknown_members: &mut Vec<UserId>,
 ) -> (String, String) {
-    let mut msg_content = crate::twilight_utils::content::clean_all(
-        cache,
+    let mut msg_content = crate::utils::discord_to_weechat(
         &msg.content,
+        cache,
         msg.guild_id,
         config.show_unknown_user_ids(),
         unknown_members,
@@ -441,10 +441,8 @@ fn render_msg(
 
     use twilight_model::channel::message::MessageType::*;
     match msg.kind {
-        Regular => (prefix, crate::utils::discord_to_weechat(&msg_content)),
-        Reply if msg.referenced_message.is_none() => {
-            (prefix, crate::utils::discord_to_weechat(&msg_content))
-        },
+        Regular => (prefix, msg_content),
+        Reply if msg.referenced_message.is_none() => (prefix, msg_content),
         Reply => match msg.referenced_message.as_ref() {
             Some(ref_msg) => {
                 let (ref_prefix, ref_msg_content) =
@@ -453,23 +451,12 @@ fn render_msg(
                 let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
                 (
                     prefix,
-                    format!(
-                        "{}:\n{}{}",
-                        ref_prefix,
-                        ref_msg_content,
-                        crate::utils::discord_to_weechat(&msg_content)
-                    ),
+                    format!("{}:\n{}{}", ref_prefix, ref_msg_content, msg_content,),
                 )
             },
             // TODO: Currently never called due to the first Reply block above
             //       Nested replies contain only ids, so cache lookup is needed
-            None => (
-                prefix,
-                format!(
-                    "<nested reply>\n{}",
-                    crate::utils::discord_to_weechat(&msg_content)
-                ),
-            ),
+            None => (prefix, format!("<nested reply>\n{}", msg_content)),
         },
         _ => format_event_message(msg, &author),
     }

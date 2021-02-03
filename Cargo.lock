@@ -1661,7 +1661,7 @@ checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 [[package]]
 name = "simple_ast"
 version = "0.1.0"
-source = "git+https://github.com/Noskcaj19/simple-ast#26c65b2a7505bb106a661df3f45e29eef508a700"
+source = "git+https://github.com/Noskcaj19/simple-ast#d6c75b6ac8162b428237e57a25ce8c810a5e5b9b"
 dependencies = [
  "lazy_static",
  "onig",

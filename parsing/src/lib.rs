@@ -7,6 +7,10 @@ pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
     let rules: &[&dyn Rule<MarkdownNode>] = &[
         &Escape,
         &Newline,
+        &Emoji,
+        &ChannelMention,
+        &UserMention,
+        &RoleMention,
         &Bold,
         &Underline,
         &Italic,

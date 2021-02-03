@@ -515,8 +515,10 @@ fn format_embeds(msg: &DiscordMessage, leading_newline: bool) -> String {
             out.push('\n');
         }
         for field in &embed.fields {
+            out.push('▎');
             out.push_str(&field.name);
-            out.push_str(&fold_lines(field.value.lines(), ": "));
+            out.push_str(": ");
+            out.push_str(&field.value.lines().collect::<Vec<_>>().join(":"));
             out.push('\n');
         }
         if let Some(ref footer) = embed.footer {

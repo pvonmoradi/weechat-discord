@@ -31,7 +31,7 @@ impl MessageExt for Message {
                 bot: user.bot,
                 discriminator: user.discriminator.clone(),
                 id: user.id,
-                // TODO: Should this be popualted somehow?
+                // TODO: Should this be populated somehow?
                 member: None,
                 name: user.name.clone(),
                 public_flags: user.public_flags.unwrap_or_else(UserFlags::empty),

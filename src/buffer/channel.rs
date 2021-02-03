@@ -436,8 +436,6 @@ impl Channel {
         let conn = self.inner.borrow().conn.clone();
         if let Some(channel) = conn.cache.guild_channel(self.id) {
             if let Ok(members) = channel.members(&conn.cache) {
-                // TODO: Fix this, currently there doesn't seem to be much we can do about it
-                #[allow(clippy::await_holding_refcell_ref)]
                 self.inner.borrow().buffer.add_members(&members);
                 Ok(())
             } else {

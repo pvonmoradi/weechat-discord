@@ -30,7 +30,6 @@ impl GuildBuffer {
             buffer.close();
         };
 
-        // TODO: Check for existing buffer before creating one
         let handle = BufferBuilder::new(&buffer_name)
             .close_callback({
                 let name = name.to_string();

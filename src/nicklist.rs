@@ -28,7 +28,8 @@ impl Nicklist {
                     .map(|c| c.as_8bit())
                     .unwrap_or_default()
                     .to_string();
-                let member_display_name = colorize_string(&member.display_name(), &member_color);
+                let member_display_name =
+                    colorize_string(&member.display_name(), &member_color).build();
                 if let Some(role) = member.highest_role_info(&self.conn.cache) {
                     let role_color = Color::new(role.color).as_8bit().to_string();
                     if let Some(group) = buffer.search_nicklist_group(&role.name) {

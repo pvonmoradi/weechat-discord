@@ -6,7 +6,7 @@ use crate::{
     match_map,
     twilight_utils::ext::MessageExt,
     utils::fold_lines,
-    weechat2::{MessageRenderer, WeechatMessage},
+    weechat2::{MessageRenderer, Style, StyledString, WeechatMessage},
 };
 #[cfg(feature = "images")]
 use image::DynamicImage;
@@ -418,28 +418,25 @@ fn render_msg(
     );
 
     if msg.edited_timestamp.is_some() {
-        let edited_text = format!(
-            "{} (edited){}",
-            Weechat::color("8"),
-            Weechat::color("reset")
-        );
-        msg_content.push_str(&edited_text);
+        msg_content.push_styled_str(Style::color("8"), " (edited)");
     }
 
     for attachment in &msg.attachments {
         if !msg_content.is_empty() {
-            msg_content.push('\n');
+            msg_content.push_str("\n");
         }
         msg_content.push_str(&attachment.proxy_url);
     }
 
-    msg_content.push_str(&format_embeds(&msg, !msg_content.is_empty()));
+    msg_content.append(format_embeds(&msg, !msg_content.is_empty()));
 
-    msg_content.push_str(&format_reactions(&msg));
+    msg_content.append(format_reactions(&msg));
 
     let (prefix, author) = format_author_prefix(cache, &config, msg);
 
     use twilight_model::channel::message::MessageType::*;
+    let prefix = prefix.build();
+    let msg_content = msg_content.build();
     match msg.kind {
         Regular => (prefix, msg_content),
         Reply if msg.referenced_message.is_none() => (prefix, msg_content),
@@ -451,76 +448,79 @@ fn render_msg(
                 let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
                 (
                     prefix,
-                    format!("{}:\n{}{}", ref_prefix, ref_msg_content, msg_content,),
+                    format!(
+                        "{}:\n{}{}",
+                        ref_prefix,
+                        ref_msg_content.build(),
+                        msg_content
+                    ),
                 )
             },
             // TODO: Currently never called due to the first Reply block above
             //       Nested replies contain only ids, so cache lookup is needed
             None => (prefix, format!("<nested reply>\n{}", msg_content)),
         },
-        _ => format_event_message(msg, &author),
+        _ => format_event_message(msg, &author.build()),
     }
 }
 
-fn format_embeds(msg: &DiscordMessage, leading_newline: bool) -> String {
-    let mut out = String::new();
+fn format_embeds(msg: &DiscordMessage, leading_newline: bool) -> StyledString {
+    let mut out = StyledString::new();
     for embed in &msg.embeds {
         if leading_newline {
-            out.push('\n');
+            out.push_str("\n");
         }
         if let Some(ref provider) = embed.provider {
             if let Some(name) = &provider.name {
-                out.push('▎');
+                out.push_str("▎");
                 out.push_str(name);
                 if let Some(url) = &provider.url {
                     out.push_str(&format!(" ({})", url));
                 }
-                out.push('\n');
+                out.push_str("\n");
             }
         }
         if let Some(ref author) = embed.author {
-            out.push('▎');
-            out.push_str(&format!(
-                "{}{}{}",
-                Weechat::color("bold"),
-                // TODO: Should we do something else here if None?
-                author.name.clone().unwrap_or_default(),
-                Weechat::color("reset"),
-            ));
+            out.push_str("▎");
+            out.push_style(Style::color("bold"));
+            // TODO: Should we do something else here if None?
+            out.push_str(&author.name.clone().unwrap_or_default());
+            out.pop_style(Style::color("bold"));
             if let Some(url) = &author.url {
                 out.push_str(&format!(" ({})", url));
             }
-            out.push('\n');
+            out.push_str("\n");
         }
         if let Some(ref title) = embed.title {
-            out.push_str(&fold_lines(title.lines(), "▎"));
+            out.append(fold_lines(title.lines(), "▎"));
 
-            out.push('\n');
+            out.push_str("\n");
         }
         if let Some(ref description) = embed.description {
-            out.push_str(&fold_lines(description.lines(), "▎"));
-            out.push('\n');
+            out.append(fold_lines(description.lines(), "▎"));
+            out.push_str("\n");
         }
         for field in &embed.fields {
-            out.push('▎');
+            out.push_str("▎");
             out.push_str(&field.name);
             out.push_str(": ");
             out.push_str(&field.value.lines().collect::<Vec<_>>().join(":"));
-            out.push('\n');
+            out.push_str("\n");
         }
         if let Some(ref footer) = embed.footer {
-            out.push_str(&fold_lines(footer.text.lines(), "▎"));
-            out.push('\n');
+            out.append(fold_lines(footer.text.lines(), "▎"));
+            out.push_str("\n");
         }
     }
 
     out
 }
 
-fn format_reactions(msg: &DiscordMessage) -> String {
-    let mut out = String::new();
+fn format_reactions(msg: &DiscordMessage) -> StyledString {
+    let mut out = StyledString::new();
     if !msg.reactions.is_empty() {
-        out.push_str(&format!(" {}", Weechat::color("8")));
+        out.push_str(" ");
+        out.push_style(Style::color("8"));
     }
 
     out.push_str(
@@ -538,16 +538,20 @@ fn format_reactions(msg: &DiscordMessage) -> String {
     );
 
     if !msg.reactions.is_empty() {
-        out.push_str(&Weechat::color("-8"));
+        out.push_style(Style::color("-8"));
     }
 
     out
 }
 
-fn format_author_prefix(cache: &Cache, config: &&Config, msg: &DiscordMessage) -> (String, String) {
-    let mut prefix = String::new();
+fn format_author_prefix(
+    cache: &Cache,
+    config: &&Config,
+    msg: &DiscordMessage,
+) -> (StyledString, StyledString) {
+    let mut prefix = StyledString::new();
 
-    prefix.push_str(&crate::utils::color::colorize_string(
+    prefix.append(crate::utils::color::colorize_string(
         &config.nick_prefix(),
         &config.nick_prefix_color(),
     ));
@@ -561,11 +565,11 @@ fn format_author_prefix(cache: &Cache, config: &&Config, msg: &DiscordMessage) -
             cache, &member, false,
         ))
     })()
-    .unwrap_or_else(|| msg.author.name.clone());
+    .unwrap_or_else(|| msg.author.name.clone().into());
 
-    prefix.push_str(&author);
+    prefix.append(author.clone());
 
-    prefix.push_str(&crate::utils::color::colorize_string(
+    prefix.append(crate::utils::color::colorize_string(
         &config.nick_suffix(),
         &config.nick_suffix_color(),
     ));

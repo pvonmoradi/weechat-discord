@@ -9,6 +9,7 @@ mod dynamic_channel;
 pub mod ext;
 pub mod mention;
 
+use crate::weechat2::StyledString;
 pub use color::*;
 pub use dynamic_channel::*;
 pub use mention::*;
@@ -61,7 +62,7 @@ pub fn search_cached_stripped_guild_channel_name(
     None
 }
 
-pub fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> String {
+pub fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> StyledString {
     let current_user = cache
         .current_user()
         .expect("We have a connection, there must be a user");
@@ -71,7 +72,7 @@ pub fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> String {
     let nick = if let Some(member) = member {
         crate::utils::color::colorize_discord_member(cache, member.as_ref(), false)
     } else {
-        current_user.name.clone()
+        current_user.name.clone().into()
     };
     nick
 }

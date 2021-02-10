@@ -1,6 +1,8 @@
 mod renderer;
+mod styled_string;
 
 pub use renderer::*;
+pub use styled_string::{Style, StyledString};
 #[cfg_attr(test, allow(unused_imports))]
 use weechat::Weechat;
 

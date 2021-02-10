@@ -332,7 +332,7 @@ impl Channel {
     ) -> anyhow::Result<Self> {
         let nick = format!(
             "@{}",
-            crate::twilight_utils::current_user_nick(&guild, &conn.cache)
+            crate::twilight_utils::current_user_nick(&guild, &conn.cache).build()
         );
         let channel_buffer = ChannelBuffer::guild(
             channel.name(),

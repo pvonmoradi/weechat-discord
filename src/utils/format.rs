@@ -1,8 +1,8 @@
 use crate::{
     twilight_utils::{ext::ChannelExt, Color},
-    utils::color::colorize_string,
-    Weechat2,
+    weechat2::{Style, StyledString},
 };
+use itertools::{Itertools, Position};
 use parsing::MarkdownNode;
 use std::{rc::Rc, sync::RwLock};
 use twilight_cache_inmemory::InMemoryCache as Cache;
@@ -13,7 +13,6 @@ struct FormattingState<'a> {
     guild_id: Option<GuildId>,
     show_unknown_ids: bool,
     unknown_members: &'a mut Vec<UserId>,
-    color_stack: &'a mut Vec<&'static str>,
 }
 
 pub fn discord_to_weechat(
@@ -22,111 +21,128 @@ pub fn discord_to_weechat(
     guild_id: Option<GuildId>,
     show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
-) -> String {
+) -> StyledString {
     let mut state = FormattingState {
         cache,
         guild_id,
         show_unknown_ids,
         unknown_members,
-        color_stack: &mut Vec::new(),
     };
     let ast = parsing::parse_markdown(msg);
 
-    collect_styles(&ast.0, &mut state)
+    collect_children(&ast.0, &mut state)
 }
 
-fn collect_styles(styles: &[Rc<RwLock<MarkdownNode>>], state: &mut FormattingState) -> String {
+fn collect_children(
+    styles: &[Rc<RwLock<MarkdownNode>>],
+    state: &mut FormattingState,
+) -> StyledString {
     styles
         .iter()
         .map(|s| discord_to_weechat_reducer(&*s.read().unwrap(), state))
-        .collect::<Vec<_>>()
-        .join("")
-}
-
-fn push_color(color: &'static str, state: &mut FormattingState) -> &'static str {
-    state.color_stack.push(color);
-    Weechat2::color(color)
-}
-
-fn pop_color(state: &mut FormattingState) -> String {
-    state.color_stack.pop();
-    let mut out = Weechat2::color("resetcolor").to_string();
-    for color in state.color_stack.iter() {
-        out.push_str(Weechat2::color(color));
-    }
-
-    out
+        .fold(StyledString::new(), |mut acc, x| {
+            acc.append(x);
+            acc
+        })
 }
 
 // TODO: if the whole line is wrapped in *, render as CTCP ACTION rather than
 //       as fully italicized message.
-fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) -> String {
+fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) -> StyledString {
+    let mut out = StyledString::new();
+
     use MarkdownNode::*;
     match node {
-        Bold(styles) => format!(
-            "{}**{}**{}",
-            Weechat2::color("bold"),
-            collect_styles(styles, state),
-            Weechat2::color("-bold")
-        ),
-        Italic(styles) => format!(
-            "{}_{}_{}",
-            Weechat2::color("italic"),
-            collect_styles(styles, state),
-            Weechat2::color("-italic")
-        ),
-        Underline(styles) => format!(
-            "{}__{}__{}",
-            Weechat2::color("underline"),
-            collect_styles(styles, state),
-            Weechat2::color("-underline")
-        ),
-        Strikethrough(styles) => format!(
-            "{}~~{}~~{}",
-            push_color("|red", state),
-            collect_styles(styles, state),
-            pop_color(state)
-        ),
-        Spoiler(styles) => format!(
-            "{}||{}||{}",
-            Weechat2::color("italic"),
-            collect_styles(styles, state),
-            Weechat2::color("-italic")
-        ),
-        Text(string) => string.to_owned(),
-        InlineCode(string) => format!(
-            "{}`{}`{}{}",
-            push_color("|*8", state),
-            string,
-            Weechat2::color("-bold"),
-            pop_color(state)
-        ),
-        Code(language, text) => {
-            let (fmt, reset) = (
-                push_color("|*8", state),
-                pop_color(state) + Weechat2::color("-bold"),
-            );
+        Bold(children) => {
+            out.push_style(Style::Bold)
+                .push_str("**")
+                .absorb(collect_children(children, state))
+                .push_str("**")
+                .pop_style(Style::Bold);
+            out
+        },
+        Italic(children) => {
+            out.push_style(Style::Italic)
+                .push_str("_")
+                .absorb(collect_children(children, state))
+                .push_str("_")
+                .pop_style(Style::Italic);
+            out
+        },
+        Underline(children) => {
+            out.push_style(Style::Underline)
+                .push_str("__")
+                .absorb(collect_children(children, state))
+                .push_str("__")
+                .pop_style(Style::Underline);
+            out
+        },
+        Strikethrough(children) => {
+            out.push_style(Style::Color("red".into()))
+                .push_str("~~")
+                .absorb(collect_children(children, state))
+                .push_str("~~")
+                .pop_style(Style::Color("red".into()));
+            out
+        },
+        Spoiler(children) => {
+            out.push_style(Style::Italic)
+                .push_str("||")
+                .absorb(collect_children(children, state))
+                .push_str("||")
+                .pop_style(Style::Italic);
+            out
+        },
+        Text(string) => {
+            out.push_str(&string);
+            out
+        },
+        InlineCode(string) => {
+            out.push_style(Style::color("8"))
+                .push_style(Style::Bold)
+                .push_str("`")
+                .push_str(&string)
+                .push_str("`")
+                .pop_style(Style::Bold)
+                .pop_style(Style::color("8"));
 
+            out
+        },
+        Code(language, text) => {
             #[cfg(feature = "syntax_highlighting")]
             let text = syntax::format_code(text, language);
 
-            format!(
-                "```{}\n{}\n```",
-                language,
-                text.lines()
-                    .map(|l| format!("{}{}{}", fmt, l, reset))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            )
+            out.push_style(Style::Reset)
+                .push_str("```")
+                .push_str(language)
+                .push_str("\n")
+                .push_style(Style::color("8"))
+                .push_style(Style::Bold)
+                .push_str(&text)
+                .pop_style(Style::Bold)
+                .pop_style(Style::color("8"))
+                .push_str("\n```")
+                .pop_style(Style::Reset);
+            out
         },
-        BlockQuote(styles) => format_block_quote(collect_styles(styles, state).lines()),
-        SingleBlockQuote(styles) => format_block_quote(
-            collect_styles(styles, state)
-                .lines()
-                .map(strip_leading_bracket),
-        ),
+        BlockQuote(children) => {
+            out.append(format_block_quote(
+                collect_children(children, state).lines(true).into_iter(),
+            ));
+            out
+        },
+        SingleBlockQuote(children) => {
+            out.append(format_block_quote(
+                collect_children(children, state)
+                    .lines(true)
+                    .into_iter()
+                    .map(strip_leading_bracket),
+            ));
+            out
+        },
         UserMention(id) => {
             let id = (*id).into();
+
             let replacement = if let Some(guild_id) = state.guild_id {
                 if let Some(member) = state.cache.member(guild_id, id) {
                     Some(crate::utils::color::colorize_discord_member(
@@ -139,58 +155,59 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) 
                 }
             } else {
                 state.cache.user(id).map(|user| {
-                    format!(
-                        "@{}",
-                        crate::utils::color::colorize_weechat_nick(&user.name)
-                    )
+                    let mut str = StyledString::from("@".to_owned());
+                    str.append(crate::utils::color::colorize_weechat_nick(&user.name));
+                    str
                 })
             };
 
-            if let Some(replacement) = replacement {
+            let mention = if let Some(replacement) = replacement {
                 replacement
             } else {
                 state.unknown_members.push(id);
 
                 if state.show_unknown_ids {
-                    format!("@{}", id.0)
+                    format!("@{}", id.0).into()
                 } else {
-                    "@unknown-user".into()
+                    "@unknown-user".to_owned().into()
                 }
-            }
+            };
+            out.append(mention);
+            out
         },
         ChannelMention(id) => {
             let id = (*id).into();
             if let Some(channel) = state.cache.guild_channel(id) {
-                return format!("#{}", channel.name());
+                out.push_str(&format!("#{}", channel.name()));
+            } else if let Some(channel) = state.cache.private_channel(id) {
+                out.push_str(&format!("#{}", channel.name()));
+            } else if let Some(channel) = state.cache.group(id) {
+                out.push_str(&format!("#{}", channel.name()));
+            } else {
+                out.push_str("#unknown-channel");
             }
 
-            if let Some(channel) = state.cache.private_channel(id) {
-                return format!("#{}", channel.name());
-            }
-
-            if let Some(channel) = state.cache.group(id) {
-                return format!("#{}", channel.name());
-            }
-
-            "#unknown-channel".to_owned()
+            out
         },
         Emoji(_, id) => {
             if let Some(emoji) = state.cache.emoji((*id).into()) {
-                format!(":{}:", emoji.name)
+                out.push_str(&format!(":{}:", emoji.name));
             } else {
                 tracing::trace!(emoji.id=?id, "Emoji not in cache");
-                ":unknown-emoji:".to_owned()
+                out.push_str(":unknown-emoji:");
             }
+            out
         },
         RoleMention(id) => {
             if let Some(role) = state.cache.role((*id).into()) {
-                colorize_string(
-                    &format!("@{}", role.name),
-                    &Color::new(role.color).as_8bit().to_string(),
-                )
+                let color = Style::color(&Color::new(role.color).as_8bit().to_string());
+                out.push_style(color.clone());
+                out.push_str(&format!("@{}", role.name));
+                out.pop_style(color);
             } else {
-                format!("@unknown-role")
+                out.push_str("@unknown-role");
             }
+            out
         },
     }
 }
@@ -238,21 +255,35 @@ mod syntax {
     }
 }
 
-fn strip_leading_bracket(line: &str) -> &str {
-    &line[line.find("> ").map(|x| x + 2).unwrap_or(0)..]
+fn strip_leading_bracket(line: StyledString) -> StyledString {
+    let start = line.find("> ").map(|x| x + 2).unwrap_or(0);
+    line.slice(start..)
 }
 
-pub fn fold_lines<'a>(lines: impl Iterator<Item = &'a str>, sep: &'a str) -> String {
-    lines.fold(String::new(), |acc, x| format!("{}{}{}\n", acc, sep, x))
+pub fn fold_lines<S: Into<StyledString>>(
+    lines: impl Iterator<Item = S>,
+    sep: &str,
+) -> StyledString {
+    let mut out = StyledString::new();
+    for line in lines.with_position() {
+        let newlines = matches!(line, Position::First(_) | Position::Middle(_));
+        out.push_str(sep);
+        out.absorb(line.into_inner().into());
+        if newlines {
+            out.push_str("\n");
+        }
+    }
+    out
 }
 
-fn format_block_quote<'a>(lines: impl Iterator<Item = &'a str>) -> String {
+fn format_block_quote(lines: impl Iterator<Item = StyledString>) -> StyledString {
     fold_lines(lines, "▎")
 }
 
 #[cfg(test)]
 mod tests {
     use super::discord_to_weechat;
+    use crate::weechat2::StyledString;
     use twilight_cache_inmemory::InMemoryCache as Cache;
     use twilight_model::{
         channel::{Channel, ChannelType, GuildChannel, TextChannel},
@@ -267,14 +298,22 @@ mod tests {
     }
 
     fn format_with_cache(str: &str, cache: &Cache, guild_id: Option<GuildId>) -> String {
-        discord_to_weechat(str, cache, guild_id, false, &mut Vec::new())
+        discord_to_weechat(str, cache, guild_id, false, &mut Vec::new()).build()
+    }
+
+    #[test]
+    fn block() {
+        assert_eq!(
+            format(">>> **foo\n bar**"),
+            "▎bold**foo-bold\n▎bold bar**-bold"
+        );
     }
 
     #[test]
     fn color_stack() {
         assert_eq!(
             format("||foo ~~strikethrough~~ baz `code` spam||"),
-            "italic||foo |red~~strikethrough~~resetcolor baz |*8`code`-boldresetcolor spam||-italic"
+            "italic||foo red~~strikethrough~~resetitalic baz 8bold`code`-boldresetitalic spam||-italic"
         );
     }
 
@@ -288,7 +327,7 @@ mod tests {
         assert_eq!(
             format("__f_*o*_o__"),
             "underline__f_italic_o_-italic_o__-underline"
-        )
+        );
     }
 
     #[test]
@@ -312,7 +351,7 @@ mod tests {
 
         assert_eq!(
             format_with_cache("hello <@&1>!", &cache, None),
-            "hello 16@fooresetcolor!"
+            "hello 16@fooreset!"
         );
     }
 

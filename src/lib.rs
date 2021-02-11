@@ -25,23 +25,31 @@ pub const PLUGIN_NAME: &str = "weecord";
 pub static SHUTTING_DOWN: Flag = Flag::new();
 
 pub struct Weecord {
-    _discord_connection: DiscordConnection,
-    _config: config::Config,
+    discord_connection: DiscordConnection,
+    config: config::Config,
     instance: Instance,
-    _hooks: hooks::Hooks,
+    hooks: Option<hooks::Hooks>,
 }
 
 impl Plugin for Weecord {
-    fn init(weechat: &Weechat, _: Args) -> StdResult<Self, ()> {
+    fn init(_: &Weechat, _: Args) -> StdResult<Self, ()> {
         let config = config::Config::new();
-
         if config.read(&config.config.borrow()).is_err() {
             return Err(());
         }
 
+        Ok(Weecord {
+            discord_connection: DiscordConnection::new(),
+            config,
+            instance: Instance::new(),
+            hooks: None,
+        })
+    }
+
+    fn ready(&mut self, weechat: &Weechat) {
         let _ = tracing_subscriber::fmt()
             .with_env_filter(
-                EnvFilter::new(config.log_directive())
+                EnvFilter::new(self.config.log_directive())
                     // Set the default log level to warn
                     .add_directive(LevelFilter::WARN.into()),
             )
@@ -49,21 +57,17 @@ impl Plugin for Weecord {
             .without_time()
             .try_init();
 
-        if config.auto_open_tracing() {
+        if self.config.auto_open_tracing() {
             let _ = buffer::debug::Debug::create_buffer();
         }
 
-        let instance = Instance::new();
-
-        let discord_connection = DiscordConnection::new();
-
-        if let Some(token) = config.token() {
+        if let Some(token) = self.config.token() {
             let (tx, rx) = channel(1000);
 
-            let discord_connection = discord_connection.clone();
             Weechat::spawn({
-                let config = config.clone();
-                let instance = instance.clone();
+                let discord_connection = self.discord_connection.clone();
+                let config = self.config.clone();
+                let instance = self.instance.clone();
                 async move {
                     if let Ok(connection) = discord_connection.start(&token, tx).await {
                         DiscordConnection::handle_events(rx, &connection, config, instance).await;
@@ -73,19 +77,12 @@ impl Plugin for Weecord {
             .detach();
         };
 
-        let _hooks = hooks::Hooks::hook_all(
+        self.hooks.replace(hooks::Hooks::hook_all(
             weechat,
-            discord_connection.clone(),
-            instance.clone(),
-            config.clone(),
-        );
-
-        Ok(Weecord {
-            _discord_connection: discord_connection,
-            _config: config,
-            instance,
-            _hooks,
-        })
+            self.discord_connection.clone(),
+            self.instance.clone(),
+            self.config.clone(),
+        ));
     }
 }
 
@@ -93,6 +90,7 @@ impl Drop for Weecord {
     fn drop(&mut self) {
         // Ensure all buffers are cleared
         self.instance.borrow_guilds_mut().clear();
+        // Prevent any further traces from being printed (causes segfaults)
         SHUTTING_DOWN.trigger();
         tracing::trace!("Plugin unloaded");
     }

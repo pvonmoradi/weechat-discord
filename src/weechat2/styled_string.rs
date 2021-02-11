@@ -114,7 +114,7 @@ impl StyleState {
             if let Some(unstyle) = style.exact_unstyle() {
                 out.push_str(unstyle)
             } else {
-                return Weechat2::color("reset").to_string();
+                return Weechat2::color("reset").to_owned();
             }
         }
         out

@@ -613,24 +613,24 @@ fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) 
         ),
         UserPremiumSubTier1 => (
             weechat::Prefix::Network,
-            "This channel has achieved nitro level 1".to_string(),
+            "This channel has achieved nitro level 1".to_owned(),
         ),
         UserPremiumSubTier2 => (
             weechat::Prefix::Network,
-            "This channel has achieved nitro level 2".to_string(),
+            "This channel has achieved nitro level 2".to_owned(),
         ),
         UserPremiumSubTier3 => (
             weechat::Prefix::Network,
-            "This channel has achieved nitro level 3".to_string(),
+            "This channel has achieved nitro level 3".to_owned(),
         ),
         // TODO: What do these mean?
         GuildDiscoveryDisqualified => (
             weechat::Prefix::Network,
-            "This server has been disqualified from Discovery".to_string(),
+            "This server has been disqualified from Discovery".to_owned(),
         ),
         GuildDiscoveryRequalified => (
             weechat::Prefix::Network,
-            "This server has been requalified for Discovery".to_string(),
+            "This server has been requalified for Discovery".to_owned(),
         ),
         ChannelFollowAdd => (
             weechat::Prefix::Network,
@@ -642,5 +642,5 @@ fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) 
 }
 
 fn bold(body: &str) -> String {
-    Weechat::color("bold").to_string() + body + Weechat::color("-bold")
+    Weechat::color("bold").to_owned() + body + Weechat::color("-bold")
 }

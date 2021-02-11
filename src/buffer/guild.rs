@@ -32,7 +32,7 @@ impl GuildBuffer {
 
         let handle = BufferBuilder::new(&buffer_name)
             .close_callback({
-                let name = name.to_string();
+                let name = name.to_owned();
                 move |_: &Weechat, _: &Buffer| {
                     tracing::trace!(buffer.id=%id, buffer.name=%name, "Buffer close");
                     if let Ok(mut instance) = instance.try_borrow_guilds_mut() {

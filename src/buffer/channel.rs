@@ -75,7 +75,7 @@ impl ChannelBuffer {
                 }
             })
             .close_callback({
-                let name = name.to_string();
+                let name = name.to_owned();
                 move |_: &Weechat, buffer: &Buffer| {
                     tracing::trace!(buffer.id=%id, buffer.name=%name, "Buffer close");
                     close_cb(buffer);
@@ -521,8 +521,8 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     return;
                 }
                 let orig = msg.content.clone();
-                let old = old.to_string();
-                let new = new.to_string();
+                let old = old.to_owned();
+                let new = new.to_owned();
                 let options = options.map(ToString::to_string);
 
                 conn.rt.spawn(async move {
@@ -705,7 +705,7 @@ fn request_from_reaction(reaction: &parsing::Reaction) -> Option<RequestReaction
         Emoji::Shortcode(name) => {
             if let Some(emoji) = discord_emoji::lookup(name) {
                 RequestReactionType::Unicode {
-                    name: emoji.to_string(),
+                    name: emoji.to_owned(),
                 }
             } else {
                 return None;
@@ -713,10 +713,10 @@ fn request_from_reaction(reaction: &parsing::Reaction) -> Option<RequestReaction
         },
         Emoji::Custom(name, id) => RequestReactionType::Custom {
             id: EmojiId(id),
-            name: Some(name.to_string()),
+            name: Some(name.to_owned()),
         },
         Emoji::Unicode(name) => RequestReactionType::Unicode {
-            name: name.to_string(),
+            name: name.to_owned(),
         },
     })
 }

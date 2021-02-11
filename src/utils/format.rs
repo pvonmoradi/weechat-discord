@@ -237,7 +237,7 @@ mod syntax {
             out
         } else {
             tracing::debug!("unable to find syntax for language: {}", language);
-            src.to_string()
+            src.to_owned()
         }
     }
 

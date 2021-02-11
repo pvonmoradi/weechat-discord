@@ -325,7 +325,7 @@ impl DiscordConnection {
                     let typing_user_id = typing.user_id;
                     if let Some(name) = typing
                         .member
-                        .map(|m| m.display_name().to_string())
+                        .map(|m| m.display_name().to_owned())
                         .or_else(|| conn.cache.user(typing_user_id).map(|u| u.name.clone()))
                     {
                         instance.borrow_typing_tracker_mut().add(TypingEntry {

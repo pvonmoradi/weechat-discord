@@ -1,3 +1,5 @@
+#![warn(clippy::str_to_string)]
+
 use crate::{discord::discord_connection::DiscordConnection, instance::Instance, utils::Flag};
 pub use refcell::RefCell;
 use std::result::Result as StdResult;

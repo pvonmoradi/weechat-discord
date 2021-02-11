@@ -39,7 +39,7 @@ impl DiscordCommand {
         let guild_name = matches
             .arg("name")
             .expect("name is required by verification")
-            .to_string();
+            .to_owned();
 
         {
             let config = self.config.clone();
@@ -100,7 +100,7 @@ impl DiscordCommand {
         let guild_name = matches
             .arg("name")
             .expect("name is required by verification")
-            .to_string();
+            .to_owned();
 
         {
             let instance = self.instance.clone();
@@ -172,7 +172,7 @@ impl DiscordCommand {
         let guild_name = matches
             .arg("name")
             .expect("name is required by verification")
-            .to_string();
+            .to_owned();
 
         let instance = self.instance.clone();
         let connection = self.connection.clone();
@@ -219,7 +219,7 @@ impl DiscordCommand {
         let guild_name = matches
             .arg("name")
             .expect("name is required by verification")
-            .to_string();
+            .to_owned();
 
         let instance = self.instance.clone();
         let connection = self.connection.clone();
@@ -330,11 +330,11 @@ impl DiscordCommand {
         let guild_name = matches
             .arg("guild_name")
             .expect("guild name is enforced by verification")
-            .to_string();
+            .to_owned();
         let channel_name = matches
             .arg("name")
             .expect("channel name is enforced by verification")
-            .to_string();
+            .to_owned();
 
         let connection = self.connection.borrow();
         let connection = match connection.as_ref() {
@@ -414,7 +414,7 @@ impl DiscordCommand {
     fn token(&self, matches: ParsedCommand) {
         let token = matches.arg("token").expect("enforced by validation");
 
-        self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_string());
+        self.config.borrow_inner_mut().token = Some(token.trim().trim_matches('"').to_owned());
         self.config.persist();
 
         Weechat::print("discord: updated token");

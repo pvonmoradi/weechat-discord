@@ -52,7 +52,7 @@ impl ChannelExt for DynamicChannel {
 
 impl ChannelExt for GuildChannel {
     fn name(&self) -> String {
-        self.name().to_string()
+        self.name().to_owned()
     }
 
     fn id(&self) -> ChannelId {

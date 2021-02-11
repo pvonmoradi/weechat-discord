@@ -50,12 +50,12 @@ impl Default for LookConfig {
         LookConfig {
             auto_open_tracing: false,
             show_unknown_user_ids: false,
-            nick_prefix: "".to_string(),
-            nick_suffix: "".to_string(),
+            nick_prefix: "".to_owned(),
+            nick_suffix: "".to_owned(),
             typing_list_max: 5,
             typing_list_style: 0,
             message_fetch_count: 50,
-            readonly_value: "🔒".to_string(),
+            readonly_value: "🔒".to_owned(),
             image_max_height: 15,
         }
     }
@@ -69,8 +69,8 @@ pub struct ColorConfig {
 impl Default for ColorConfig {
     fn default() -> ColorConfig {
         ColorConfig {
-            nick_prefix_color: "".to_string(),
-            nick_suffix_color: "".to_string(),
+            nick_prefix_color: "".to_owned(),
+            nick_suffix_color: "".to_owned(),
         }
     }
 }
@@ -93,7 +93,7 @@ impl Default for InnerConfig {
             look: LookConfig::default(),
             color: ColorConfig::default(),
             token: None,
-            log_directive: "".to_string(),
+            log_directive: "".to_owned(),
             guilds: HashMap::new(),
             autojoin_private: Vec::new(),
             max_buffer_messages: 4096,

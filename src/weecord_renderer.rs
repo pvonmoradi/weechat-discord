@@ -7,10 +7,11 @@ use crate::{
     twilight_utils::ext::MessageExt,
     utils::fold_lines,
     weechat2::{MessageRenderer, Style, StyledString, WeechatMessage},
+    RefCell,
 };
 #[cfg(feature = "images")]
 use image::DynamicImage;
-use std::rc::Rc;
+use std::{collections::VecDeque, rc::Rc};
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::{Message as DiscordMessage, ReactionType},
@@ -355,6 +356,10 @@ impl WeecordRenderer {
 
     pub fn nth_oldest_message(&self, index: usize) -> Option<Message> {
         self.inner.nth_oldest_message(index)
+    }
+
+    pub fn messages(&self) -> Rc<RefCell<VecDeque<Message>>> {
+        self.inner.messages()
     }
 
     pub fn remove_msg(&self, id: MessageId) {

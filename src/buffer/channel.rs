@@ -284,6 +284,7 @@ impl ChannelBuffer {
 struct ChannelInner {
     conn: ConnectionInner,
     buffer: ChannelBuffer,
+    last_read: Option<MessageId>,
     closed: bool,
 }
 
@@ -304,6 +305,7 @@ impl ChannelInner {
         Self {
             conn,
             buffer,
+            last_read: None,
             closed: false,
         }
     }
@@ -429,6 +431,50 @@ impl Channel {
                 .set_last_read_id(read_state.last_message_id);
         }
         inner.buffer.add_bulk_msgs(messages.into_iter().rev());
+        Ok(())
+    }
+
+    pub async fn ack(&self) -> anyhow::Result<()> {
+        let conn = self.inner.borrow().conn.clone();
+
+        let last_id = self
+            .inner
+            .borrow()
+            .buffer
+            .renderer
+            .messages()
+            .borrow()
+            .iter()
+            .filter(|msg| !matches!(msg, RendererMessage::LocalEcho { .. }))
+            .map(|msg| msg.id())
+            .next();
+        let last_id = match last_id {
+            Some(last_id) => last_id,
+            None => return Ok(()),
+        };
+
+        if Some(last_id) == self.inner.borrow().last_read {
+            tracing::trace!("Skipping ack, already ack'd msg {:?}", last_id);
+            return Ok(());
+        }
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        conn.rt.spawn({
+            let id = self.id;
+            let http = conn.http.clone();
+            let token = conn.cache.ack_token();
+
+            async move {
+                if let Err(e) = tx.send(http.ack_message(id, last_id, token).await) {
+                    tracing::error!("Failed to send ack result to main thread: {}", e);
+                }
+            }
+        });
+        self.inner.borrow_mut().last_read = Some(last_id);
+        // This endpoint returns a new token every time, not really sure how it's supposed to be used
+        // but this is a best attempt
+        let token = rx.recv().await.unwrap()?;
+        conn.cache.set_ack_token(&token.token);
         Ok(())
     }
 
@@ -651,7 +697,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
             }
 
             // Create a nonce to associate the local echo with the incoming message
-            let nonce = thread_rng().gen_range(0..=i64::max_value() as u64);
+            let nonce = thread_rng().gen_range(0..=i64::MAX as u64);
             conn.rt.spawn({
                 let input = input.clone();
                 async move {

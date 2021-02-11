@@ -1,5 +1,7 @@
 use crate::{
-    buffer::ext::BufferExt, config::Config, discord::discord_connection::DiscordConnection,
+    buffer::{channel::Channel, ext::BufferExt},
+    config::Config,
+    discord::discord_connection::DiscordConnection,
     instance::Instance,
 };
 use once_cell::sync::Lazy;
@@ -8,6 +10,7 @@ use std::{
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
+use twilight_model::id::{ChannelId, GuildId};
 use weechat::{
     hooks::{SignalData, SignalHook},
     ReturnCode, Weechat,
@@ -24,9 +27,7 @@ impl Signals {
         let _buffer_switch_hook = SignalHook::new("buffer_switch", {
             move |_: &Weechat, _: &str, data: Option<SignalData>| {
                 if let Some(SignalData::Buffer(buffer)) = data {
-                    if buffer.history_loaded() {
-                        return ReturnCode::Ok;
-                    }
+                    let loaded = buffer.history_loaded();
 
                     let guild_id = buffer.guild_id();
 
@@ -38,39 +39,52 @@ impl Signals {
                     };
 
                     if let Some(channel) = instance.search_buffer(guild_id, channel_id) {
-                        buffer.set_history_loaded();
-                        let connection = inner_connection.clone();
-                        Weechat::spawn(async move {
-                            tracing::trace!(?guild_id, ?channel_id, "Sending channel subscription");
-                            if let Some(guild_id) = guild_id {
-                                connection
-                                    .send_guild_subscription(guild_id, channel_id)
-                                    .await;
-                            }
-                        })
-                        .detach();
-                        Weechat::spawn({
-                            let channel = channel.clone();
-                            async move {
-                                tracing::trace!(?guild_id, ?channel_id, "Loading history");
-                                if let Err(e) = channel.load_history().await {
-                                    tracing::error!(
-                                        ?guild_id,
-                                        ?channel_id,
-                                        "Error loading channel history: {}",
-                                        e
-                                    );
+                        if loaded {
+                            Weechat::spawn(async move {
+                                Signals::ack(guild_id, channel_id, &channel).await;
+                            })
+                            .detach();
+                        } else {
+                            buffer.set_history_loaded();
+                            let connection = inner_connection.clone();
+                            Weechat::spawn(async move {
+                                tracing::trace!(
+                                    ?guild_id,
+                                    ?channel_id,
+                                    "Sending channel subscription"
+                                );
+                                if let Some(guild_id) = guild_id {
+                                    connection
+                                        .send_guild_subscription(guild_id, channel_id)
+                                        .await;
                                 }
+                            })
+                            .detach();
+                            Weechat::spawn({
+                                let channel = channel.clone();
+                                async move {
+                                    tracing::trace!(?guild_id, ?channel_id, "Loading history");
+                                    if let Err(e) = channel.load_history().await {
+                                        tracing::error!(
+                                            ?guild_id,
+                                            ?channel_id,
+                                            "Error loading channel history: {}",
+                                            e
+                                        );
+                                    }
+
+                                    Signals::ack(guild_id, channel_id, &channel).await;
+                                }
+                            })
+                            .detach();
+                            if let Err(e) = channel.load_users() {
+                                tracing::error!(
+                                    ?guild_id,
+                                    ?channel_id,
+                                    "Error loading channel member list: {}",
+                                    e
+                                );
                             }
-                        })
-                        .detach();
-                        if let Err(e) = channel.load_users() {
-                            tracing::error!(
-                                ?guild_id,
-                                ?channel_id,
-                                "Error loading channel member list: {}",
-                                e
-                            );
                         }
                     }
                 }
@@ -125,6 +139,19 @@ impl Signals {
         Signals {
             _buffer_switch_hook,
             _buffer_typing_hook,
+        }
+    }
+
+    async fn ack(guild_id: Option<GuildId>, channel_id: ChannelId, channel: &Channel) {
+        tracing::trace!(?guild_id, ?channel_id, "Acking history");
+
+        if let Err(e) = channel.ack().await {
+            tracing::error!(
+                ?guild_id,
+                ?channel_id,
+                "Error acking channel history: {}",
+                e
+            );
         }
     }
 }

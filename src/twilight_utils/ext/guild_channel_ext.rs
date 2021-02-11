@@ -32,16 +32,14 @@ impl GuildChannelExt for GuildChannel {
 
     fn topic(&self) -> Option<String> {
         match self {
-            GuildChannel::Category(_) => None,
             GuildChannel::Text(c) => c.topic.clone(),
-            GuildChannel::Voice(_) => None,
+            GuildChannel::Category(_) | GuildChannel::Voice(_) => None,
         }
     }
 
     fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()> {
         match self {
-            GuildChannel::Category(_) => Err(()),
-            GuildChannel::Voice(_) => Err(()),
+            GuildChannel::Category(_) | GuildChannel::Voice(_) => Err(()),
             GuildChannel::Text(channel) => {
                 let members = cache.members(channel.guild_id.ok_or(())?).ok_or(())?;
 

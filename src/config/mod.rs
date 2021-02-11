@@ -103,6 +103,7 @@ impl Default for InnerConfig {
 }
 
 impl Config {
+    #[allow(clippy::too_many_lines)]
     pub fn new() -> Config {
         let mut weechat_config = WeechatConfig::new("weecord").expect("Can't create new config");
         let inner = Rc::new(RefCell::new(InnerConfig::default()));
@@ -162,8 +163,7 @@ impl Config {
                             let mut channels: Vec<_> = option
                                 .value()
                                 .split(',')
-                                .map(|ch| ch.parse().map(ChannelId))
-                                .flatten()
+                                .flat_map(|ch| ch.parse().map(ChannelId))
                                 .collect();
 
                             channels.sort();
@@ -358,11 +358,7 @@ impl Config {
 
                         let option = section.search_option(option_name);
 
-                        if let Some(o) = option {
-                            o.set(option_value, true)
-                        } else {
-                            OptionChanged::NotFound
-                        }
+                        option.map_or(OptionChanged::NotFound, |o| o.set(option_value, true))
                     },
                 )
                 .set_write_callback(|_: &Weechat, config: &Conf, section: &mut ConfigSection| {
@@ -382,8 +378,8 @@ impl Config {
         }
     }
 
-    pub fn read(&self, config: &weechat::config::Config) -> Result<()> {
-        Ok(config.read()?)
+    pub fn read(&self) -> Result<()> {
+        Ok(self.config.borrow().read()?)
     }
 
     pub fn auto_open_tracing(&self) -> bool {

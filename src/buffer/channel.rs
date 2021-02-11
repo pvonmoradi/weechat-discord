@@ -211,11 +211,11 @@ impl ChannelBuffer {
         self.renderer.add_bulk_msgs(msgs)
     }
 
-    pub fn add_msg(&self, msg: Message, notify: bool) {
+    pub fn add_msg(&self, msg: &Message, notify: bool) {
         self.renderer.add_msg(msg, notify)
     }
 
-    pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
+    pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
         self.renderer.update_message(reaction.message_id, |msg| {
             // Copied from twilight
             if let Some(msg_reaction) = msg.reactions.iter_mut().find(|r| r.emoji == reaction.emoji)
@@ -245,7 +245,7 @@ impl ChannelBuffer {
         self.renderer.redraw_buffer(&[]);
     }
 
-    pub fn remove_reaction(&self, reaction: Reaction) {
+    pub fn remove_reaction(&self, reaction: &Reaction) {
         self.renderer.update_message(reaction.message_id, |msg| {
             // TODO: Use Vec::drain_filter when it stabilizes
             if let Some((i, reaction)) = msg
@@ -411,7 +411,7 @@ impl Channel {
                 // This is a bit of a hack because the returned messages have no guild id, even if
                 // they are from a guild channel
                 if let Some(guild_channel) = conn_clone.cache.guild_channel(id) {
-                    for msg in messages.iter_mut() {
+                    for msg in &mut messages {
                         msg.guild_id = guild_channel.guild_id()
                     }
                 }
@@ -448,15 +448,15 @@ impl Channel {
         }
     }
 
-    pub fn add_message(&self, msg: Message, notify: bool) {
+    pub fn add_message(&self, msg: &Message, notify: bool) {
         self.inner.borrow().buffer.add_msg(msg, notify);
     }
 
-    pub fn add_reaction(&self, cache: &Cache, reaction: Reaction) {
+    pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
         self.inner.borrow().buffer.add_reaction(cache, reaction);
     }
 
-    pub fn remove_reaction(&self, reaction: Reaction) {
+    pub fn remove_reaction(&self, reaction: &Reaction) {
         self.inner.borrow().buffer.remove_reaction(reaction);
     }
 
@@ -480,6 +480,7 @@ impl Channel {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
     let channel = channel.clone();
     let id = channel.id;

@@ -1,8 +1,20 @@
-#![warn(clippy::str_to_string)]
-
+#![warn(
+    clippy::all,
+    clippy::str_to_string,
+    future_incompatible,
+    nonstandard_style,
+    rust_2018_idioms
+)]
+#![allow(
+    elided_lifetimes_in_paths,
+    clippy::module_name_repetitions,
+    clippy::non_ascii_literal,
+    clippy::single_match_else,
+    clippy::enum_glob_use
+)]
 use crate::{discord::discord_connection::DiscordConnection, instance::Instance, utils::Flag};
 pub use refcell::RefCell;
-use std::result::Result as StdResult;
+use std::{error::Error, result::Result as StdResult};
 use tokio::sync::mpsc::channel;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
@@ -34,7 +46,7 @@ pub struct Weecord {
 impl Plugin for Weecord {
     fn init(_: &Weechat, _: Args) -> StdResult<Self, ()> {
         let config = config::Config::new();
-        if config.read(&config.config.borrow()).is_err() {
+        if config.read().is_err() {
             return Err(());
         }
 
@@ -47,18 +59,15 @@ impl Plugin for Weecord {
     }
 
     fn ready(&mut self, weechat: &Weechat) {
-        let _ = tracing_subscriber::fmt()
-            .with_env_filter(
-                EnvFilter::new(self.config.log_directive())
-                    // Set the default log level to warn
-                    .add_directive(LevelFilter::WARN.into()),
-            )
-            .with_writer(move || buffer::debug::Debug)
-            .without_time()
-            .try_init();
+        if let Err(err) = self.setup_tracing() {
+            Weechat::print(&format!(
+                "discord: Unable to setup logging, trace window will be empty!: {}",
+                err
+            ))
+        }
 
         if self.config.auto_open_tracing() {
-            let _ = buffer::debug::Debug::create_buffer();
+            buffer::debug::Debug::create_buffer();
         }
 
         if let Some(token) = self.config.token() {
@@ -83,6 +92,20 @@ impl Plugin for Weecord {
             self.instance.clone(),
             self.config.clone(),
         ));
+    }
+}
+
+impl Weecord {
+    fn setup_tracing(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::new(self.config.log_directive())
+                    // Set the default log level to warn
+                    .add_directive(LevelFilter::WARN.into()),
+            )
+            .with_writer(move || buffer::debug::Debug)
+            .without_time()
+            .try_init()
     }
 }
 

@@ -67,8 +67,7 @@ impl GuildConfig {
                 let mut channels: Vec<_> = option
                     .value()
                     .split(',')
-                    .map(|ch| ch.parse().map(ChannelId))
-                    .flatten()
+                    .flat_map(|ch| ch.parse().map(ChannelId))
                     .collect();
 
                 channels.sort();

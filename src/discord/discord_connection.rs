@@ -160,6 +160,7 @@ impl DiscordConnection {
     }
 
     // Runs on weechat runtime
+    #[allow(clippy::too_many_lines)]
     pub async fn handle_events(
         mut rx: Receiver<PluginMessage>,
         conn: &ConnectionInner,
@@ -242,7 +243,7 @@ impl DiscordConnection {
                     };
                     let message = *message;
                     let is_own = message.is_own(&conn.cache);
-                    channel.add_message(message, !is_own);
+                    channel.add_message(&message, !is_own);
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {
@@ -373,7 +374,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.add_reaction(&conn.cache, reaction);
+                        channel.add_reaction(&conn.cache, &reaction);
                     } else {
                         let private_channels = instance.borrow_private_channels_mut();
                         let channel = match private_channels.get(&reaction.channel_id) {
@@ -381,7 +382,7 @@ impl DiscordConnection {
                             None => continue,
                         };
 
-                        channel.add_reaction(&conn.cache, reaction);
+                        channel.add_reaction(&conn.cache, &reaction);
                     }
                 },
                 PluginMessage::ReactionRemove(reaction_remove) => {
@@ -398,16 +399,16 @@ impl DiscordConnection {
                                 None => continue,
                             };
 
-                            channel.remove_reaction(reaction);
+                            channel.remove_reaction(&reaction);
                         },
-                        _ => {
+                        None => {
                             let private_channels = instance.borrow_private_channels_mut();
                             let channel = match private_channels.get(&reaction.channel_id) {
                                 Some(channel) => channel,
                                 None => continue,
                             };
 
-                            channel.remove_reaction(reaction);
+                            channel.remove_reaction(&reaction);
                         },
                     }
                 },

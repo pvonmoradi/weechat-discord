@@ -276,7 +276,7 @@ impl WeecordRenderer {
             Weechat::spawn(async move {
                 if let Some(image) = fetch_inline_image(&rt, &candidate.url).await {
                     let image = resize_image(&image, (4, 8), (max_height, u16::max_value() as u32));
-                    renderer.update_message(msg_id, |msg| {
+                    renderer.update_message(&msg_id, |msg| {
                         let loaded_image = LoadedImage {
                             image,
                             height: candidate.height,
@@ -305,7 +305,7 @@ impl WeecordRenderer {
             .add_msg(Message::new_echo(author, content, nonce), false)
     }
 
-    pub fn add_msg(&self, msg: DiscordMessage, notify: bool) {
+    pub fn add_msg(&self, msg: &DiscordMessage, notify: bool) {
         if let Some(incoming_nonce) = msg.nonce.as_ref().and_then(|n| n.parse::<u64>().ok()) {
             let echo_index = self
                 .inner
@@ -341,7 +341,7 @@ impl WeecordRenderer {
     where
         F: FnOnce(&mut DiscordMessage),
     {
-        self.inner.update_message(id, |msg| match msg {
+        self.inner.update_message(&id, |msg| match msg {
             Message::LocalEcho { .. } => {},
             Message::Text(msg) => f(msg),
             #[cfg(feature = "images")]
@@ -358,7 +358,7 @@ impl WeecordRenderer {
     }
 
     pub fn remove_msg(&self, id: MessageId) {
-        self.inner.remove_msg(id)
+        self.inner.remove_msg(&id)
     }
 
     pub fn apply_message_update(&self, update: MessageUpdate) {
@@ -409,6 +409,7 @@ fn render_msg(
     msg: &DiscordMessage,
     unknown_members: &mut Vec<UserId>,
 ) -> (String, String) {
+    use twilight_model::channel::message::MessageType::*;
     let mut msg_content = crate::utils::discord_to_weechat(
         &msg.content,
         cache,
@@ -434,7 +435,6 @@ fn render_msg(
 
     let (prefix, author) = format_author_prefix(cache, &config, msg);
 
-    use twilight_model::channel::message::MessageType::*;
     let prefix = prefix.build();
     let msg_content = msg_content.build();
     match msg.kind {
@@ -546,7 +546,7 @@ fn format_reactions(msg: &DiscordMessage) -> StyledString {
 
 fn format_author_prefix(
     cache: &Cache,
-    config: &&Config,
+    config: &Config,
     msg: &DiscordMessage,
 ) -> (StyledString, StyledString) {
     let mut prefix = StyledString::new();

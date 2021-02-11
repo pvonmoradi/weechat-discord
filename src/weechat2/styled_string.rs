@@ -34,8 +34,7 @@ impl Style {
             Style::Bold => Some(Weechat2::color("-bold")),
             Style::Underline => Some(Weechat2::color("-underline")),
             Style::Italic => Some(Weechat2::color("-italic")),
-            Style::Reset => None,
-            Style::Color(_) => None,
+            Style::Reset | Style::Color(_) => None,
         }
     }
 }

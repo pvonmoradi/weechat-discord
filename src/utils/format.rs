@@ -48,10 +48,11 @@ fn collect_children(
 
 // TODO: if the whole line is wrapped in *, render as CTCP ACTION rather than
 //       as fully italicized message.
+#[allow(clippy::too_many_lines)]
 fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) -> StyledString {
+    use MarkdownNode::*;
     let mut out = StyledString::new();
 
-    use MarkdownNode::*;
     match node {
         Bold(children) => {
             out.push_style(Style::Bold)
@@ -144,15 +145,9 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) 
             let id = (*id).into();
 
             let replacement = if let Some(guild_id) = state.guild_id {
-                if let Some(member) = state.cache.member(guild_id, id) {
-                    Some(crate::utils::color::colorize_discord_member(
-                        state.cache,
-                        &member,
-                        true,
-                    ))
-                } else {
-                    None
-                }
+                state.cache.member(guild_id, id).map(|member| {
+                    crate::utils::color::colorize_discord_member(state.cache, &member, true)
+                })
             } else {
                 state.cache.user(id).map(|user| {
                     let mut str = StyledString::from("@".to_owned());
@@ -256,7 +251,7 @@ mod syntax {
 }
 
 fn strip_leading_bracket(line: StyledString) -> StyledString {
-    let start = line.find("> ").map(|x| x + 2).unwrap_or(0);
+    let start = line.find("> ").map_or(0, |x| x + 2);
     line.slice(start..)
 }
 

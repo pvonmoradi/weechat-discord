@@ -119,7 +119,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         }
     }
 
-    pub fn update_message<F>(&self, id: I, f: F)
+    pub fn update_message<F>(&self, id: &I, f: F)
     where
         F: FnOnce(&mut M),
     {
@@ -128,7 +128,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
             .messages
             .borrow_mut()
             .iter_mut()
-            .find(|msg| msg.id(&mut state) == id)
+            .find(|msg| &msg.id(&mut state) == id)
         {
             f(msg)
         }
@@ -142,14 +142,14 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         self.messages.borrow().iter().rev().nth(index).cloned()
     }
 
-    pub fn remove_msg(&self, id: I) {
+    pub fn remove_msg(&self, id: &I) {
         {
             let mut state = self.state.borrow_mut();
             let index = self
                 .messages
                 .borrow()
                 .iter()
-                .position(|it| it.id(&mut state) == id);
+                .position(|it| &it.id(&mut state) == id);
             if let Some(index) = index {
                 self.messages.borrow_mut().remove(index);
             }

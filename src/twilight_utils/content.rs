@@ -14,8 +14,9 @@ pub fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &str) ->
 }
 
 pub fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
-    let mut out = String::from(input);
     static CHANNEL_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"#([a-z_\-\d]+)").unwrap());
+
+    let mut out = String::from(input);
 
     let matches = CHANNEL_MENTION.captures_iter(&input).collect::<Vec<_>>();
     for channel_match in matches {
@@ -47,8 +48,9 @@ pub fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) ->
 }
 
 pub fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
-    let mut out = String::from(input);
     static USER_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap());
+
+    let mut out = String::from(input);
 
     let matches = USER_MENTION.captures_iter(input).collect::<Vec<_>>();
     for user_match in matches {
@@ -84,8 +86,9 @@ pub fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
 }
 
 pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
-    let mut out = String::from(input);
     static ROLE_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s]{1,32})").unwrap());
+
+    let mut out = String::from(input);
 
     let matches = ROLE_MENTION.captures_iter(input).collect::<Vec<_>>();
     for role_match in matches {
@@ -114,8 +117,9 @@ pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
 }
 
 pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
-    let mut out = String::from(input);
     static EMOJI_MENTIONS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\\?):(\w+):").unwrap());
+
+    let mut out = String::from(input);
 
     let matches = EMOJI_MENTIONS.captures_iter(input).collect::<Vec<_>>();
     for emoji_match in matches {

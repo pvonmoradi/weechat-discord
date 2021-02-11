@@ -56,7 +56,13 @@ impl DiscordCommand {
                                 .search_section_mut("server")
                                 .expect("Can't get server section");
 
-                            if !instance.borrow_guilds().contains_key(&guild.id) {
+                            if instance.borrow_guilds().contains_key(&guild.id) {
+                                tracing::info!(%guild.id, %guild.name, "Guild not added to config, already exists.");
+                                Weechat::print(&format!(
+                                    "discord: \"{}\" has already been added",
+                                    guild.name
+                                ));
+                            } else {
                                 tracing::info!(%guild.id, %guild.name, "Adding guild to config.");
                                 Weechat::print(&format!("discord: added \"{}\"", guild.name));
                                 instance.borrow_guilds_mut().insert(
@@ -68,12 +74,6 @@ impl DiscordCommand {
                                         &config,
                                     ),
                                 );
-                            } else {
-                                tracing::info!(%guild.id, %guild.name, "Guild not added to config, already exists.");
-                                Weechat::print(&format!(
-                                    "discord: \"{}\" has already been added",
-                                    guild.name
-                                ));
                             }
                         },
                         None => {

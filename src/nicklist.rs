@@ -25,7 +25,7 @@ impl Nicklist {
             for member in members {
                 let member_color = member
                     .color(&self.conn.cache)
-                    .map(|c| c.as_8bit())
+                    .map(Color::as_8bit)
                     .unwrap_or_default()
                     .to_string();
                 let member_display_name =

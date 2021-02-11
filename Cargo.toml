@@ -4,6 +4,9 @@ version = "0.3.0"
 authors = ["Noskcaj <kcajdev@gmail.com>"]
 edition = "2018"
 
+[workspace]
+members = ["parsing", "xtask"]
+
 [lib]
 name = "weecord"
 crate-type = ["cdylib"]

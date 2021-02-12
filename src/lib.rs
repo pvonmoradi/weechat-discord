@@ -12,6 +12,7 @@
     clippy::single_match_else,
     clippy::enum_glob_use
 )]
+#![deny(clippy::await_holding_refcell_ref, clippy::await_holding_lock)]
 use crate::{discord::discord_connection::DiscordConnection, instance::Instance, utils::Flag};
 pub use refcell::RefCell;
 use std::{error::Error, result::Result as StdResult};

@@ -454,7 +454,7 @@ fn render_msg(
                 (
                     prefix,
                     format!(
-                        "{}:\n{}{}",
+                        "{}:\n{}\n{}",
                         ref_prefix,
                         ref_msg_content.build(),
                         msg_content

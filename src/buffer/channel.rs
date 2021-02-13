@@ -284,7 +284,6 @@ impl ChannelBuffer {
 struct ChannelInner {
     conn: ConnectionInner,
     buffer: ChannelBuffer,
-    last_read: Option<MessageId>,
     closed: bool,
 }
 
@@ -305,7 +304,6 @@ impl ChannelInner {
         Self {
             conn,
             buffer,
-            last_read: None,
             closed: false,
         }
     }
@@ -437,7 +435,7 @@ impl Channel {
     pub async fn ack(&self) -> anyhow::Result<()> {
         let conn = self.inner.borrow().conn.clone();
 
-        let last_id = self
+        let last_displayed_id = self
             .inner
             .borrow()
             .buffer
@@ -448,13 +446,13 @@ impl Channel {
             .filter(|msg| !matches!(msg, RendererMessage::LocalEcho { .. }))
             .map(|msg| msg.id())
             .next();
-        let last_id = match last_id {
+        let last_displayed_id = match last_displayed_id {
             Some(last_id) => last_id,
             None => return Ok(()),
         };
 
-        if Some(last_id) == self.inner.borrow().last_read {
-            tracing::trace!("Skipping ack, already ack'd msg {:?}", last_id);
+        if Some(last_displayed_id) == conn.cache.read_state(self.id).map(|rs| rs.last_message_id) {
+            tracing::trace!("Skipping ack, already ack'd msg {:?}", last_displayed_id);
             return Ok(());
         }
 
@@ -465,12 +463,11 @@ impl Channel {
             let token = conn.cache.ack_token();
 
             async move {
-                if let Err(e) = tx.send(http.ack_message(id, last_id, token).await) {
+                if let Err(e) = tx.send(http.ack_message(id, last_displayed_id, token).await) {
                     tracing::error!("Failed to send ack result to main thread: {}", e);
                 }
             }
         });
-        self.inner.borrow_mut().last_read = Some(last_id);
         // This endpoint returns a new token every time, not really sure how it's supposed to be used
         // but this is a best attempt
         let token = rx.recv().await.unwrap()?;

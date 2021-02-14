@@ -230,12 +230,13 @@ impl WeecordRenderer {
         }
 
         if let Some(first_msg) = self.inner.messages().borrow().front() {
-            let unknown_members = &state.borrow().unknown_members;
-            if !unknown_members.is_empty() {
-                if let Message::Text(first_msg) = first_msg {
-                    if let Some(guild_id) = first_msg.guild_id {
-                        self.fetch_guild_members(unknown_members, first_msg.channel_id, guild_id);
-                    }
+            if let Message::Text(first_msg) = first_msg {
+                if let Some(guild_id) = first_msg.guild_id {
+                    self.fetch_guild_members(
+                        &state.borrow().unknown_members,
+                        first_msg.channel_id,
+                        guild_id,
+                    );
                 }
             }
         }
@@ -377,6 +378,10 @@ impl WeecordRenderer {
         channel_id: ChannelId,
         guild_id: GuildId,
     ) {
+        if unknown_members.is_empty() {
+            tracing::trace!("Skipping fetch_guild_members, no members requested");
+            return;
+        }
         // All messages should be the same guild and channel
         let conn = &self.conn;
         let shard = conn.shard.clone();

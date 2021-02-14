@@ -98,6 +98,7 @@ impl ChannelBuffer {
         buffer.set_localvar("guild_id", &guild_id.0.to_string());
         buffer.set_localvar("channel_id", &id.0.to_string());
 
+        buffer.enable_hotlist();
         buffer.enable_nicklist();
 
         let handle = Rc::new(handle);
@@ -161,6 +162,8 @@ impl ChannelBuffer {
         // This causes the buffer to be indented, what are the implications for not setting it?
         // buffer.set_localvar("type", "private");
         buffer.set_localvar("channel_id", &id.0.to_string());
+
+        buffer.enable_nicklist();
 
         let handle = Rc::new(handle);
         Ok(Self {

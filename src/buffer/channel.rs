@@ -14,7 +14,6 @@ use crate::{
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
 use std::{borrow::Cow, rc::Rc, sync::Arc};
-use tokio::sync::mpsc;
 use twilight_cache_inmemory::{
     model::{CachedGuild as TwilightGuild, CachedMember},
     InMemoryCache as Cache,
@@ -454,21 +453,20 @@ impl Channel {
             return Ok(());
         }
 
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        conn.rt.spawn({
-            let id = self.id;
-            let http = conn.http.clone();
-            let token = conn.cache.ack_token();
+        let result = conn
+            .rt
+            .spawn({
+                let id = self.id;
+                let http = conn.http.clone();
+                let token = conn.cache.ack_token();
 
-            async move {
-                if let Err(e) = tx.send(http.ack_message(id, last_displayed_id, token).await) {
-                    tracing::error!("Failed to send ack result to main thread: {}", e);
-                }
-            }
-        });
+                async move { http.ack_message(id, last_displayed_id, token).await }
+            })
+            .await
+            .expect("Task is never aborted");
         // This endpoint returns a new token every time, not really sure how it's supposed to be used
         // but this is a best attempt
-        let token = rx.recv().await.unwrap()?;
+        let token = result?;
         conn.cache.set_ack_token(&token.token);
         Ok(())
     }

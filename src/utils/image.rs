@@ -1,4 +1,5 @@
 use crate::Weechat2;
+use anyhow::{anyhow, Context};
 use image::{DynamicImage, ImageFormat};
 use tokio::runtime::Runtime;
 use twilight_model::channel::Message;
@@ -38,8 +39,7 @@ pub fn find_image_candidates(msg: &Message) -> Vec<InlineImageCandidate> {
 }
 
 /// Wraps reqwest fetch so this function can be called on a weechat future
-pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> Option<DynamicImage> {
-    let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> anyhow::Result<DynamicImage> {
     let url = url.to_owned();
     rt.spawn(async move {
         tracing::trace!("Fetching inline image at: {}", url);
@@ -48,26 +48,19 @@ pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> Option<DynamicImage>
             .build::<_, hyper::Body>(hyper_rustls::HttpsConnector::with_native_roots());
 
         let uri = url.parse().expect("Discord sent an invalid uri");
-        match client.get(uri).await {
-            Ok(response) => match hyper::body::to_bytes(response).await {
-                Ok(body) => {
-                    tracing::trace!("Successfully loaded image");
-                    match image::load_from_memory(body.as_ref()) {
-                        Ok(image) => {
-                            if let Err(e) = tx.send(image).await {
-                                tracing::warn!("Failed to send image over channel: {}", e)
-                            }
-                        },
-                        Err(e) => tracing::warn!("Failed to load image: {}", e),
-                    }
-                },
-                Err(e) => tracing::warn!("Failed to fetch image asset body: {}", e),
-            },
-            Err(e) => tracing::warn!("Failed to fetch image url: {} {}", url, e),
-        }
-    });
+        let response = client
+            .get(uri)
+            .await
+            .with_context(|| format!("Failed to fetch image url: {}", url))?;
+        let body = hyper::body::to_bytes(response)
+            .await
+            .context("Failed to fetch image asset body")?;
 
-    rx.recv().await
+        tracing::trace!("Successfully loaded image");
+        image::load_from_memory(body.as_ref()).context("Failed to load image")
+    })
+    .await
+    .expect("Task is never aborted")
 }
 
 pub fn render_img(img: &DynamicImage) -> String {

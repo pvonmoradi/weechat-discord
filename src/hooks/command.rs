@@ -493,6 +493,13 @@ impl DiscordCommand {
             let pins = Pins::new(guild_id, channel_id.unwrap(), conn, &config);
 
             if let Err(e) = pins.load().await {
+                tracing::error!(
+                    guild.id=?guild_id,
+                    channel.id=?channel_id,
+                    "Unable to load pins: {}",
+                    e
+                );
+
                 Weechat::print(&format!(
                     "discord: an error occurred loading channel pins: {}",
                     e

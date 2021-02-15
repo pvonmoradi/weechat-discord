@@ -276,26 +276,32 @@ impl WeecordRenderer {
             let msg_id = msg.id;
             let max_height = self.config.image_max_height() as u32;
             Weechat::spawn(async move {
-                if let Some(image) = fetch_inline_image(&rt, &candidate.url).await {
-                    let image = resize_image(&image, (4, 8), (max_height, u16::max_value() as u32));
-                    renderer.update_message(&msg_id, |msg| {
-                        let loaded_image = LoadedImage {
-                            image,
-                            height: candidate.height,
-                            width: candidate.width,
-                        };
-                        match msg {
-                            Message::Text(discord_msg) => {
-                                *msg = Message::Image {
-                                    images: vec![loaded_image],
-                                    msg: discord_msg.clone(),
-                                }
-                            },
-                            Message::Image { images, .. } => images.push(loaded_image),
-                            _ => {},
-                        }
-                    });
-                    renderer.redraw_buffer();
+                match fetch_inline_image(&rt, &candidate.url).await {
+                    Ok(image) => {
+                        let image =
+                            resize_image(&image, (4, 8), (max_height, u16::max_value() as u32));
+                        renderer.update_message(&msg_id, |msg| {
+                            let loaded_image = LoadedImage {
+                                image,
+                                height: candidate.height,
+                                width: candidate.width,
+                            };
+                            match msg {
+                                Message::Text(discord_msg) => {
+                                    *msg = Message::Image {
+                                        images: vec![loaded_image],
+                                        msg: discord_msg.clone(),
+                                    }
+                                },
+                                Message::Image { images, .. } => images.push(loaded_image),
+                                _ => {},
+                            }
+                        });
+                        renderer.redraw_buffer();
+                    },
+                    Err(e) => {
+                        tracing::error!("Failed to fetch image: {}", e)
+                    },
                 }
             })
             .detach();

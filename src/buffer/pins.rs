@@ -3,7 +3,6 @@ use crate::{
     twilight_utils::ext::ChannelExt, weecord_renderer::WeecordRenderer,
 };
 use std::rc::Rc;
-use tokio::sync::mpsc;
 use twilight_model::id::{ChannelId, GuildId};
 use weechat::{
     buffer::{Buffer, BufferBuilder},
@@ -133,41 +132,22 @@ impl Pins {
             PinsBuffer::new(&name, self.guild_id, self.channel_id, &conn, &self.config)?;
         self.inner.borrow_mut().buffer.replace(pins_buffer);
 
-        let (tx, mut rx) = mpsc::channel(100);
+        let pins = rt
+            .spawn({
+                let channel_id = self.channel_id;
+                let http = conn.http.clone();
+                async move { http.pins(channel_id).await }
+            })
+            .await
+            .expect("Task is never aborted")?;
 
-        {
-            let guild_id = self.guild_id;
-            let channel_id = self.channel_id;
-            let http = conn.http.clone();
-            rt.spawn(async move {
-                let pins = match http.pins(channel_id).await {
-                    Ok(pins) => pins,
-                    Err(e) => {
-                        tracing::error!(
-                            guild.id=?guild_id,
-                            channel.id=?channel_id,
-                            "Unable to load pins: {}",
-                            e
-                        );
-                        tx.send(Err(anyhow::anyhow!("Unable to load pins: {}", e)))
-                            .await
-                            .unwrap();
-                        return;
-                    },
-                };
-
-                tx.send(Ok(pins)).await.unwrap();
-            });
-        }
-
-        let messages = rx.recv().await.unwrap()?;
         self.inner
             .borrow()
             .buffer
             .as_ref()
             .expect("guaranteed to exist")
             .0
-            .add_bulk_msgs(messages.into_iter());
+            .add_bulk_msgs(pins.into_iter());
 
         Ok(())
     }

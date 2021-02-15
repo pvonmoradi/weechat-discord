@@ -71,6 +71,10 @@ impl Signals {
                                             "Error loading channel history: {}",
                                             e
                                         );
+                                        Weechat::print(&format!(
+                                            "discord: An error occurred loading history: {}",
+                                            e
+                                        ));
                                     }
 
                                     Signals::ack(guild_id, channel_id, &channel).await;

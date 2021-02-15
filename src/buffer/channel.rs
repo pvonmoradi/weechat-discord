@@ -381,47 +381,42 @@ impl Channel {
     }
 
     pub async fn load_history(&self) -> anyhow::Result<()> {
-        let (tx, mut rx) = mpsc::channel(100);
         let last_msg = self.inner.borrow().buffer.renderer.nth_oldest_message(0);
         let conn = self.inner.borrow().conn.clone();
-        {
-            let id = self.id;
-            let msg_count = self.config.message_fetch_count() as u64;
 
-            let conn_clone = conn.clone();
-            conn.rt.spawn(async move {
-                let mut messages: Vec<_> = match last_msg {
-                    Some(last_msg) => {
-                        tracing::trace!("Getting history before id: {}", last_msg.id());
-                        conn_clone
-                            .http
-                            .channel_messages(id)
-                            .limit(msg_count)
-                            .unwrap()
-                            .before(last_msg.id())
-                            .await
-                            .unwrap()
-                    },
-                    None => conn_clone
+        let result: twilight_http::Result<_> = conn
+            .rt
+            .spawn({
+                let id = self.id;
+                let msg_count = self.config.message_fetch_count() as u64;
+                let conn = conn.clone();
+                async move {
+                    let message_fetcher = conn
                         .http
                         .channel_messages(id)
                         .limit(msg_count)
-                        .unwrap()
-                        .await
-                        .unwrap(),
-                };
+                        .expect("msg count option is limited to 100");
+                    let mut messages = match last_msg {
+                        Some(last_msg) => {
+                            tracing::trace!("Getting history before id: {}", last_msg.id());
+                            message_fetcher.before(last_msg.id()).await?
+                        },
+                        None => message_fetcher.await?,
+                    };
 
-                // This is a bit of a hack because the returned messages have no guild id, even if
-                // they are from a guild channel
-                if let Some(guild_channel) = conn_clone.cache.guild_channel(id) {
-                    for msg in &mut messages {
-                        msg.guild_id = guild_channel.guild_id()
+                    // This is a bit of a hack because the returned messages have no guild id, even if
+                    // they are from a guild channel
+                    if let Some(guild_channel) = conn.cache.guild_channel(id) {
+                        for msg in &mut messages {
+                            msg.guild_id = guild_channel.guild_id()
+                        }
                     }
+                    Ok(messages)
                 }
-                tx.send(messages).await.unwrap();
-            });
-        }
-        let messages = rx.recv().await.unwrap();
+            })
+            .await
+            .expect("Task is never aborted");
+        let messages = result?;
 
         let inner = self.inner.borrow();
         if let Some(read_state) = inner.conn.cache.read_state(self.id) {

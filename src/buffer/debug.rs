@@ -1,5 +1,8 @@
 use std::io;
-use weechat::{buffer::BufferBuilder, Weechat};
+use weechat::{
+    buffer::{BufferBuilder, NotifyLevel},
+    Weechat,
+};
 
 pub struct Debug;
 
@@ -9,6 +12,9 @@ impl Debug {
             if let Ok(buffer) = buffer.upgrade() {
                 buffer.set_title("Tracing events for weecord");
                 buffer.disable_hotlist();
+                // TODO: This currently overrides the notify level if the user has changed it.
+                //       Perhaps an option needs to be added for running first time setup only once.
+                buffer.set_notify(NotifyLevel::Never);
             }
         }
     }

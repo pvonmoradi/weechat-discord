@@ -347,58 +347,53 @@ impl DiscordCommand {
 
         let instance = self.instance.clone();
         let cache = connection.cache.clone();
-        let (tx, rx) = std::sync::mpsc::channel();
-        connection.rt.spawn(async move {
-            if let Some(guild) =
-                crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name)
-            {
-                tracing::trace!(%guild.name, "Matched guild");
-                if let Some(channel) =
-                    crate::twilight_utils::search_cached_stripped_guild_channel_name(
-                        &cache,
-                        guild.id,
-                        &channel_name,
-                    )
-                {
-                    tracing::trace!("Matched channel {}", channel.name());
-                    tx.send((guild, channel)).expect("main thread panicked?");
-                } else {
-                    tracing::warn!(%channel_name, "Unable to find matching channel");
-                    Weechat::spawn_from_thread(async move {
-                        Weechat::print(&format!(
-                            "discord: could not find channel: \"{}\"",
-                            channel_name
-                        ));
-                    });
-                }
-            } else {
-                tracing::warn!(%channel_name, "Unable to find matching guild");
-                Weechat::spawn_from_thread(async move {
-                    Weechat::print(&format!(
-                        "discord: could not find server \"{}\"",
-                        guild_name
-                    ));
-                });
-            }
-        });
 
-        if let Ok((guild, channel)) = rx.recv() {
-            if let Some(weecord_guild) =
-                instance.borrow_guilds().values().find(|g| g.id == guild.id)
-            {
-                Some((guild, weecord_guild.clone(), channel))
+        let result = if let Some(guild) =
+            crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name)
+        {
+            tracing::trace!(%guild.name, "Matched guild");
+            if let Some(channel) = crate::twilight_utils::search_cached_stripped_guild_channel_name(
+                &cache,
+                guild.id,
+                &channel_name,
+            ) {
+                tracing::trace!("Matched channel {}", channel.name());
+                Ok((guild, channel))
             } else {
-                tracing::warn!(%guild.id, "Guild has not been added to weechat");
-                Weechat::spawn_from_thread(async move {
-                    Weechat::print(&format!(
-                        "discord: could not find server \"{}\" in config",
-                        guild.name
-                    ));
-                });
-                None
+                tracing::warn!(%channel_name, "Unable to find matching channel");
+                Err(anyhow::anyhow!(
+                    "could not find channel: \"{}\"",
+                    channel_name
+                ))
             }
         } else {
-            None
+            tracing::warn!(%channel_name, "Unable to find matching guild: \"{}\"", guild_name);
+            Err(anyhow::anyhow!("could not find server: \"{}\"", guild_name))
+        };
+
+        match result {
+            Ok((guild, channel)) => {
+                if let Some(weecord_guild) =
+                    instance.borrow_guilds().values().find(|g| g.id == guild.id)
+                {
+                    Some((guild, weecord_guild.clone(), channel))
+                } else {
+                    tracing::warn!(%guild.id, "Guild has not been added to weechat");
+                    Weechat::spawn_from_thread(async move {
+                        Weechat::print(&format!(
+                            "discord: could not find server \"{}\" in config",
+                            guild.name
+                        ));
+                    });
+                    None
+                }
+            },
+            Err(e) => {
+                Weechat::spawn_from_thread(async move {
+                    Weechat::print(&format!("{}", e));
+                });
+                None
+            },
         }
     }
 

@@ -5,9 +5,8 @@ use crate::{
     instance::Instance,
 };
 use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 use twilight_model::id::{ChannelId, GuildId};
@@ -119,8 +118,8 @@ impl Signals {
                         .expect("Time went backwards")
                         .as_secs() as u64;
 
-                    if *LAST_TYPING_TIMESTAMP.lock() + 9 < timestamp_now {
-                        *LAST_TYPING_TIMESTAMP.lock() = timestamp_now;
+                    if *LAST_TYPING_TIMESTAMP.lock().unwrap() + 9 < timestamp_now {
+                        *LAST_TYPING_TIMESTAMP.lock().unwrap() = timestamp_now;
 
                         if let Some(channel_id) = buffer.channel_id() {
                             if let Some(conn) = connection.borrow().as_ref() {

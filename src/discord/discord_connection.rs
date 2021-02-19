@@ -4,7 +4,7 @@ use crate::{
     discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
     refcell::{Ref, RefCell},
-    twilight_utils::ext::{MemberExt, MessageExt, UserExt},
+    twilight_utils::ext::{ChannelExt, MemberExt, MessageExt, UserExt},
 };
 use anyhow::Result;
 use futures::StreamExt;
@@ -26,7 +26,10 @@ use tokio::{
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_gateway::{Event as GatewayEvent, Intents, Shard};
 use twilight_http::Client as HttpClient;
-use twilight_model::id::{ChannelId, GuildId};
+use twilight_model::{
+    channel::PrivateChannel,
+    id::{ChannelId, GuildId},
+};
 use weechat::Weechat;
 
 #[derive(Clone, Debug)]
@@ -198,32 +201,49 @@ impl DiscordConnection {
 
                     for channel_id in config.autojoin_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
-                            let instance_async = instance.clone();
-                            if let Ok(channel) = crate::buffer::channel::Channel::private(
-                                &channel,
-                                &conn,
-                                &config,
-                                &instance,
-                                move |_| {
-                                    if let Ok(mut channels) =
-                                        instance_async.try_borrow_private_channels_mut()
-                                    {
-                                        if let Some(channel) = channels.remove(&channel_id) {
-                                            channel.set_closed();
-                                        }
-                                    }
-                                },
-                            ) {
-                                instance
-                                    .borrow_private_channels_mut()
-                                    .insert(channel_id, channel);
+                            DiscordConnection::create_private_channel(
+                                conn, &config, &instance, channel_id, &channel,
+                            )
+                        } else {
+                            tracing::warn!("Unable to find channel: {}", channel_id)
+                        }
+                    }
+
+                    // TODO: The created buffer does not have it's unread status set correctly, fixing this
+                    //       needs reworking renderer notifications
+                    for channel_id in config.watched_private() {
+                        if let Some(channel) = conn.cache.private_channel(channel_id) {
+                            if channel.last_message_id()
+                                == conn
+                                    .cache
+                                    .read_state(channel_id)
+                                    .map(|rs| rs.last_message_id)
+                            {
+                                continue;
                             }
+
+                            DiscordConnection::create_private_channel(
+                                conn, &config, &instance, channel_id, &channel,
+                            )
                         } else {
                             tracing::warn!("Unable to find channel: {}", channel_id)
                         }
                     }
                 },
                 PluginMessage::MessageCreate { message } => {
+                    if config.watched_private().contains(&message.channel_id)
+                        && !instance
+                            .borrow_private_channels()
+                            .contains_key(&message.channel_id)
+                    {
+                        let channel_id = message.channel_id;
+                        if let Some(channel) = conn.cache.private_channel(channel_id) {
+                            DiscordConnection::create_private_channel(
+                                conn, &config, &instance, channel_id, &channel,
+                            )
+                        }
+                    }
+
                     let channel = if let Some(guild_id) = message.guild_id {
                         let channels = match instance.borrow_guilds().get(&guild_id) {
                             Some(guild) => guild.channels(),
@@ -413,6 +433,33 @@ impl DiscordConnection {
                     }
                 },
             }
+        }
+    }
+
+    fn create_private_channel(
+        conn: &ConnectionInner,
+        config: &Config,
+        instance: &Instance,
+        channel_id: ChannelId,
+        channel: &PrivateChannel,
+    ) {
+        let instance_async = instance.clone();
+        if let Ok(channel) = crate::buffer::channel::Channel::private(
+            &channel,
+            &conn,
+            &config,
+            &instance,
+            move |_| {
+                if let Ok(mut channels) = instance_async.try_borrow_private_channels_mut() {
+                    if let Some(channel) = channels.remove(&channel_id) {
+                        channel.set_closed();
+                    }
+                }
+            },
+        ) {
+            instance
+                .borrow_private_channels_mut()
+                .insert(channel_id, channel);
         }
     }
 

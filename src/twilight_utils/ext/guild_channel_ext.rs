@@ -4,7 +4,7 @@ use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache, InMem
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwrite, ChannelType, GuildChannel},
     guild::Permissions,
-    id::{RoleId, UserId},
+    id::{MessageId, RoleId, UserId},
 };
 
 pub trait GuildChannelExt {
@@ -19,6 +19,7 @@ pub trait GuildChannelExt {
     ) -> Option<bool>;
     fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
     fn is_text_channel(&self, cache: &Cache) -> bool;
+    fn last_message_id(&self) -> Option<MessageId>;
 }
 
 impl GuildChannelExt for GuildChannel {
@@ -110,6 +111,13 @@ impl GuildChannelExt for GuildChannel {
             GuildChannel::Category(c) => c.kind == ChannelType::GuildText,
             GuildChannel::Text(c) => c.kind == ChannelType::GuildText,
             GuildChannel::Voice(_) => false,
+        }
+    }
+
+    fn last_message_id(&self) -> Option<MessageId> {
+        match self {
+            GuildChannel::Text(c) => c.last_message_id,
+            GuildChannel::Category(_) | GuildChannel::Voice(_) => None,
         }
     }
 }

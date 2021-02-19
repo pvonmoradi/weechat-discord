@@ -5,7 +5,7 @@ use crate::twilight_utils::{
 use twilight_cache_inmemory::{InMemoryCache as Cache, InMemoryCache};
 use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
-    id::ChannelId,
+    id::{ChannelId, MessageId},
 };
 use twilight_permission_calculator::prelude::Permissions;
 
@@ -14,6 +14,7 @@ pub trait ChannelExt {
     fn id(&self) -> ChannelId;
     fn kind(&self) -> ChannelType;
     fn can_send(&self, cache: &Cache) -> Option<bool>;
+    fn last_message_id(&self) -> Option<MessageId>;
 }
 
 impl ChannelExt for DynamicChannel {
@@ -48,6 +49,14 @@ impl ChannelExt for DynamicChannel {
             DynamicChannel::Group(ch) => ch.can_send(cache),
         }
     }
+
+    fn last_message_id(&self) -> Option<MessageId> {
+        match self {
+            DynamicChannel::Guild(ch) => GuildChannelExt::last_message_id(ch.as_ref()),
+            DynamicChannel::Private(ch) => ch.last_message_id(),
+            DynamicChannel::Group(ch) => ch.last_message_id(),
+        }
+    }
 }
 
 impl ChannelExt for GuildChannel {
@@ -69,6 +78,10 @@ impl ChannelExt for GuildChannel {
 
     fn can_send(&self, cache: &Cache) -> Option<bool> {
         self.has_permission(cache, Permissions::SEND_MESSAGES)
+    }
+
+    fn last_message_id(&self) -> Option<MessageId> {
+        GuildChannelExt::last_message_id(self)
     }
 }
 
@@ -95,6 +108,10 @@ impl ChannelExt for PrivateChannel {
     fn can_send(&self, _cache: &Cache) -> Option<bool> {
         Some(true)
     }
+
+    fn last_message_id(&self) -> Option<MessageId> {
+        self.last_message_id
+    }
 }
 
 impl ChannelExt for Group {
@@ -120,5 +137,9 @@ impl ChannelExt for Group {
     fn can_send(&self, cache: &InMemoryCache) -> Option<bool> {
         let current_user = cache.current_user()?;
         Some(self.recipients.iter().any(|rec| rec.id == current_user.id))
+    }
+
+    fn last_message_id(&self) -> Option<MessageId> {
+        self.last_message_id
     }
 }

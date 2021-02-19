@@ -82,6 +82,7 @@ pub struct InnerConfig {
     pub log_directive: String,
     pub guilds: HashMap<GuildId, GuildConfig>,
     pub autojoin_private: Vec<ChannelId>,
+    pub watched_private: Vec<ChannelId>,
     // Should we use value of weechat.history.max_buffer_lines_number here instead?
     pub max_buffer_messages: i32,
     pub send_typing: bool,
@@ -96,6 +97,7 @@ impl Default for InnerConfig {
             log_directive: "".to_owned(),
             guilds: HashMap::new(),
             autojoin_private: Vec::new(),
+            watched_private: Vec::new(),
             max_buffer_messages: 4096,
             send_typing: false,
         }
@@ -182,6 +184,39 @@ impl Config {
                         }),
                 )
                 .expect("Unable to create autojoin private option");
+
+            let inner_clone = Weak::clone(&inner);
+            general
+                .new_string_option(
+                    StringOptionSettings::new("watched_private")
+                        .description("List of private channels to join when unread")
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
+
+                            let mut channels: Vec<_> = option
+                                .value()
+                                .split(',')
+                                .flat_map(|ch| ch.parse().map(ChannelId))
+                                .collect();
+
+                            channels.sort();
+                            channels.dedup();
+
+                            option.set(
+                                &channels
+                                    .iter()
+                                    .map(|c| c.0.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(","),
+                                false,
+                            );
+
+                            inner.borrow_mut().watched_private = channels;
+                        }),
+                )
+                .expect("Unable to create watched private option");
 
             let inner_clone = Weak::clone(&inner);
             general
@@ -428,6 +463,10 @@ impl Config {
 
     pub fn autojoin_private(&self) -> Vec<ChannelId> {
         self.inner.borrow().autojoin_private.clone()
+    }
+
+    pub fn watched_private(&self) -> Vec<ChannelId> {
+        self.inner.borrow().watched_private.clone()
     }
 
     pub fn typing_list_max(&self) -> i32 {

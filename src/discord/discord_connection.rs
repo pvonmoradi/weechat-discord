@@ -1,5 +1,5 @@
 use crate::{
-    buffer::ext::BufferExt,
+    buffer::{channel::Channel, ext::BufferExt},
     config::Config,
     discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
@@ -203,7 +203,7 @@ impl DiscordConnection {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
-                            )
+                            );
                         } else {
                             tracing::warn!("Unable to find channel: {}", channel_id)
                         }
@@ -222,9 +222,14 @@ impl DiscordConnection {
                                 continue;
                             }
 
-                            DiscordConnection::create_private_channel(
+                            if let Some(channel) = DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
-                            )
+                            ) {
+                                Weechat::spawn(async move {
+                                    let _ = channel.load_history().await;
+                                })
+                                .detach();
+                            }
                         } else {
                             tracing::warn!("Unable to find channel: {}", channel_id)
                         }
@@ -240,7 +245,7 @@ impl DiscordConnection {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
-                            )
+                            );
                         }
                     }
 
@@ -442,7 +447,7 @@ impl DiscordConnection {
         instance: &Instance,
         channel_id: ChannelId,
         channel: &PrivateChannel,
-    ) {
+    ) -> Option<Channel> {
         let instance_async = instance.clone();
         if let Ok(channel) = crate::buffer::channel::Channel::private(
             &channel,
@@ -459,7 +464,10 @@ impl DiscordConnection {
         ) {
             instance
                 .borrow_private_channels_mut()
-                .insert(channel_id, channel);
+                .insert(channel_id, channel.clone());
+            Some(channel)
+        } else {
+            None
         }
     }
 

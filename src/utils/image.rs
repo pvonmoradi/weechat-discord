@@ -19,7 +19,7 @@ pub fn find_image_candidates(msg: &Message) -> Vec<InlineImageCandidate> {
                 url: attachment.proxy_url.clone(),
                 height: attachment.height.unwrap_or(900),
                 width: attachment.width.unwrap_or(20),
-            })
+            });
         }
     }
 
@@ -30,7 +30,7 @@ pub fn find_image_candidates(msg: &Message) -> Vec<InlineImageCandidate> {
                     url: url.clone(),
                     height: thumbnail.height.unwrap_or(900 * 2) / 2,
                     width: thumbnail.width.unwrap_or(20 * 2) / 2,
-                })
+                });
             }
         }
     }
@@ -77,7 +77,7 @@ pub fn render_img(img: &DynamicImage) -> String {
                 Weechat2::color(&format!("{},{}", fg, bg)),
                 y.ch,
                 Weechat2::color("reset")
-            ))
+            ));
         }
         out.push('\n');
     }

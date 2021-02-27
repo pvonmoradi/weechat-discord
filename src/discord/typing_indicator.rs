@@ -49,7 +49,7 @@ impl TypingTracker {
 
         // If the entry is more than 10 seconds old, remove it
         // TODO: Use binary heap or other structure for better performance?
-        self.entries.retain(|e| timestamp_now - e.time < 10)
+        self.entries.retain(|e| timestamp_now - e.time < 10);
     }
 
     /// Add a new entry

@@ -36,7 +36,7 @@ pub fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) ->
                                     .expect("group zero must exist")
                                     .as_str(),
                                 &channel.id().mention(),
-                            )
+                            );
                         }
                     }
                 }
@@ -105,7 +105,7 @@ pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
                             out = out.replace(
                                 role_match.get(0).expect("group zero must exist").as_str(),
                                 &role_id.mention(),
-                            )
+                            );
                         }
                     }
                 }
@@ -144,7 +144,7 @@ pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> S
                             out = out.replace(
                                 emoji_match.get(0).expect("group zero must exist").as_str(),
                                 &emoji.mention(),
-                            )
+                            );
                         }
                     }
                 }

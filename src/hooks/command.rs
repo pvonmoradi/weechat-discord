@@ -498,7 +498,7 @@ impl DiscordCommand {
                 Weechat::print(&format!(
                     "discord: an error occurred loading channel pins: {}",
                     e
-                ))
+                ));
             };
 
             instance
@@ -633,7 +633,7 @@ impl DiscordCommand {
                             "{}: {:?}",
                             user_id,
                             conn.cache.member(guild_id.unwrap(), user_id)
-                        ))
+                        ));
                     }
                 }
             },

@@ -62,7 +62,9 @@ impl DiscordConnection {
                 let mut shard = Shard::new(&token, Intents::all());
                 if let Err(e) = shard.start().await {
                     let err_msg = format!("An error occurred connecting to Discord: {}", e);
-                    Weechat::spawn_from_thread(async move { Weechat::print(&err_msg) });
+                    Weechat::spawn_from_thread(async move {
+                        Weechat::print(&err_msg);
+                    });
 
                     // Check if the error is a 401 Unauthorized, which is likely an invalid token
                     if let Some(twilight_http::error::Error::Response { status, .. }) = e
@@ -73,7 +75,7 @@ impl DiscordConnection {
                             Weechat::spawn_from_thread(async move {
                                 Weechat::print(
                                     "discord: unauthorized: check that your token is valid",
-                                )
+                                );
                             });
                         }
                     }
@@ -205,7 +207,7 @@ impl DiscordConnection {
                                 conn, &config, &instance, channel_id, &channel,
                             );
                         } else {
-                            tracing::warn!("Unable to find channel: {}", channel_id)
+                            tracing::warn!("Unable to find channel: {}", channel_id);
                         }
                     }
 
@@ -231,7 +233,7 @@ impl DiscordConnection {
                                 .detach();
                             }
                         } else {
-                            tracing::warn!("Unable to find channel: {}", channel_id)
+                            tracing::warn!("Unable to find channel: {}", channel_id);
                         }
                     }
                 },
@@ -383,7 +385,7 @@ impl DiscordConnection {
                     if unsafe { Weechat::weechat() }.current_buffer().channel_id()
                         == Some(channel_update.0.id())
                     {
-                        Weechat::bar_item_update("discord_slowmode_cooldown")
+                        Weechat::bar_item_update("discord_slowmode_cooldown");
                     }
                 },
                 PluginMessage::ReactionAdd(reaction_add) => {
@@ -502,7 +504,7 @@ impl DiscordConnection {
                     })
                     .await
                     .ok()
-                    .expect("Receiving thread has died")
+                    .expect("Receiving thread has died");
                 }
             },
             GatewayEvent::MessageUpdate(message) => tx

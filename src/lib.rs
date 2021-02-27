@@ -1,6 +1,7 @@
 #![warn(
     clippy::all,
     clippy::str_to_string,
+    clippy::semicolon_if_nothing_returned,
     future_incompatible,
     nonstandard_style,
     rust_2018_idioms
@@ -64,7 +65,7 @@ impl Plugin for Weecord {
             Weechat::print(&format!(
                 "discord: Unable to setup logging, trace window will be empty!: {}",
                 err
-            ))
+            ));
         }
 
         if self.config.auto_open_tracing() {

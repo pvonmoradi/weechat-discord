@@ -101,7 +101,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages.truncate(*self.max_buffer_messages);
 
         let last_read_id = self.last_read_id.borrow();
-        self.render_history(messages.iter().rev(), &last_read_id)
+        self.render_history(messages.iter().rev(), &last_read_id);
     }
 
     fn render_history<'a>(
@@ -132,7 +132,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
             .iter_mut()
             .find(|msg| &msg.id(&mut state) == id)
         {
-            f(msg)
+            f(msg);
         }
     }
 

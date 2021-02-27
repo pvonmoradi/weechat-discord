@@ -210,11 +210,11 @@ impl ChannelBuffer {
     }
 
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = Message>) {
-        self.renderer.add_bulk_msgs(msgs)
+        self.renderer.add_bulk_msgs(msgs);
     }
 
     pub fn add_msg(&self, msg: &Message, notify: bool) {
-        self.renderer.add_msg(msg, notify)
+        self.renderer.add_msg(msg, notify);
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
@@ -259,7 +259,7 @@ impl ChannelBuffer {
                 if reaction.count == 1 {
                     msg.reactions.remove(i);
                 } else {
-                    reaction.count -= 1
+                    reaction.count -= 1;
                 }
             }
         });
@@ -267,15 +267,15 @@ impl ChannelBuffer {
     }
 
     pub fn remove_msg(&self, id: MessageId) {
-        self.renderer.remove_msg(id)
+        self.renderer.remove_msg(id);
     }
 
     pub fn update_msg(&self, update: MessageUpdate) {
-        self.renderer.apply_message_update(update)
+        self.renderer.apply_message_update(update);
     }
 
     pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
-        self.renderer.redraw_buffer(ignore_users)
+        self.renderer.redraw_buffer(ignore_users);
     }
 
     pub fn add_members(&self, members: &[Arc<CachedMember>]) {
@@ -407,7 +407,7 @@ impl Channel {
                     // they are from a guild channel
                     if let Some(guild_channel) = conn.cache.guild_channel(id) {
                         for msg in &mut messages {
-                            msg.guild_id = guild_channel.guild_id()
+                            msg.guild_id = guild_channel.guild_id();
                         }
                     }
                     Ok(messages)
@@ -620,7 +620,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 });
             } else {
                 tracing::warn!("Unable to find message n {}", line);
-                Weechat::print(&format!("discord: unable to locate message n = {}", line))
+                Weechat::print(&format!("discord: unable to locate message n = {}", line));
             };
         },
         None => {
@@ -653,7 +653,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                                     Weechat::print(&format!(
                                         "discord: an error occurred adding reaction: {}",
                                         e
-                                    ))
+                                    ));
                                 });
                             }
                         } else if let Err(e) = http
@@ -665,7 +665,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                                 Weechat::print(&format!(
                                     "discord: an error occurred removing reaction: {}",
                                     e
-                                ))
+                                ));
                             });
                         }
                     });
@@ -702,14 +702,14 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                                     Weechat::print(&format!(
                                         "discord: an error occurred sending message: {}",
                                         e
-                                    ))
+                                    ));
                                 });
                             };
                         },
                         Err(e) => {
                             tracing::error!("Failed to create message: {:?}", e);
                             Weechat::spawn_from_thread(async move {
-                                Weechat::print("discord: message content is invalid")
+                                Weechat::print("discord: message content is invalid");
                             });
                         },
                     }

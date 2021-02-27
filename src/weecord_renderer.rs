@@ -300,7 +300,7 @@ impl WeecordRenderer {
                         renderer.redraw_buffer();
                     },
                     Err(e) => {
-                        tracing::error!("Failed to fetch image: {}", e)
+                        tracing::error!("Failed to fetch image: {}", e);
                     },
                 }
             })
@@ -310,7 +310,7 @@ impl WeecordRenderer {
 
     pub fn add_local_echo(&self, author: String, content: String, nonce: u64) {
         self.inner
-            .add_msg(Message::new_echo(author, content, nonce), false)
+            .add_msg(Message::new_echo(author, content, nonce), false);
     }
 
     pub fn add_msg(&self, msg: &DiscordMessage, notify: bool) {
@@ -354,7 +354,7 @@ impl WeecordRenderer {
             Message::Text(msg) => f(msg),
             #[cfg(feature = "images")]
             Message::Image { msg, .. } => f(msg),
-        })
+        });
     }
 
     pub fn get_nth_message(&self, index: usize) -> Option<Message> {
@@ -370,7 +370,7 @@ impl WeecordRenderer {
     }
 
     pub fn remove_msg(&self, id: MessageId) {
-        self.inner.remove_msg(&id)
+        self.inner.remove_msg(&id);
     }
 
     pub fn apply_message_update(&self, update: MessageUpdate) {

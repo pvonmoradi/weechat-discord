@@ -39,34 +39,34 @@ impl MessageExt for Message {
             self.mentions.push(mention);
         }
         if let Some(attachments) = update.attachments {
-            self.attachments = attachments
+            self.attachments = attachments;
         }
         if let Some(author) = update.author {
-            self.author = author
+            self.author = author;
         }
         if let Some(content) = update.content {
-            self.content = content
+            self.content = content;
         }
         if let Some(embeds) = update.embeds {
-            self.embeds = embeds
+            self.embeds = embeds;
         }
         if let Some(kind) = update.kind {
-            self.kind = kind
+            self.kind = kind;
         }
         if let Some(mention_everyone) = update.mention_everyone {
-            self.mention_everyone = mention_everyone
+            self.mention_everyone = mention_everyone;
         }
         if let Some(mention_roles) = update.mention_roles {
-            self.mention_roles = mention_roles
+            self.mention_roles = mention_roles;
         }
         if let Some(pinned) = update.pinned {
-            self.pinned = pinned
+            self.pinned = pinned;
         }
         if let Some(timestamp) = update.timestamp {
-            self.timestamp = timestamp
+            self.timestamp = timestamp;
         }
         if let Some(tts) = update.tts {
-            self.tts = tts
+            self.tts = tts;
         }
     }
 }

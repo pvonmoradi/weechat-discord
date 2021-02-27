@@ -111,7 +111,7 @@ impl StyleState {
         let mut out = String::new();
         for style in self.styles() {
             if let Some(unstyle) = style.exact_unstyle() {
-                out.push_str(unstyle)
+                out.push_str(unstyle);
             } else {
                 return Weechat2::color("reset").to_owned();
             }
@@ -291,7 +291,7 @@ impl StyledString {
                 },
                 Operation::Literal(text) => {
                     debug_assert!(!text.contains('\n'));
-                    tmp.push_op(token)
+                    tmp.push_op(token);
                 },
                 Operation::Newline => {
                     if closed {

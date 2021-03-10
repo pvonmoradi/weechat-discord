@@ -1,5 +1,5 @@
 use crate::Weechat2;
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use image::{DynamicImage, ImageFormat};
 use tokio::runtime::Runtime;
 use twilight_model::channel::Message;

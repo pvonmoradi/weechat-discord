@@ -727,17 +727,13 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
 }
 
 fn has_manage_message_perm(channel: &Channel, cache: &Cache) -> Option<bool> {
-    if let Some(manage) = match_map!(
+    match_map!(
         cache.dynamic_channel(channel.id),
         Some(DynamicChannel::Guild(channel)) => channel,
     )
     .and_then(|discord_channel| {
         discord_channel.has_permission(&cache, Permissions::MANAGE_MESSAGES)
-    }) {
-        Some(manage)
-    } else {
-        None
-    }
+    })
 }
 
 fn request_from_reaction(reaction: &parsing::Reaction) -> Option<RequestReactionType> {

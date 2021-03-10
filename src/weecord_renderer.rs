@@ -229,15 +229,13 @@ impl WeecordRenderer {
             }
         }
 
-        if let Some(first_msg) = self.inner.messages().borrow().front() {
-            if let Message::Text(first_msg) = first_msg {
-                if let Some(guild_id) = first_msg.guild_id {
-                    self.fetch_guild_members(
-                        &state.borrow().unknown_members,
-                        first_msg.channel_id,
-                        guild_id,
-                    );
-                }
+        if let Some(Message::Text(first_msg)) = self.inner.messages().borrow().front() {
+            if let Some(guild_id) = first_msg.guild_id {
+                self.fetch_guild_members(
+                    &state.borrow().unknown_members,
+                    first_msg.channel_id,
+                    guild_id,
+                );
             }
         }
     }

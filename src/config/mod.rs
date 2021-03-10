@@ -33,6 +33,18 @@ impl Config {
     }
 }
 
+#[cfg(feature = "images")]
+pub use term_image::block::Charset;
+
+#[cfg(not(feature = "images"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Charset {
+    All,
+    NoSlopes,
+    Blocks,
+    Halfs,
+}
+
 pub struct LookConfig {
     pub nick_prefix: String,
     pub nick_suffix: String,
@@ -43,6 +55,7 @@ pub struct LookConfig {
     pub message_fetch_count: i32,
     pub readonly_value: String,
     pub image_max_height: i32,
+    pub image_charset: Charset,
 }
 
 impl Default for LookConfig {
@@ -56,7 +69,8 @@ impl Default for LookConfig {
             typing_list_style: 0,
             message_fetch_count: 50,
             readonly_value: "🔒".to_owned(),
-            image_max_height: 15,
+            image_max_height: 40,
+            image_charset: Charset::Blocks,
         }
     }
 }
@@ -364,6 +378,27 @@ impl Config {
                     }),
             )
             .expect("Unable to create image max height option");
+
+            let inner_clone = Weak::clone(&inner);
+            look.new_integer_option(
+                IntegerOptionSettings::new("image_charset")
+                    .description("Charset to use for rendering images, 0=halfs, 1=blocks; 2=full; 3=full+slopes")
+                    .min(0)
+                    .max(3)
+                    .default_value(1)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.image_charset = match option.value() {
+                            0=>Charset::Halfs,
+                            1=>Charset::Blocks,
+                            2=>Charset::NoSlopes,
+                            _=>Charset::All,
+                        };
+                    }),
+            )
+            .expect("Unable to create image charset option");
         }
 
         {
@@ -485,6 +520,10 @@ impl Config {
         self.inner.borrow().look.image_max_height
     }
 
+    pub fn image_charset(&self) -> Charset {
+        self.inner.borrow().look.image_charset
+    }
+
     pub fn persist(&self) {
         let config = self.config.borrow();
         let general = config
@@ -565,6 +604,17 @@ impl Config {
         look.search_option("image_max_height")
             .expect("image max height option must exist")
             .set(&self.image_max_height().to_string(), false);
+
+        let charset_index = match self.image_charset() {
+            Charset::All => 3,
+            Charset::NoSlopes => 2,
+            Charset::Blocks => 1,
+            Charset::Halfs => 0,
+        };
+
+        look.search_option("image_charset")
+            .expect("image charset option must exist")
+            .set(&charset_index.to_string(), false);
     }
 }
 

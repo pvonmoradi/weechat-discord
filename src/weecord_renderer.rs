@@ -101,7 +101,7 @@ impl WeechatMessage<MessageId, State> for Message {
                     body += "\n";
                 }
                 for image in images {
-                    body += &render_img(&image.image);
+                    body += &render_img(&image.image, state.config.image_charset());
                 }
 
                 (prefix, body)
@@ -277,7 +277,7 @@ impl WeecordRenderer {
                 match fetch_inline_image(&rt, &candidate.url).await {
                     Ok(image) => {
                         let image =
-                            resize_image(&image, (4, 8), (max_height, u16::max_value() as u32));
+                            term_image::resize_image(&image, (4, 8), (max_height as u16, u16::MAX));
                         renderer.update_message(&msg_id, |msg| {
                             let loaded_image = LoadedImage {
                                 image,

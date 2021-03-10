@@ -1,6 +1,7 @@
-use crate::Weechat2;
+use crate::{config::Charset, Weechat2};
 use anyhow::Context;
-use image::{DynamicImage, ImageFormat};
+use image::{DynamicImage, GenericImageView, ImageFormat};
+use std::borrow::Cow;
 use tokio::runtime::Runtime;
 use twilight_model::channel::Message;
 
@@ -63,49 +64,33 @@ pub async fn fetch_inline_image(rt: &Runtime, url: &str) -> anyhow::Result<Dynam
     .expect("Task is never aborted")
 }
 
-pub fn render_img(img: &DynamicImage) -> String {
-    let render = termimage::render(img, true, 2);
+pub fn render_img(img: &DynamicImage, charset: Charset) -> String {
+    let render = term_image::block::Block::img_exact(
+        &term_image::block::BlockOptions {
+            char_set: charset,
+            blend: true,
+            background_color: [0, 0, 0].into(),
+            size: (img.width() as u16, img.height() as u16),
+        },
+        Cow::Borrowed(img),
+    );
 
     let mut out = String::new();
 
-    for x in render {
-        for y in x {
-            let fg = termimage::rgb_to_ansi(y.fg).0;
-            let bg = termimage::rgb_to_ansi(y.bg).0;
+    for y in render.into_iter() {
+        for x in y {
+            let fg = x.fg.as_256().0;
+            let bg = x.bg.as_256().0;
             out.push_str(&format!(
-                "{}{}{}",
+                "{}{}",
                 Weechat2::color(&format!("{},{}", fg, bg)),
-                y.ch,
-                Weechat2::color("reset")
+                x.ch,
             ));
+
+            out.push_str(Weechat2::color("reset"));
         }
         out.push('\n');
     }
 
     out
-}
-
-/// Resizes an image to fit within a max size, then scales an image to fit within a block size
-pub fn resize_image(
-    img: &DynamicImage,
-    cell_size: (u32, u32),
-    max_size: (u32, u32),
-) -> DynamicImage {
-    use image::GenericImageView;
-    let img = img.resize(
-        max_size.0 * cell_size.0,
-        max_size.1 * cell_size.1,
-        image::imageops::FilterType::Nearest,
-    );
-
-    img.resize_exact(
-        closest_mult(img.width(), cell_size.0),
-        closest_mult(img.height(), cell_size.1),
-        image::imageops::FilterType::Nearest,
-    )
-}
-
-/// Returns the closest multiple of a base
-fn closest_mult(x: u32, base: u32) -> u32 {
-    base * ((x as f32) / base as f32).round() as u32
 }

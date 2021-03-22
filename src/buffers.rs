@@ -126,21 +126,6 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
         }
     }
 
-    for channel_id in cache.all_private_channels() {
-        let channel = match channel_id.to_channel_cached(&ctx) {
-            Some(ch) => ch,
-            None => continue,
-        };
-
-        let last_read_message = cache
-            .read_state
-            .get(&channel.id())
-            .map(|rs| rs.last_message_id);
-        if last_read_message != channel.last_message() {
-            autojoin_items.push(utils::GuildOrChannel::Channel(None, channel.id()))
-        }
-    }
-
     // flatten guilds into channels
     let autojoin_channels = utils::flatten_guilds(&ctx, &autojoin_items);
 

@@ -1,28 +1,14 @@
 # Weechat Discord
 
-## Warning
-
-***Discord has banned individuals for using 3rd party clients.***
-
-The developer of [a popular 3rd party client](https://github.com/Bios-Marcel/cordless) has had his
-[account banned for using said 3rd party client](https://github.com/Bios-Marcel/cordless#i-am-closing-down-the-cordless-project).
-
-I have never heard of anyone being banned for weechat-discord, but that does not mean it can't happen.
-The official stance of Discord is that 3rd party clients (and use of user tokens) is a TOS violation and hence
-bannable offence. (see section below)
-
-I personally use weechat-discord with my alt account for testing and personal use and have not been banned _yet_.
-
 ---
 
-***Usage of self-tokens is a violation of Discord's TOS***
+## Warning
 
-This client makes use of the Discord "user api" and is can be viewed as a "self-bot".
+***Use at your own risk***: Using this program violates the Discord TOS and could get your account or ip disabled, banned, etc.
 
-This client does not abuse the api, however it is still a violation of the TOS and makes use of undocumented "client only"
-apis.
+[Read more details here](https://github.com/terminal-discord/weechat-discord/wiki/Discord-TOS-and-self-tokens)
 
-***Use at your own risk***: Using this program could get your account or ip disabled, banned, etc.
+I personally use weechat-discord with my alt account for testing and personal use and have not been banned _yet_.
 
 ---
 

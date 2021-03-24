@@ -98,6 +98,7 @@ impl Plugin for Weecord {
 }
 
 impl Weecord {
+    #[cfg(not(feature = "tracing_tree"))]
     fn setup_tracing(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
         tracing_subscriber::fmt()
             .with_env_filter(
@@ -108,6 +109,22 @@ impl Weecord {
             .with_writer(move || buffer::debug::Debug)
             .without_time()
             .try_init()
+    }
+
+    #[cfg(feature = "tracing_tree")]
+    fn setup_tracing(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+        use tracing_subscriber::{layer::SubscriberExt, Layer, Registry};
+        let subscriber = Registry::default().with(
+            tracing_tree::HierarchicalLayer::new(2)
+                .with_ansi(true)
+                .with_writer(move || buffer::debug::Debug)
+                .and_then(
+                    EnvFilter::new(self.config.log_directive())
+                        // Set the default log level to warn
+                        .add_directive(LevelFilter::WARN.into()),
+                ),
+        );
+        tracing::subscriber::set_global_default(subscriber).map_err(|err| err.into())
     }
 }
 

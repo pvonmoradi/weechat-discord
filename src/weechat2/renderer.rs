@@ -1,11 +1,15 @@
 use crate::refcell::RefCell;
-use std::{collections::VecDeque, rc::Rc};
+use std::{
+    borrow::Cow,
+    collections::{HashSet, VecDeque},
+    rc::Rc,
+};
 use weechat::buffer::BufferHandle;
 
 pub trait WeechatMessage<I, S> {
     /// Format the message into the prefix and body
     fn render(&self, state: &mut S) -> (String, String);
-    fn tags(&self, state: &mut S, notify: bool) -> Vec<&'static str>;
+    fn tags(&self, state: &mut S, notify: bool) -> HashSet<Cow<'static, str>>;
     fn timestamp(&self, state: &mut S) -> i64;
     fn id(&self, state: &mut S) -> I;
 }
@@ -67,8 +71,10 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         let (prefix, suffix) = msg.render(&mut state);
         let mut tags = msg.tags(&mut state, notify);
         if !log {
-            tags.push("no_log");
+            tags.insert("no_log".into());
         }
+
+        let tags: Vec<_> = tags.iter().map(Cow::as_ref).collect();
         buffer.print_date_tags(
             msg.timestamp(&mut state),
             &tags,

@@ -11,7 +11,11 @@ use crate::{
 };
 #[cfg(feature = "images")]
 use image::DynamicImage;
-use std::{collections::VecDeque, rc::Rc};
+use std::{
+    borrow::Cow,
+    collections::{HashSet, VecDeque},
+    rc::Rc,
+};
 use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::{Message as DiscordMessage, ReactionType},
@@ -109,8 +113,8 @@ impl WeechatMessage<MessageId, State> for Message {
         }
     }
 
-    fn tags(&self, state: &mut State, notify: bool) -> Vec<&'static str> {
-        let mut tags = Vec::new();
+    fn tags(&self, state: &mut State, notify: bool) -> HashSet<Cow<'static, str>> {
+        let mut tags: HashSet<Cow<_>> = HashSet::new();
 
         let mut discord_msg_tags = |msg: &DiscordMessage| {
             let cache = &state.conn.cache;
@@ -123,15 +127,15 @@ impl WeechatMessage<MessageId, State> for Message {
 
             if notify {
                 if mentioned {
-                    tags.push("notify_highlight");
+                    tags.insert("notify_highlight".into());
                 }
 
                 if private {
-                    tags.push("notify_private");
+                    tags.insert("notify_private".into());
                 }
 
                 if !(mentioned || private) {
-                    tags.push("notify_message");
+                    tags.insert("notify_message".into());
                 }
             }
         };
@@ -140,13 +144,13 @@ impl WeechatMessage<MessageId, State> for Message {
             #[cfg(feature = "images")]
             Message::Image { msg, .. } => {
                 discord_msg_tags(msg);
-                tags.push("no_log");
-                tags.push("image");
+                tags.insert("no_log".into());
+                tags.insert("image".into());
             },
             Message::Text(msg) => discord_msg_tags(msg),
             Message::LocalEcho { .. } => {
-                tags.push("no_log");
-                tags.push("local_echo");
+                tags.insert("no_log".into());
+                tags.insert("local_echo".into());
             },
         }
         tags

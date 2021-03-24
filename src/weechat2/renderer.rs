@@ -9,7 +9,7 @@ use weechat::buffer::BufferHandle;
 pub trait WeechatMessage<I, S> {
     /// Format the message into the prefix and body
     fn render(&self, state: &mut S) -> (String, String);
-    fn tags(&self, state: &mut S, notify: bool) -> HashSet<Cow<'static, str>>;
+    fn tags(&self, state: &mut S) -> HashSet<Cow<'static, str>>;
     fn timestamp(&self, state: &mut S) -> i64;
     fn id(&self, state: &mut S) -> I;
 }
@@ -61,7 +61,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         *self.last_read_id.borrow_mut() = Some(id);
     }
 
-    fn print_msg(&self, msg: &M, notify: bool, log: bool) {
+    fn print_msg(&self, msg: &M, log: bool) {
         let buffer = self
             .buffer_handle
             .upgrade()
@@ -69,7 +69,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
 
         let mut state = self.state.borrow_mut();
         let (prefix, suffix) = msg.render(&mut state);
-        let mut tags = msg.tags(&mut state, notify);
+        let mut tags = msg.tags(&mut state);
         if !log {
             tags.insert("no_log".into());
         }
@@ -93,8 +93,8 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         self.render_history(self.messages.borrow().iter().rev(), &last_read_id);
     }
 
-    pub fn add_msg(&self, msg: M, notify: bool) {
-        self.print_msg(&msg, notify, true);
+    pub fn add_msg(&self, msg: M) {
+        self.print_msg(&msg, true);
 
         let mut messages = self.messages.borrow_mut();
         messages.push_front(msg);
@@ -115,16 +115,17 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages: impl Iterator<Item = &'a M>,
         last_read_id: &Option<I>,
     ) {
-        let mut notify = false;
+        self.buffer_handle.upgrade().unwrap().disable_print_hooks();
         for msg in messages {
-            self.print_msg(msg, notify, false);
+            self.print_msg(msg, false);
             if let Some(last_read_id) = &*last_read_id {
                 if &msg.id(&mut self.state.borrow_mut()) == last_read_id {
                     self.buffer_handle.upgrade().unwrap().mark_read();
-                    notify = true;
                 }
             }
         }
+        self.buffer_handle.upgrade().unwrap().enable_print_hooks();
+        self.buffer_handle.upgrade().unwrap().clear_hotlist();
     }
 
     pub fn update_message<F>(&self, id: &I, f: F)

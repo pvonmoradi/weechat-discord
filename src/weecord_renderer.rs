@@ -113,7 +113,7 @@ impl WeechatMessage<MessageId, State> for Message {
         }
     }
 
-    fn tags(&self, state: &mut State, notify: bool) -> HashSet<Cow<'static, str>> {
+    fn tags(&self, state: &mut State) -> HashSet<Cow<'static, str>> {
         let mut tags: HashSet<Cow<_>> = HashSet::new();
 
         let mut discord_msg_tags = |msg: &DiscordMessage| {
@@ -125,7 +125,12 @@ impl WeechatMessage<MessageId, State> for Message {
                 .map(|user| msg.mentions.iter().any(|m| m.id == user.id))
                 .unwrap_or(false);
 
-            if notify {
+            let is_own = msg.is_own(&state.conn.cache);
+
+            if is_own {
+                tags.insert("self_msg".into());
+                tags.insert("notify_none".into());
+            } else {
                 if mentioned {
                     tags.insert("notify_highlight".into());
                 }
@@ -151,6 +156,7 @@ impl WeechatMessage<MessageId, State> for Message {
             Message::LocalEcho { .. } => {
                 tags.insert("no_log".into());
                 tags.insert("local_echo".into());
+                tags.insert("notify_none".into());
             },
         }
         tags
@@ -314,10 +320,10 @@ impl WeecordRenderer {
 
     pub fn add_local_echo(&self, author: String, content: String, nonce: u64) {
         self.inner
-            .add_msg(Message::new_echo(author, content, nonce), false);
+            .add_msg(Message::new_echo(author, content, nonce));
     }
 
-    pub fn add_msg(&self, msg: &DiscordMessage, notify: bool) {
+    pub fn add_msg(&self, msg: &DiscordMessage) {
         if let Some(incoming_nonce) = msg.nonce.as_ref().and_then(|n| n.parse::<u64>().ok()) {
             let echo_index = self
                 .inner
@@ -338,7 +344,7 @@ impl WeecordRenderer {
 
         self.inner.state().borrow_mut().unknown_members.clear();
 
-        self.inner.add_msg(Message::new(msg.clone()), notify);
+        self.inner.add_msg(Message::new(msg.clone()));
 
         if let Some(guild_id) = msg.guild_id {
             self.fetch_guild_members(

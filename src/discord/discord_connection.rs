@@ -4,7 +4,7 @@ use crate::{
     discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
     refcell::{Ref, RefCell},
-    twilight_utils::ext::{ChannelExt, MemberExt, MessageExt, UserExt},
+    twilight_utils::ext::{ChannelExt, MemberExt, UserExt},
 };
 use anyhow::Result;
 use futures::StreamExt;
@@ -268,9 +268,7 @@ impl DiscordConnection {
                             None => continue,
                         }
                     };
-                    let message = *message;
-                    let is_own = message.is_own(&conn.cache);
-                    channel.add_message(&message, !is_own);
+                    channel.add_message(&message);
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {

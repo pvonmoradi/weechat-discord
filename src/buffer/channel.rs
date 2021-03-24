@@ -213,8 +213,8 @@ impl ChannelBuffer {
         self.renderer.add_bulk_msgs(msgs);
     }
 
-    pub fn add_msg(&self, msg: &Message, notify: bool) {
-        self.renderer.add_msg(msg, notify);
+    pub fn add_msg(&self, msg: &Message) {
+        self.renderer.add_msg(msg);
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
@@ -487,8 +487,8 @@ impl Channel {
         }
     }
 
-    pub fn add_message(&self, msg: &Message, notify: bool) {
-        self.inner.borrow().buffer.add_msg(msg, notify);
+    pub fn add_message(&self, msg: &Message) {
+        self.inner.borrow().buffer.add_msg(msg);
     }
 
     pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {

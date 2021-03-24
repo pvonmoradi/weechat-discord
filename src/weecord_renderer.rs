@@ -141,10 +141,12 @@ impl WeechatMessage<MessageId, State> for Message {
             Message::Image { msg, .. } => {
                 discord_msg_tags(msg);
                 tags.push("no_log");
+                tags.push("image");
             },
             Message::Text(msg) => discord_msg_tags(msg),
             Message::LocalEcho { .. } => {
                 tags.push("no_log");
+                tags.push("local_echo");
             },
         }
         tags

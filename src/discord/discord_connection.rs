@@ -1,6 +1,6 @@
 use crate::{
     buffer::{channel::Channel, ext::BufferExt},
-    config::Config,
+    config::{Config, GuildConfig},
     discord::{plugin_message::PluginMessage, typing_indicator::TypingEntry},
     instance::Instance,
     refcell::{Ref, RefCell},
@@ -186,19 +186,34 @@ impl DiscordConnection {
                     Weechat::print(&format!("discord: ready as: {}", user.tag()));
                     tracing::info!("Ready as {}", user.tag());
 
-                    for (guild_id, guild_config) in config.guilds() {
-                        let guild = crate::buffer::guild::Guild::new(
-                            guild_id,
-                            conn.clone(),
-                            guild_config.clone(),
-                            &config,
-                        );
-                        if guild_config.autoconnect() {
+                    if config.join_all() {
+                        for guild_id in conn.cache.guild_ids().expect("Cache always returns some") {
+                            let guild = crate::buffer::guild::Guild::new(
+                                guild_id,
+                                conn.clone(),
+                                GuildConfig::new_detached(guild_id),
+                                &config,
+                            );
                             if let Err(e) = guild.connect(instance.clone()) {
                                 tracing::warn!("Unable to connect guild: {}", e);
                             };
+                            instance.borrow_guilds_mut().insert(guild_id, guild);
                         }
-                        instance.borrow_guilds_mut().insert(guild_id, guild);
+                    } else {
+                        for (guild_id, guild_config) in config.guilds() {
+                            let guild = crate::buffer::guild::Guild::new(
+                                guild_id,
+                                conn.clone(),
+                                guild_config.clone(),
+                                &config,
+                            );
+                            if guild_config.autoconnect() {
+                                if let Err(e) = guild.connect(instance.clone()) {
+                                    tracing::warn!("Unable to connect guild: {}", e);
+                                };
+                            }
+                            instance.borrow_guilds_mut().insert(guild_id, guild);
+                        }
                     }
 
                     for channel_id in config.autojoin_private() {

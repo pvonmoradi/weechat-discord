@@ -128,34 +128,52 @@ impl Guild {
                 .replace(GuildBuffer::new(&guild.name, guild.id, instance.clone())?);
 
             let conn = inner.conn.clone();
-            for channel_id in self.guild_config.autojoin_channels() {
-                if let Some(cached_channel) = conn.cache.guild_channel(channel_id) {
-                    if cached_channel.is_text_channel(&conn.cache) {
-                        tracing::info!("Joining autojoin channel: #{}", cached_channel.name());
 
-                        self._join_channel(&cached_channel, &guild, &mut inner, &instance)?;
+            if self.config.join_all() {
+                if let Some(guild_channels) = conn.cache.guild_channels(self.id) {
+                    for channel_id in guild_channels {
+                        if let Some(cached_channel) = conn.cache.guild_channel(channel_id) {
+                            if cached_channel.is_text_channel(&conn.cache) {
+                                tracing::info!(
+                                    "Joining discord mode channel: #{}",
+                                    cached_channel.name()
+                                );
+
+                                self._join_channel(&cached_channel, &guild, &mut inner, &instance)?;
+                            }
+                        }
                     }
                 }
-            }
+            } else {
+                for channel_id in self.guild_config.autojoin_channels() {
+                    if let Some(cached_channel) = conn.cache.guild_channel(channel_id) {
+                        if cached_channel.is_text_channel(&conn.cache) {
+                            tracing::info!("Joining autojoin channel: #{}", cached_channel.name());
 
-            for watched_channel_id in self.guild_config.watched_channels() {
-                if let Some(channel) = conn.cache.guild_channel(watched_channel_id) {
-                    if let Some(read_state) = conn.cache.read_state(watched_channel_id) {
-                        if Some(read_state.last_message_id) == channel.last_message_id() {
-                            continue;
-                        };
-                    } else {
-                        tracing::warn!(
-                            channel_id=?watched_channel_id,
-                            "Unable to get read state for watched channel, skipping",
-                        );
-                        continue;
+                            self._join_channel(&cached_channel, &guild, &mut inner, &instance)?;
+                        }
                     }
+                }
 
-                    if channel.is_text_channel(&conn.cache) {
-                        tracing::info!("Joining watched channel: #{}", channel.name());
+                for watched_channel_id in self.guild_config.watched_channels() {
+                    if let Some(channel) = conn.cache.guild_channel(watched_channel_id) {
+                        if let Some(read_state) = conn.cache.read_state(watched_channel_id) {
+                            if Some(read_state.last_message_id) == channel.last_message_id() {
+                                continue;
+                            };
+                        } else {
+                            tracing::warn!(
+                                channel_id=?watched_channel_id,
+                                "Unable to get read state for watched channel, skipping",
+                            );
+                            continue;
+                        }
 
-                        self._join_channel(&channel, &guild, &mut inner, &instance)?;
+                        if channel.is_text_channel(&conn.cache) {
+                            tracing::info!("Joining watched channel: #{}", channel.name());
+
+                            self._join_channel(&channel, &guild, &mut inner, &instance)?;
+                        }
                     }
                 }
             }

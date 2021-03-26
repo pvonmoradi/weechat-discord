@@ -30,6 +30,14 @@ pub struct GuildConfig {
 }
 
 impl GuildConfig {
+    /// Creates a guild config not attached to any weechat options
+    pub fn new_detached(id: GuildId) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(GuildConfigInner::new())),
+            id,
+        }
+    }
+
     pub fn new(guild_section: &mut ConfigSection, id: GuildId) -> Self {
         let inner = Rc::new(RefCell::new(GuildConfigInner::new()));
 

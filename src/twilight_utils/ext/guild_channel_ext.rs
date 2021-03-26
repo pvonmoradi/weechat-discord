@@ -101,7 +101,10 @@ impl GuildChannelExt for GuildChannel {
 
     fn is_text_channel(&self, cache: &InMemoryCache) -> bool {
         if !self
-            .has_permission(cache, Permissions::READ_MESSAGE_HISTORY)
+            .has_permission(
+                cache,
+                Permissions::READ_MESSAGE_HISTORY | Permissions::VIEW_CHANNEL,
+            )
             .unwrap_or(false)
         {
             return false;

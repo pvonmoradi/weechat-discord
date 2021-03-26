@@ -101,6 +101,7 @@ pub struct InnerConfig {
     // Should we use value of weechat.history.max_buffer_lines_number here instead?
     pub max_buffer_messages: i32,
     pub send_typing: bool,
+    pub join_all: bool,
 }
 
 impl Default for InnerConfig {
@@ -115,6 +116,7 @@ impl Default for InnerConfig {
             watched_private: Vec::new(),
             max_buffer_messages: 4096,
             send_typing: false,
+            join_all: false,
         }
     }
 }
@@ -233,6 +235,21 @@ impl Config {
                         }),
                 )
                 .expect("Unable to create send typing option");
+
+            let inner_clone = Weak::clone(&inner);
+            general
+                .new_boolean_option(
+                    BooleanOptionSettings::new("join_all")
+                        .description("Join all guilds, discord style")
+                        .default_value(false)
+                        .set_change_callback(move |_, option| {
+                            let inner = inner_clone
+                                .upgrade()
+                                .expect("Outer config has outlived inner config");
+                            inner.borrow_mut().join_all = option.value();
+                        }),
+                )
+                .expect("Unable to create join all option");
         }
 
         {
@@ -476,6 +493,10 @@ impl Config {
         self.inner.borrow().send_typing
     }
 
+    pub fn join_all(&self) -> bool {
+        self.inner.borrow().join_all
+    }
+
     pub fn nick_prefix(&self) -> String {
         self.inner.borrow().look.nick_prefix.clone()
     }
@@ -560,8 +581,13 @@ impl Config {
 
         general
             .search_option("send_typing")
-            .expect("send typing options must exist")
+            .expect("send typing option must exist")
             .set(if self.send_typing() { "true" } else { "false" }, false);
+
+        general
+            .search_option("join_all")
+            .expect("join all option must exist")
+            .set(if self.join_all() { "true" } else { "false" }, false);
 
         let look = config
             .search_section("look")

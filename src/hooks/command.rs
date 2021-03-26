@@ -1,5 +1,5 @@
 use crate::{
-    buffer::{ext::BufferExt, guild::Guild, pins::Pins},
+    buffer::{channel_editor::ChannelEditor, ext::BufferExt, guild::Guild, pins::Pins},
     config::{Config, GuildConfig},
     discord::discord_connection::DiscordConnection,
     instance::Instance,
@@ -670,6 +670,23 @@ impl DiscordCommand {
             _ => {},
         }
     }
+
+    fn edit(&self, matches: ParsedCommand) {
+        tracing::trace!("got edit command");
+        if let Some(("channels", _)) = matches.subcommand() {
+            let conn = self.connection.borrow();
+            let conn = match conn.as_ref() {
+                Some(conn) => conn.clone(),
+                None => {
+                    Weechat::print("discord: must be connected to view guild members messages");
+                    return;
+                },
+            };
+
+            tracing::trace!("creating channel editor");
+            std::mem::forget(ChannelEditor::new(&conn, &self.config).unwrap());
+        }
+    }
 }
 
 impl weechat::hooks::CommandCallback for DiscordCommand {
@@ -711,6 +728,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
                     .subcommand(WeechatCommand::new("shutdown"))
                     .subcommand(WeechatCommand::new("members")),
             )
+            .subcommand(WeechatCommand::new("edit").subcommand(WeechatCommand::new("channels")))
             .subcommand(WeechatCommand::new("token").arg("token", true))
             .subcommand(WeechatCommand::new("pins"))
             .subcommand(WeechatCommand::new("more_history"))
@@ -740,6 +758,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             Some(("query", matches)) => self.query(matches),
             Some(("pins", _)) => self.pins(weechat),
             Some(("more_history", _)) => self.more_history(buffer),
+            Some(("edit", matches)) => self.edit(matches),
             // Use or-patterns when they stabilize (rust #54883)
             Some(("me", matches))
             | Some(("tableflip", matches))
@@ -764,6 +783,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("more_history")
             .add_argument("me|tableflip|unflip|shrug|spoiler")
             .add_argument("debug buffer|buffers|shutdown|members")
+            .add_argument("edit channels")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")
@@ -771,7 +791,8 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_completion("pins")
             .add_completion("more_history")
             .add_completion("me|tableflip|unflip|shrug|spoiler")
-            .add_completion("debug buffer|shutdown|members"),
+            .add_completion("debug buffer|buffers|shutdown|members")
+            .add_completion("edit channels"),
         DiscordCommand {
             instance,
             connection,

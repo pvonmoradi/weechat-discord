@@ -481,6 +481,8 @@ impl DiscordCommand {
                 return;
             }
         }
+        Weechat::print(&format!("discord: Unable to find user \"{}\"", user));
+        tracing::info!("Unable to find user \"{}\"", user);
     }
 
     fn pins(&self, weechat: &Weechat) {

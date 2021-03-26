@@ -148,7 +148,16 @@ impl DiscordCommand {
                         Weechat::print(&format!("{:?}", guild_id));
                     }
 
+                    Weechat::print(" Autojoin channels:");
                     for channel_id in guild_.guild_config.autojoin_channels().iter() {
+                        if let Some(channel) = cache.guild_channel(*channel_id) {
+                            Weechat::print(&format!("  #{}", channel.name()));
+                        } else {
+                            Weechat::print(&format!("  #{:?}", channel_id));
+                        }
+                    }
+                    Weechat::print(" Watched channels:");
+                    for channel_id in guild_.guild_config.watched_channels().iter() {
                         if let Some(channel) = cache.guild_channel(*channel_id) {
                             Weechat::print(&format!("  #{}", channel.name()));
                         } else {
@@ -161,7 +170,12 @@ impl DiscordCommand {
         } else {
             for (guild_id, guild) in self.instance.borrow_guilds().clone().into_iter() {
                 Weechat::print(&format!("{:?}", guild_id));
+                Weechat::print(" Autojoin channels:");
                 for channel_id in guild.guild_config.autojoin_channels() {
+                    Weechat::print(&format!("  #{:?}", channel_id));
+                }
+                Weechat::print(" Watched channels:");
+                for channel_id in guild.guild_config.watched_channels() {
                     Weechat::print(&format!("  #{:?}", channel_id));
                 }
             }
@@ -588,6 +602,16 @@ impl DiscordCommand {
     fn process_debug_matches(&self, matches: ParsedCommand, weechat: &Weechat) {
         match matches.subcommand() {
             Some(("buffer", _)) => {
+                Weechat::print(&format!(
+                    "Guild id: {:?}",
+                    weechat.current_buffer().guild_id()
+                ));
+                Weechat::print(&format!(
+                    "Channel id: {:?}",
+                    weechat.current_buffer().channel_id()
+                ));
+            },
+            Some(("buffers", _)) => {
                 for guild in self.instance.borrow_guilds().values() {
                     let (strng, weak) = guild.debug_counts();
                     Weechat::print(&format!("Guild [{} {}]: {}", strng, weak, guild.id));
@@ -683,6 +707,7 @@ impl weechat::hooks::CommandCallback for DiscordCommand {
             .subcommand(
                 WeechatCommand::new("debug")
                     .subcommand(WeechatCommand::new("buffer"))
+                    .subcommand(WeechatCommand::new("buffers"))
                     .subcommand(WeechatCommand::new("shutdown"))
                     .subcommand(WeechatCommand::new("members")),
             )
@@ -738,7 +763,7 @@ pub fn hook(connection: DiscordConnection, instance: Instance, config: Config) -
             .add_argument("pins")
             .add_argument("more_history")
             .add_argument("me|tableflip|unflip|shrug|spoiler")
-            .add_argument("debug buffer|shutdown|members")
+            .add_argument("debug buffer|buffers|shutdown|members")
             .add_completion("token")
             .add_completion("server add|remove|list|autoconnect|noautoconnect %(discord_guild)")
             .add_completion("channel join|autojoin|noautojoin %(discord_guild) %(discord_channel)")

@@ -4,17 +4,13 @@ use crate::{
 };
 use std::rc::{Rc, Weak};
 use twilight_model::id::{ChannelId, GuildId};
-use weechat::{
-    config::{
-        BaseConfigOption, BooleanOptionSettings, ConfigSection, StringOption, StringOptionSettings,
-    },
-    Weechat,
-};
+use weechat::config::{BooleanOptionSettings, ConfigSection, StringOptionSettings};
 
 #[derive(Clone, Debug)]
 pub struct GuildConfigInner {
     autoconnect: bool,
     autojoin: Vec<ChannelId>,
+    watched: Vec<ChannelId>,
 }
 
 impl GuildConfigInner {
@@ -22,6 +18,7 @@ impl GuildConfigInner {
         GuildConfigInner {
             autoconnect: false,
             autojoin: Vec::new(),
+            watched: Vec::new(),
         }
     }
 }
@@ -54,39 +51,32 @@ impl GuildConfig {
         let inner_clone = Weak::clone(&weak_inner);
         let autojoin_channels = StringOptionSettings::new(format!("{}.autojoin", id.0))
             .description("The list of all channels to automatically join")
-            .set_check_callback(|_: &Weechat, _: &StringOption, value| {
-                if value.is_empty() {
-                    true
-                } else {
-                    value.split(',').all(|ch| ch.parse::<u64>().is_ok())
-                }
-            })
+            .set_check_callback(Config::check_channels_option)
             .set_change_callback(move |_, option| {
                 let inner = inner_clone.upgrade().expect("Config has outlived guild");
 
-                let mut channels: Vec<_> = option
-                    .value()
-                    .split(',')
-                    .flat_map(|ch| ch.parse().map(ChannelId))
-                    .collect();
-
-                channels.sort();
-                channels.dedup();
-
-                option.set(
-                    &channels
-                        .iter()
-                        .map(|c| c.0.to_string())
-                        .collect::<Vec<_>>()
-                        .join(","),
-                    false,
-                );
+                let channels = Config::clean_channels_option(option);
 
                 inner.borrow_mut().autojoin = channels;
             });
         guild_section
             .new_string_option(autojoin_channels)
             .expect("Unable to create autojoin channels option");
+
+        let inner_clone = Weak::clone(&weak_inner);
+        let watched_channels = StringOptionSettings::new(format!("{}.watched", id.0))
+            .description("The list of all channels to join when unread")
+            .set_check_callback(Config::check_channels_option)
+            .set_change_callback(move |_, option| {
+                let inner = inner_clone.upgrade().expect("Config has outlived guild");
+
+                let channels = Config::clean_channels_option(option);
+
+                inner.borrow_mut().watched = channels;
+            });
+        guild_section
+            .new_string_option(watched_channels)
+            .expect("Unable to create watched channels option");
 
         GuildConfig { inner, id }
     }
@@ -107,6 +97,10 @@ impl GuildConfig {
         RefMut::map(self.inner.borrow_mut(), |i| &mut i.autojoin)
     }
 
+    pub fn watched_channels(&self) -> Vec<ChannelId> {
+        self.inner.borrow().watched.clone()
+    }
+
     pub fn persist(&self, config: &Config) {
         let config = config.config.borrow();
         let section = config
@@ -119,6 +113,19 @@ impl GuildConfig {
         autojoin.set(
             &self
                 .autojoin_channels()
+                .iter()
+                .map(|c| c.0.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            false,
+        );
+
+        let watched = section
+            .search_option(&format!("{}.watched", self.id))
+            .expect("watched option does not exist");
+        watched.set(
+            &self
+                .watched_channels()
                 .iter()
                 .map(|c| c.0.to_string())
                 .collect::<Vec<_>>()

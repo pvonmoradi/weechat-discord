@@ -131,9 +131,31 @@ impl Guild {
             for channel_id in self.guild_config.autojoin_channels() {
                 if let Some(cached_channel) = conn.cache.guild_channel(channel_id) {
                     if cached_channel.is_text_channel(&conn.cache) {
-                        tracing::info!("Joining channel: #{}", cached_channel.name());
+                        tracing::info!("Joining autojoin channel: #{}", cached_channel.name());
 
                         self._join_channel(&cached_channel, &guild, &mut inner, &instance)?;
+                    }
+                }
+            }
+
+            for watched_channel_id in self.guild_config.watched_channels() {
+                if let Some(channel) = conn.cache.guild_channel(watched_channel_id) {
+                    if let Some(read_state) = conn.cache.read_state(watched_channel_id) {
+                        if Some(read_state.last_message_id) == channel.last_message_id() {
+                            continue;
+                        };
+                    } else {
+                        tracing::warn!(
+                            channel_id=?watched_channel_id,
+                            "Unable to get read state for watched channel, skipping",
+                        );
+                        continue;
+                    }
+
+                    if channel.is_text_channel(&conn.cache) {
+                        tracing::info!("Joining watched channel: #{}", channel.name());
+
+                        self._join_channel(&channel, &guild, &mut inner, &instance)?;
                     }
                 }
             }

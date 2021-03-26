@@ -33,6 +33,7 @@ impl Config {
     }
 }
 
+use std::borrow::Cow;
 #[cfg(feature = "images")]
 pub use term_image::block::Charset;
 
@@ -171,28 +172,13 @@ impl Config {
                 .new_string_option(
                     StringOptionSettings::new("autojoin_private")
                         .description("List of private channels to autojoin")
+                        .set_check_callback(Config::check_channels_option)
                         .set_change_callback(move |_, option| {
                             let inner = inner_clone
                                 .upgrade()
                                 .expect("Outer config has outlived inner config");
 
-                            let mut channels: Vec<_> = option
-                                .value()
-                                .split(',')
-                                .flat_map(|ch| ch.parse().map(ChannelId))
-                                .collect();
-
-                            channels.sort();
-                            channels.dedup();
-
-                            option.set(
-                                &channels
-                                    .iter()
-                                    .map(|c| c.0.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(","),
-                                false,
-                            );
+                            let channels = Config::clean_channels_option(option);
 
                             inner.borrow_mut().autojoin_private = channels;
                         }),
@@ -204,28 +190,13 @@ impl Config {
                 .new_string_option(
                     StringOptionSettings::new("watched_private")
                         .description("List of private channels to join when unread")
+                        .set_check_callback(Config::check_channels_option)
                         .set_change_callback(move |_, option| {
                             let inner = inner_clone
                                 .upgrade()
                                 .expect("Outer config has outlived inner config");
 
-                            let mut channels: Vec<_> = option
-                                .value()
-                                .split(',')
-                                .flat_map(|ch| ch.parse().map(ChannelId))
-                                .collect();
-
-                            channels.sort();
-                            channels.dedup();
-
-                            option.set(
-                                &channels
-                                    .iter()
-                                    .map(|c| c.0.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(","),
-                                false,
-                            );
+                            let channels = Config::clean_channels_option(option);
 
                             inner.borrow_mut().watched_private = channels;
                         }),
@@ -446,6 +417,35 @@ impl Config {
             config: Rc::new(RefCell::new(weechat_config)),
             inner: Rc::clone(&inner),
         }
+    }
+
+    pub(crate) fn check_channels_option(_: &Weechat, _: &StringOption, value: Cow<str>) -> bool {
+        if value.is_empty() {
+            true
+        } else {
+            value.split(',').all(|ch| ch.parse::<u64>().is_ok())
+        }
+    }
+
+    pub(crate) fn clean_channels_option(option: &StringOption) -> Vec<ChannelId> {
+        let mut channels: Vec<_> = option
+            .value()
+            .split(',')
+            .flat_map(|ch| ch.parse().map(ChannelId))
+            .collect();
+
+        channels.sort();
+        channels.dedup();
+
+        option.set(
+            &channels
+                .iter()
+                .map(|c| c.0.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            false,
+        );
+        channels
     }
 
     pub fn read(&self) -> Result<()> {

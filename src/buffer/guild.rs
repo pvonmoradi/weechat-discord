@@ -128,12 +128,12 @@ impl Guild {
                 .replace(GuildBuffer::new(&guild.name, guild.id, instance.clone())?);
 
             let conn = inner.conn.clone();
-            for auto_channel_id in self.guild_config.autojoin_channels() {
-                if let Some(channel) = conn.cache.guild_channel(auto_channel_id) {
-                    if channel.is_text_channel(&conn.cache) {
-                        tracing::info!("Joining channel: #{}", channel.name());
+            for channel_id in self.guild_config.autojoin_channels() {
+                if let Some(cached_channel) = conn.cache.guild_channel(channel_id) {
+                    if cached_channel.is_text_channel(&conn.cache) {
+                        tracing::info!("Joining channel: #{}", cached_channel.name());
 
-                        self._join_channel(&channel, &guild, &mut inner, &instance)?;
+                        self._join_channel(&cached_channel, &guild, &mut inner, &instance)?;
                     }
                 }
             }
@@ -151,9 +151,10 @@ impl Guild {
         guild: &TwilightGuild,
         inner: &mut GuildInner,
         instance: &Instance,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Channel> {
         let weak_inner = Rc::downgrade(&self.inner);
         let channel_id = channel.id();
+        let last_read_id = channel.last_message_id();
         let channel = crate::buffer::channel::Channel::guild(
             &channel,
             &guild,
@@ -171,9 +172,15 @@ impl Guild {
             },
         )?;
 
-        inner.channels.insert(channel_id, channel);
+        inner.channels.insert(channel_id, channel.clone());
 
-        Ok(())
+        if let Some(read_state) = inner.conn.cache.read_state(channel_id) {
+            if last_read_id != Some(read_state.last_message_id) {
+                channel.mark_unread(read_state.mention_count.map(|mc| mc > 0).unwrap_or(false));
+            }
+        }
+
+        Ok(channel)
     }
 
     pub fn join_channel(
@@ -181,7 +188,7 @@ impl Guild {
         channel: &TwilightChannel,
         guild: &TwilightGuild,
         instance: &Instance,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Channel> {
         self._join_channel(channel, guild, &mut self.inner.borrow_mut(), instance)
     }
 

@@ -9,7 +9,7 @@ use crate::{
         ext::{CacheExt, ChannelExt, GuildChannelExt, MessageExt},
         DynamicChannel,
     },
-    weecord_renderer::{Message as RendererMessage, WeecordRenderer},
+    weecord_renderer::{WeecordMessage, WeecordRenderer},
 };
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
@@ -213,7 +213,7 @@ impl ChannelBuffer {
         self.renderer.add_bulk_msgs(msgs);
     }
 
-    pub fn add_msg(&self, msg: &Message) {
+    pub fn add_msg(&self, msg: &WeecordMessage) {
         self.renderer.add_msg(msg);
     }
 
@@ -317,6 +317,7 @@ pub struct Channel {
     guild_id: Option<GuildId>,
     inner: Rc<RefCell<ChannelInner>>,
     config: Config,
+    private: bool,
 }
 
 impl Channel {
@@ -356,6 +357,7 @@ impl Channel {
             guild_id: Some(guild.id),
             inner,
             config: config.clone(),
+            private: false,
         })
     }
 
@@ -376,7 +378,15 @@ impl Channel {
             guild_id: None,
             inner,
             config: config.clone(),
+            private: true,
         })
+    }
+
+    pub fn mark_unread(&self, mention: bool) {
+        self.inner
+            .borrow()
+            .buffer
+            .add_msg(&WeecordMessage::new_notification(mention, self.private));
     }
 
     pub async fn load_history(&self) -> anyhow::Result<()> {
@@ -440,7 +450,7 @@ impl Channel {
             .messages()
             .borrow()
             .iter()
-            .filter(|msg| !matches!(msg, RendererMessage::LocalEcho { .. }))
+            .filter(|msg| !matches!(msg, WeecordMessage::LocalEcho { .. }))
             .map(|msg| msg.id())
             .next();
         let last_displayed_id = match last_displayed_id {
@@ -487,7 +497,7 @@ impl Channel {
         }
     }
 
-    pub fn add_message(&self, msg: &Message) {
+    pub fn add_message(&self, msg: &WeecordMessage) {
         self.inner.borrow().buffer.add_msg(msg);
     }
 
@@ -543,10 +553,11 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .get_nth_message(line - 1)
             {
                 let msg = match msg {
-                    RendererMessage::Text(msg) => *msg,
-                    RendererMessage::LocalEcho { .. } => return,
+                    WeecordMessage::Text(msg) => *msg,
+                    WeecordMessage::LocalEcho { .. } => return,
                     #[cfg(feature = "images")]
-                    RendererMessage::Image { msg, .. } => *msg,
+                    WeecordMessage::Image { msg, .. } => *msg,
+                    WeecordMessage::Notification { .. } => return,
                 };
 
                 if !msg.is_own(&cache) {
@@ -594,10 +605,11 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .get_nth_message(line - 1)
             {
                 let msg = match msg {
-                    RendererMessage::Text(msg) => msg,
-                    RendererMessage::LocalEcho { .. } => return,
+                    WeecordMessage::Text(msg) => msg,
+                    WeecordMessage::LocalEcho { .. } => return,
+                    WeecordMessage::Notification { .. } => return,
                     #[cfg(feature = "images")]
-                    RendererMessage::Image { msg, .. } => msg,
+                    WeecordMessage::Image { msg, .. } => msg,
                 };
                 if !msg.is_own(&cache) {
                     if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
@@ -640,10 +652,11 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     .get_nth_message(reaction.line - 1)
                 {
                     let msg = match msg {
-                        RendererMessage::Text(msg) => msg,
-                        RendererMessage::LocalEcho { .. } => return,
+                        WeecordMessage::Text(msg) => msg,
+                        WeecordMessage::LocalEcho { .. } => return,
                         #[cfg(feature = "images")]
-                        RendererMessage::Image { msg, .. } => msg,
+                        WeecordMessage::Image { msg, .. } => msg,
+                        WeecordMessage::Notification { .. } => return,
                     };
                     conn.rt.spawn(async move {
                         if add {
@@ -721,7 +734,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .borrow()
                 .buffer
                 .renderer
-                .add_local_echo(username, input, nonce);
+                .add_msg(&WeecordMessage::new_echo(username, input, nonce));
         },
     };
 }

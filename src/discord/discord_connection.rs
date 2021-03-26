@@ -203,16 +203,21 @@ impl DiscordConnection {
 
                     for channel_id in config.autojoin_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
-                            DiscordConnection::create_private_channel(
+                            if let Err(e) = DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
-                            );
+                            ) {
+                                tracing::warn!(
+                                    ?channel_id,
+                                    channel.name = %channel.name(),
+                                    "Unable to join private channel: {}",
+                                    e
+                                );
+                            }
                         } else {
                             tracing::warn!("Unable to find channel: {}", channel_id);
                         }
                     }
 
-                    // TODO: The created buffer does not have it's unread status set correctly, fixing this
-                    //       needs reworking renderer notifications
                     for channel_id in config.watched_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             if channel.last_message_id()
@@ -224,13 +229,15 @@ impl DiscordConnection {
                                 continue;
                             }
 
-                            if let Some(channel) = DiscordConnection::create_private_channel(
+                            if let Err(e) = DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
                             ) {
-                                Weechat::spawn(async move {
-                                    let _ = channel.load_history().await;
-                                })
-                                .detach();
+                                tracing::warn!(
+                                    ?channel_id,
+                                    channel.name = %channel.name(),
+                                    "Unable to join private channel: {}",
+                                    e
+                                );
                             }
                         } else {
                             tracing::warn!("Unable to find channel: {}", channel_id);
@@ -245,9 +252,16 @@ impl DiscordConnection {
                     {
                         let channel_id = message.channel_id;
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
-                            DiscordConnection::create_private_channel(
+                            if let Err(e) = DiscordConnection::create_private_channel(
                                 conn, &config, &instance, channel_id, &channel,
-                            );
+                            ) {
+                                tracing::warn!(
+                                    ?channel_id,
+                                    channel.name = %channel.name(),
+                                    "Unable to join private channel: {}",
+                                    e
+                                );
+                            }
                         }
                     }
 
@@ -268,7 +282,7 @@ impl DiscordConnection {
                             None => continue,
                         }
                     };
-                    channel.add_message(&message);
+                    channel.add_message(&message.into());
                 },
                 PluginMessage::MessageDelete { event } => {
                     if let Some(guild_id) = event.guild_id {
@@ -447,9 +461,10 @@ impl DiscordConnection {
         instance: &Instance,
         channel_id: ChannelId,
         channel: &PrivateChannel,
-    ) -> Option<Channel> {
+    ) -> anyhow::Result<Channel> {
         let instance_async = instance.clone();
-        if let Ok(channel) = crate::buffer::channel::Channel::private(
+        let last_read_id = channel.last_message_id();
+        let channel = crate::buffer::channel::Channel::private(
             &channel,
             &conn,
             &config,
@@ -461,14 +476,19 @@ impl DiscordConnection {
                     }
                 }
             },
-        ) {
-            instance
-                .borrow_private_channels_mut()
-                .insert(channel_id, channel.clone());
-            Some(channel)
-        } else {
-            None
+        )?;
+
+        if let Some(read_state) = conn.cache.read_state(channel_id) {
+            if last_read_id != Some(read_state.last_message_id) {
+                channel.mark_unread(read_state.mention_count.map(|mc| mc > 0).unwrap_or(false));
+            }
         }
+
+        instance
+            .borrow_private_channels_mut()
+            .insert(channel_id, channel.clone());
+
+        Ok(channel)
     }
 
     // Runs on Tokio runtime

@@ -11,6 +11,7 @@ use crate::{
 };
 #[cfg(feature = "images")]
 use image::DynamicImage;
+use rand::{thread_rng, Rng};
 use std::{
     borrow::Cow,
     collections::{HashSet, VecDeque},
@@ -33,7 +34,12 @@ pub struct LoadedImage {
 }
 
 #[derive(Clone)]
-pub enum Message {
+pub enum WeecordMessage {
+    Notification {
+        mention: bool,
+        private: bool,
+        id: u64,
+    },
     LocalEcho {
         author: String,
         content: String,
@@ -48,9 +54,23 @@ pub enum Message {
     },
 }
 
-impl Message {
+impl From<Box<DiscordMessage>> for WeecordMessage {
+    fn from(msg: Box<DiscordMessage>) -> Self {
+        Self::Text(msg)
+    }
+}
+
+impl WeecordMessage {
     pub fn new(msg: DiscordMessage) -> Self {
         Self::Text(Box::new(msg))
+    }
+
+    pub fn new_notification(mention: bool, private: bool) -> Self {
+        Self::Notification {
+            mention,
+            private,
+            id: thread_rng().gen_range(0..=i64::MAX as u64),
+        }
     }
 
     pub fn new_echo(author: String, content: String, nonce: u64) -> Self {
@@ -64,18 +84,19 @@ impl Message {
 
     pub fn id(&self) -> MessageId {
         match self {
-            Message::LocalEcho { nonce, .. } => MessageId(*nonce),
-            Message::Text(msg) => msg.id,
+            WeecordMessage::LocalEcho { nonce, .. } => MessageId(*nonce),
+            WeecordMessage::Text(msg) => msg.id,
             #[cfg(feature = "images")]
-            Message::Image { msg, .. } => msg.id,
+            WeecordMessage::Image { msg, .. } => msg.id,
+            WeecordMessage::Notification { id, .. } => MessageId(*id),
         }
     }
 }
 
-impl WeechatMessage<MessageId, State> for Message {
+impl WeechatMessage<MessageId, State> for WeecordMessage {
     fn render(&self, state: &mut State) -> (String, String) {
         match self {
-            Message::LocalEcho {
+            WeecordMessage::LocalEcho {
                 author, content, ..
             } => (
                 author.clone(),
@@ -86,14 +107,14 @@ impl WeechatMessage<MessageId, State> for Message {
                     Weechat::color("resetcolor")
                 ),
             ),
-            Message::Text(msg) => render_msg(
+            WeecordMessage::Text(msg) => render_msg(
                 &state.conn.cache,
                 &state.config,
                 msg,
                 &mut state.unknown_members,
             ),
             #[cfg(feature = "images")]
-            Message::Image { msg, images } => {
+            WeecordMessage::Image { msg, images } => {
                 let (prefix, mut body) = render_msg(
                     &state.conn.cache,
                     &state.config,
@@ -110,6 +131,7 @@ impl WeechatMessage<MessageId, State> for Message {
 
                 (prefix, body)
             },
+            WeecordMessage::Notification { .. } => ("".into(), "".into()),
         }
     }
 
@@ -147,16 +169,27 @@ impl WeechatMessage<MessageId, State> for Message {
 
         match self {
             #[cfg(feature = "images")]
-            Message::Image { msg, .. } => {
+            WeecordMessage::Image { msg, .. } => {
                 discord_msg_tags(msg);
                 tags.insert("no_log".into());
                 tags.insert("image".into());
             },
-            Message::Text(msg) => discord_msg_tags(msg),
-            Message::LocalEcho { .. } => {
+            WeecordMessage::Text(msg) => discord_msg_tags(msg),
+            WeecordMessage::LocalEcho { .. } => {
                 tags.insert("no_log".into());
                 tags.insert("local_echo".into());
                 tags.insert("notify_none".into());
+            },
+            WeecordMessage::Notification {
+                mention, private, ..
+            } => {
+                if *private {
+                    tags.insert("notify_private".into());
+                } else if *mention {
+                    tags.insert("notify_highlight".into());
+                } else {
+                    tags.insert("notify_message".into());
+                }
             },
         }
         tags
@@ -164,14 +197,17 @@ impl WeechatMessage<MessageId, State> for Message {
 
     fn timestamp(&self, _: &mut State) -> i64 {
         match self {
-            Message::LocalEcho { timestamp, .. } => *timestamp,
-            Message::Text(msg) => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
+            WeecordMessage::LocalEcho { timestamp, .. } => *timestamp,
+            WeecordMessage::Text(msg) => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
                 .expect("Discord returned an invalid datetime")
                 .timestamp(),
             #[cfg(feature = "images")]
-            Message::Image { msg, .. } => chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
-                .expect("Discord returned an invalid datetime")
-                .timestamp(),
+            WeecordMessage::Image { msg, .. } => {
+                chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
+                    .expect("Discord returned an invalid datetime")
+                    .timestamp()
+            },
+            WeecordMessage::Notification { .. } => 0,
         }
     }
 
@@ -187,7 +223,7 @@ pub struct State {
 }
 
 pub struct WeecordRenderer {
-    inner: MessageRenderer<Message, MessageId, State>,
+    inner: MessageRenderer<WeecordMessage, MessageId, State>,
     #[cfg(feature = "images")]
     config: Config,
     conn: ConnectionInner,
@@ -241,7 +277,7 @@ impl WeecordRenderer {
             }
         }
 
-        if let Some(Message::Text(first_msg)) = self.inner.messages().borrow().front() {
+        if let Some(WeecordMessage::Text(first_msg)) = self.inner.messages().borrow().front() {
             if let Some(guild_id) = first_msg.guild_id {
                 self.fetch_guild_members(
                     &state.borrow().unknown_members,
@@ -254,6 +290,7 @@ impl WeecordRenderer {
 
     pub fn add_bulk_msgs(&self, msgs: impl DoubleEndedIterator<Item = DiscordMessage>) {
         self.inner.state().borrow_mut().unknown_members.clear();
+        self.clear_ephemeral_notifications();
 
         let mut msgs = msgs.into_iter().peekable();
         let guild_id = msgs
@@ -264,7 +301,7 @@ impl WeecordRenderer {
             #[cfg(feature = "images")]
             self.load_images(&msg);
 
-            Message::new(msg)
+            WeecordMessage::new(msg)
         });
 
         self.inner.add_bulk_msgs(msgs.into_iter());
@@ -276,6 +313,21 @@ impl WeecordRenderer {
                 guild_id,
             );
         }
+    }
+
+    fn clear_ephemeral_notifications(&self) {
+        let pos = match self
+            .inner
+            .messages()
+            .borrow()
+            .iter()
+            .position(|msg| matches!(msg, WeecordMessage::Notification { .. }))
+        {
+            Some(pos) => pos,
+            _ => return,
+        };
+        self.inner.remove(pos);
+        self.inner.redraw_buffer();
     }
 
     #[cfg(feature = "images")]
@@ -297,13 +349,13 @@ impl WeecordRenderer {
                                 width: candidate.width,
                             };
                             match msg {
-                                Message::Text(discord_msg) => {
-                                    *msg = Message::Image {
+                                WeecordMessage::Text(discord_msg) => {
+                                    *msg = WeecordMessage::Image {
                                         images: vec![loaded_image],
                                         msg: discord_msg.clone(),
                                     }
                                 },
-                                Message::Image { images, .. } => images.push(loaded_image),
+                                WeecordMessage::Image { images, .. } => images.push(loaded_image),
                                 _ => {},
                             }
                         });
@@ -318,19 +370,26 @@ impl WeecordRenderer {
         }
     }
 
-    pub fn add_local_echo(&self, author: String, content: String, nonce: u64) {
-        self.inner
-            .add_msg(Message::new_echo(author, content, nonce));
+    pub fn add_msg(&self, msg: &WeecordMessage) {
+        match msg {
+            WeecordMessage::Notification { .. } => self.inner.add_msg(msg.clone()),
+            WeecordMessage::LocalEcho { .. } => self.inner.add_msg(msg.clone()),
+            WeecordMessage::Text(msg) => self.add_discord_msg(msg),
+            #[cfg(feature = "images")]
+            WeecordMessage::Image { .. } => {},
+        }
     }
 
-    pub fn add_msg(&self, msg: &DiscordMessage) {
+    fn add_discord_msg(&self, msg: &DiscordMessage) {
+        self.clear_ephemeral_notifications();
+
         if let Some(incoming_nonce) = msg.nonce.as_ref().and_then(|n| n.parse::<u64>().ok()) {
             let echo_index = self
                 .inner
                 .messages()
                 .borrow()
                 .iter()
-                .flat_map(|msg| match_map!(msg, Message::LocalEcho { nonce, .. } => *nonce))
+                .flat_map(|msg| match_map!(msg, WeecordMessage::LocalEcho { nonce, .. } => *nonce))
                 .position(|msg_nonce| msg_nonce == incoming_nonce);
 
             if let Some(echo_index) = echo_index {
@@ -344,7 +403,7 @@ impl WeecordRenderer {
 
         self.inner.state().borrow_mut().unknown_members.clear();
 
-        self.inner.add_msg(Message::new(msg.clone()));
+        self.inner.add_msg(WeecordMessage::new(msg.clone()));
 
         if let Some(guild_id) = msg.guild_id {
             self.fetch_guild_members(
@@ -360,22 +419,23 @@ impl WeecordRenderer {
         F: FnOnce(&mut DiscordMessage),
     {
         self.inner.update_message(&id, |msg| match msg {
-            Message::LocalEcho { .. } => {},
-            Message::Text(msg) => f(msg),
+            WeecordMessage::LocalEcho { .. } => {},
+            WeecordMessage::Text(msg) => f(msg),
             #[cfg(feature = "images")]
-            Message::Image { msg, .. } => f(msg),
+            WeecordMessage::Image { msg, .. } => f(msg),
+            WeecordMessage::Notification { .. } => {},
         });
     }
 
-    pub fn get_nth_message(&self, index: usize) -> Option<Message> {
+    pub fn get_nth_message(&self, index: usize) -> Option<WeecordMessage> {
         self.inner.get_nth_message(index)
     }
 
-    pub fn nth_oldest_message(&self, index: usize) -> Option<Message> {
+    pub fn nth_oldest_message(&self, index: usize) -> Option<WeecordMessage> {
         self.inner.nth_oldest_message(index)
     }
 
-    pub fn messages(&self) -> Rc<RefCell<VecDeque<Message>>> {
+    pub fn messages(&self) -> Rc<RefCell<VecDeque<WeecordMessage>>> {
         self.inner.messages()
     }
 

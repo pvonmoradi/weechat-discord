@@ -1,7 +1,6 @@
 use crate::{
     discord::discord_connection::ConnectionInner,
     twilight_utils::{ext::MemberExt, Color},
-    utils::color::colorize_string,
 };
 use std::{rc::Rc, sync::Arc};
 use twilight_cache_inmemory::model::CachedMember;
@@ -28,13 +27,13 @@ impl Nicklist {
                     .map(Color::as_8bit)
                     .unwrap_or_default()
                     .to_string();
-                let member_display_name =
-                    colorize_string(&member.display_name(), &member_color).build();
                 if let Some(role) = member.highest_role_info(&self.conn.cache) {
                     let role_color = Color::new(role.color).as_8bit().to_string();
                     if let Some(group) = buffer.search_nicklist_group(&role.name) {
                         if group
-                            .add_nick(NickSettings::new(&member_display_name))
+                            .add_nick(
+                                NickSettings::new(&member.display_name()).set_color(&member_color),
+                            )
                             .is_err()
                         {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
@@ -43,19 +42,23 @@ impl Nicklist {
                         buffer.add_nicklist_group(&role.name, &role_color, true, None)
                     {
                         if group
-                            .add_nick(NickSettings::new(&member_display_name))
+                            .add_nick(
+                                NickSettings::new(&member.display_name()).set_color(&member_color),
+                            )
                             .is_err()
                         {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
                     } else if buffer
-                        .add_nick(NickSettings::new(&member_display_name))
+                        .add_nick(
+                            NickSettings::new(&member.display_name()).set_color(&member_color),
+                        )
                         .is_err()
                     {
                         tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
                     }
                 } else if buffer
-                    .add_nick(NickSettings::new(&member_display_name))
+                    .add_nick(NickSettings::new(&member.display_name()).set_color(&member_color))
                     .is_err()
                 {
                     tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");

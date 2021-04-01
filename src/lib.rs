@@ -30,6 +30,17 @@ impl WeechatPlugin for Discord {
     fn init(weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
         let args: Vec<_> = args.collect();
 
+        #[cfg(feature = "logging")]
+        {
+            use flexi_logger::Logger;
+
+            Logger::with_env()
+                .log_to_file()
+                .basename("weecord")
+                .start()
+                .unwrap_or_else(|e| panic!("Logger initialization failed with {}", e))
+        };
+
         let _sync_handle = sync::init(&weechat);
         let _hook_handles = hook::init(&weechat);
         let _bar_handles = bar_items::init(&weechat);

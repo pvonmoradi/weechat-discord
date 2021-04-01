@@ -9,10 +9,11 @@ name = "weecord"
 crate-type = ["dylib"]
 
 [features]
-default = ["onig"]
+default = ["onig", "logging"]
 
 pcre = ["parsing/pcre"]
 onig = ["parsing/onig"]
+logging = ["flexi_logger"]
 
 [dependencies]
 libc = "0.2.70"
@@ -22,6 +23,10 @@ crossbeam-channel = "0.4.2"
 regex = "1.3.7"
 indexmap = "1.3.2"
 json = "0.12.4"
+
+[dependencies.flexi_logger]
+version = "0.17.1"
+optional = true
 
 [dependencies.parking_lot]
 rev = "046a171"

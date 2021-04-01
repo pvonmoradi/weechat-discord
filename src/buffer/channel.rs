@@ -59,7 +59,9 @@ impl ChannelBuffer {
         let weechat = unsafe { Weechat::weechat() };
 
         if let Some(buffer) = weechat.buffer_search(crate::PLUGIN_NAME, &buffer_name) {
-            buffer.close();
+            if instance.search_buffer(Some(guild_id), id).is_none() {
+                buffer.close();
+            }
         };
 
         let handle = BufferBuilder::new(&buffer_name)

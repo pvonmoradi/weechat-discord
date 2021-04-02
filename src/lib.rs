@@ -104,7 +104,14 @@ impl Weecord {
             .with_env_filter(
                 EnvFilter::new(self.config.log_directive())
                     // Set the default log level to warn
-                    .add_directive(LevelFilter::WARN.into()),
+                    .add_directive(LevelFilter::WARN.into())
+                    // Allow `WEECORD_LOG` env to override
+                    .add_directive(
+                        std::env::var("WEECORD_LOG")
+                            .unwrap_or_default()
+                            .parse()
+                            .unwrap_or_default(),
+                    ),
             )
             .with_writer(move || buffer::debug::Debug)
             .without_time()
@@ -121,7 +128,14 @@ impl Weecord {
                 .and_then(
                     EnvFilter::new(self.config.log_directive())
                         // Set the default log level to warn
-                        .add_directive(LevelFilter::WARN.into()),
+                        .add_directive(LevelFilter::WARN.into())
+                        // Allow `WEECORD_LOG` env to override
+                        .add_directive(
+                            std::env::var("WEECORD_LOG")
+                                .unwrap_or_default()
+                                .parse()
+                                .unwrap_or_default(),
+                        ),
                 ),
         );
         tracing::subscriber::set_global_default(subscriber).map_err(|err| err.into())

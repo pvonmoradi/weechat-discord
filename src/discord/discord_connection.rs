@@ -58,6 +58,7 @@ impl DiscordConnection {
         let token = token.to_owned();
         {
             let tx = tx.clone();
+            let rt = runtime.clone();
             runtime.spawn(async move {
                 let mut shard = Shard::new(&token, Intents::all());
                 if let Err(e) = shard.start().await {
@@ -85,6 +86,38 @@ impl DiscordConnection {
                 };
 
                 let shard = shard;
+
+                rt.spawn({
+                    let shard = shard.clone();
+                    async move {
+                        fn waiting(shard: &Shard) -> bool {
+                            match shard.info().map(|info| info.stage()) {
+                                Ok(twilight_gateway::shard::Stage::Connected) => false,
+                                Ok(_) => true,
+                                Err(_) => true,
+                            }
+                        }
+                        tokio::time::sleep(Duration::from_secs(7)).await;
+
+                        if waiting(&shard) {
+                            Weechat::spawn_from_thread(async {
+                                Weechat::print(
+                                    "discord: Still waiting for Ready from Discord gateway",
+                                );
+                            });
+                        }
+                        tokio::time::sleep(Duration::from_secs(13)).await;
+
+                        if waiting(&shard) {
+                            Weechat::spawn_from_thread(async {
+                                Weechat::print(
+                                    "discord: Gateway still not successfully connected...  \
+                                there is likely an issue with Discord or weecord, see logs for more details",
+                                );
+                            });
+                        }
+                    }
+                });
 
                 let cache = Cache::new();
 

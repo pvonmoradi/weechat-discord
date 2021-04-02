@@ -272,7 +272,9 @@ pub fn create_buffer_from_channel(
 
     let channel_type = match channel.kind {
         // TODO: Should we display store channels somehow?
-        ChannelType::Category | ChannelType::Voice | ChannelType::Store => return,
+        ChannelType::Category | ChannelType::Voice | ChannelType::Store | ChannelType::Stage => {
+            return
+        },
         ChannelType::Private => "private",
         ChannelType::Group | ChannelType::Text | ChannelType::News => "channel",
         ChannelType::__Nonexhaustive => unreachable!(),

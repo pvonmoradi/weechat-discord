@@ -1464,9 +1464,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.59"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcac07dbffa1c65e7f816ab9eba78eb142c6d44410f4eeba1e26e4f5dfa56b95"
+checksum = "799e97dc9fdae36a5c8b8f2cae9ce2ee9fdce2058c57a93e6099d919fd982f79"
 dependencies = [
  "itoa",
  "ryu",
@@ -1488,7 +1488,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.7.0"
-source = "git+https://github.com/terminal-discord/serenity?rev=8d274332#8d274332b62632876c7ff73b72d1fc21de8e257d"
+source = "git+https://github.com/terminal-discord/serenity?rev=100fed8e#100fed8e79646d94402e8f5a86a6904ff329a612"
 dependencies = [
  "base64 0.10.1",
  "bitflags",

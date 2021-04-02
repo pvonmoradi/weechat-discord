@@ -121,7 +121,10 @@ impl DiscordConnection {
 
                 let cache = Cache::new();
 
-                tracing::info!("Connected to Discord");
+                tracing::info!("Connected to Discord, waiting for Ready...");
+                Weechat::spawn_from_thread(async {
+                    Weechat::print("discord: connected, waiting for ready...");
+                });
                 let mut events = shard.events();
 
                 let http = shard.config().http_client();

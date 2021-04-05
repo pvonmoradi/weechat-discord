@@ -98,21 +98,25 @@ impl Plugin for Weecord {
 }
 
 impl Weecord {
+    fn env_filter(&self) -> EnvFilter {
+        let mut env_filter = EnvFilter::new(self.config.log_directive())
+            // Set the default log level to warn
+            .add_directive(LevelFilter::WARN.into());
+        // Allow `WEECORD_LOG` env to override
+        for directive in std::env::var("WEECORD_LOG")
+            .unwrap_or_default()
+            .split(',')
+            .flat_map(|d| d.parse().ok())
+        {
+            env_filter = env_filter.add_directive(directive);
+        }
+        env_filter
+    }
+
     #[cfg(not(feature = "tracing_tree"))]
     fn setup_tracing(&self) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
         tracing_subscriber::fmt()
-            .with_env_filter(
-                EnvFilter::new(self.config.log_directive())
-                    // Set the default log level to warn
-                    .add_directive(LevelFilter::WARN.into())
-                    // Allow `WEECORD_LOG` env to override
-                    .add_directive(
-                        std::env::var("WEECORD_LOG")
-                            .unwrap_or_default()
-                            .parse()
-                            .unwrap_or_default(),
-                    ),
-            )
+            .with_env_filter(self.env_filter())
             .with_writer(move || buffer::debug::Debug)
             .without_time()
             .try_init()
@@ -125,18 +129,7 @@ impl Weecord {
             tracing_tree::HierarchicalLayer::new(2)
                 .with_ansi(true)
                 .with_writer(move || buffer::debug::Debug)
-                .and_then(
-                    EnvFilter::new(self.config.log_directive())
-                        // Set the default log level to warn
-                        .add_directive(LevelFilter::WARN.into())
-                        // Allow `WEECORD_LOG` env to override
-                        .add_directive(
-                            std::env::var("WEECORD_LOG")
-                                .unwrap_or_default()
-                                .parse()
-                                .unwrap_or_default(),
-                        ),
-                ),
+                .and_then(self.env_filter()),
         );
         tracing::subscriber::set_global_default(subscriber).map_err(|err| err.into())
     }

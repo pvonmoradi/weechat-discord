@@ -255,7 +255,7 @@ impl DiscordConnection {
                     for channel_id in config.autojoin_private() {
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             if let Err(e) = DiscordConnection::create_private_channel(
-                                conn, &config, &instance, channel_id, &channel,
+                                conn, &config, &instance, &channel,
                             ) {
                                 tracing::warn!(
                                     ?channel_id,
@@ -281,7 +281,7 @@ impl DiscordConnection {
                             }
 
                             if let Err(e) = DiscordConnection::create_private_channel(
-                                conn, &config, &instance, channel_id, &channel,
+                                conn, &config, &instance, &channel,
                             ) {
                                 tracing::warn!(
                                     ?channel_id,
@@ -304,7 +304,7 @@ impl DiscordConnection {
                         let channel_id = message.channel_id;
                         if let Some(channel) = conn.cache.private_channel(channel_id) {
                             if let Err(e) = DiscordConnection::create_private_channel(
-                                conn, &config, &instance, channel_id, &channel,
+                                conn, &config, &instance, &channel,
                             ) {
                                 tracing::warn!(
                                     ?channel_id,
@@ -506,15 +506,15 @@ impl DiscordConnection {
         }
     }
 
-    fn create_private_channel(
+    pub fn create_private_channel(
         conn: &ConnectionInner,
         config: &Config,
         instance: &Instance,
-        channel_id: ChannelId,
         channel: &PrivateChannel,
     ) -> anyhow::Result<Channel> {
         let instance_async = instance.clone();
         let last_read_id = channel.last_message_id();
+        let channel_id = channel.id;
         let channel = crate::buffer::channel::Channel::private(
             &channel,
             &conn,

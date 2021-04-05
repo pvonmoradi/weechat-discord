@@ -454,28 +454,10 @@ impl DiscordCommand {
                 let config = self.config.clone();
                 let conn = conn.clone();
                 let instance = self.instance.clone();
-                let instance_async = self.instance.clone();
-                let channel_id = channel.id;
                 Weechat::spawn(async move {
-                    if let Ok(channel) = crate::buffer::channel::Channel::private(
-                        &channel,
-                        &conn,
-                        &config,
-                        &instance,
-                        move |_| {
-                            if let Ok(mut channels) =
-                                instance_async.try_borrow_private_channels_mut()
-                            {
-                                if let Some(channel) = channels.remove(&channel_id) {
-                                    channel.set_closed();
-                                }
-                            }
-                        },
-                    ) {
-                        instance
-                            .borrow_private_channels_mut()
-                            .insert(channel.id, channel);
-                    }
+                    let _ = DiscordConnection::create_private_channel(
+                        &conn, &config, &instance, &channel,
+                    );
                 })
                 .detach();
                 return;

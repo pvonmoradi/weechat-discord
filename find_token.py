@@ -2,6 +2,7 @@ import subprocess
 import sys
 import string
 import platform
+import base64
 
 
 def strings(filename, min=4):
@@ -30,17 +31,13 @@ def main():
     # First, we search for .ldb files, these are the leveldb files used by chromium to store localstorage data,
     # which contains the discord token.
     rg = False
-    if platform.system() == "Darwin":
-        # If on macOS, use the system file cache
-        results = run_command("mdfind \"kMDItemDisplayName=='*.ldb'\"")
-    else:
-        # Try and use ripgrep, because it's much faster, otherwise, fallback to `find`.
-        try:
-            subprocess.check_output(["rg", "--version"])
-            results = run_command("rg ~/ --files -g '*.ldb'")
-            rg = True
-        except FileNotFoundError:
-            results = run_command("find ~/ -name '*.ldb'")
+    # Try and use ripgrep, because it's much faster, otherwise, fallback to `find`.
+    try:
+        subprocess.check_output(["rg", "--version"])
+        results = run_command("rg ~/ --files -g '*.ldb'")
+        rg = True
+    except FileNotFoundError:
+        results = run_command("find ~/ -name '*.ldb'")
 
     if len(results) == 0 and rg:
         # Try again, but search hidden directories.
@@ -56,11 +53,12 @@ def main():
         filter(lambda x: "discord" in x and "Local Storage" in x, results)
     )
 
-    # Collect strings that look like discord tokens.
+    # Then collect strings that look like discord tokens.
     token_candidates = set()
     for database in discord_databases:
         for candidates in map(lambda s: s.split(), strings(database, 40)):
             for candidate in candidates:
+                candidate = candidate[1:-1]
                 if len(candidate) < 15:
                     continue
                 if " " in candidate:
@@ -70,7 +68,11 @@ def main():
                     continue
                 if len(parts[1]) < 6:
                     continue
-                token_candidates.add(candidate[1:-1])
+                try:
+                    base64.b64decode(parts[0], validate=True)
+                except:
+                    continue
+                token_candidates.add(candidate)
 
     if len(token_candidates) == 0:
         print("No Discord tokens found")

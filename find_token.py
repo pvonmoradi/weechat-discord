@@ -2,10 +2,18 @@ import subprocess
 import sys
 import string
 import platform
-import base64
+from base64 import b64decode
 import urllib.request
 import json
 from functools import cache
+from datetime import datetime
+from collections import namedtuple
+
+ParsedToken = namedtuple("ParsedToken", ["raw", "userid", "created", "hmac"])
+
+
+def round_down(num, divisor):
+    return num - (num % divisor)
 
 
 def strings(filename, min=4):
@@ -34,13 +42,29 @@ def id2username(id):
         return "Unkown"
 
 
-def token2userid(token):
-    id_part = token.split(".")[0]
-    return base64.b64decode(id_part).decode()
+def parseIdPart(id_part):
+    return b64decode(id_part, validate=True).decode()
 
 
-def token2username(token):
-    return id2username(token2userid(token))
+def parseTimePart(time_part):
+    padded_time_part = time_part + "=" * (
+        (round_down(len(time_part), 4) + 4) - len(time_part)
+    )
+    # not sure if altchars is `_/`, `+_` or something else for the second non standard char
+    # the order does affect the result
+    decoded = b64decode(padded_time_part, altchars="_/", validate=True)
+    timestamp = sum((item * 256 ** idx for idx, item in enumerate(reversed(decoded))))
+    return datetime.fromtimestamp(timestamp)
+
+
+def parseToken(token):
+    parts = token.split(".")
+    return ParsedToken(
+        raw=token,
+        userid=parseIdPart(parts[0]),
+        created=parseTimePart(parts[1]),
+        hmac=parts[2],
+    )
 
 
 def run_command(cmd):
@@ -94,21 +118,25 @@ def main():
                 if len(parts[1]) < 6:
                     continue
                 try:
-                    base64.b64decode(parts[0], validate=True)
+                    token_candidates.add(parseToken(candidate))
                 except:
                     continue
-                token_candidates.add(candidate)
 
     if len(token_candidates) == 0:
         print("No Discord tokens found")
         return
 
     print("Possible Discord tokens found:\n")
+    token_candidates = sorted(token_candidates, key=lambda t: t.created)
     for token in token_candidates:
         if skip_username_lookup:
-            print("{}".format(token))
+            print("{} created: {}".format(token.raw, token.created))
         else:
-            print("@{}: {}".format(token2username(token), token))
+            print(
+                "@{}: {} created: {}".format(
+                    id2username(token.userid), token.raw, token.created
+                )
+            )
 
 
 if __name__ == "__main__":

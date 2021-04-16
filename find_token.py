@@ -3,6 +3,9 @@ import sys
 import string
 import platform
 import base64
+import urllib.request
+import json
+from functools import cache
 
 
 def strings(filename, min=4):
@@ -19,6 +22,27 @@ def strings(filename, min=4):
             yield result
 
 
+@cache
+def id2username(id):
+    try:
+        resp = urllib.request.urlopen(
+            "https://terminal-discord.vercel.app/api/lookup-user?id={}".format(id)
+        )
+        data = json.load(resp)
+        return data.get("username") or "Unknown"
+    except:
+        return "Unkown"
+
+
+def token2userid(token):
+    id_part = token.split(".")[0]
+    return base64.b64decode(id_part).decode()
+
+
+def token2username(token):
+    return id2username(token2userid(token))
+
+
 def run_command(cmd):
     output = subprocess.Popen(
         [cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
@@ -27,6 +51,7 @@ def run_command(cmd):
 
 
 def main():
+    skip_username_lookup = "--no-lookup" in sys.argv
     print("Searching for Discord localstorage databases...")
     # First, we search for .ldb files, these are the leveldb files used by chromium to store localstorage data,
     # which contains the discord token.
@@ -80,7 +105,10 @@ def main():
 
     print("Possible Discord tokens found:\n")
     for token in token_candidates:
-        print(token)
+        if skip_username_lookup:
+            print("{}".format(token))
+        else:
+            print("@{}: {}".format(token2username(token), token))
 
 
 if __name__ == "__main__":

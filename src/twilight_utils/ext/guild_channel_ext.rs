@@ -28,19 +28,20 @@ impl GuildChannelExt for GuildChannel {
             GuildChannel::Category(c) => c.permission_overwrites.as_slice(),
             GuildChannel::Text(c) => c.permission_overwrites.as_slice(),
             GuildChannel::Voice(c) => c.permission_overwrites.as_slice(),
+            GuildChannel::Stage(c) => c.permission_overwrites.as_slice(),
         }
     }
 
     fn topic(&self) -> Option<String> {
         match self {
             GuildChannel::Text(c) => c.topic.clone(),
-            GuildChannel::Category(_) | GuildChannel::Voice(_) => None,
+            GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => None,
         }
     }
 
     fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()> {
         match self {
-            GuildChannel::Category(_) | GuildChannel::Voice(_) => Err(()),
+            GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => Err(()),
             GuildChannel::Text(channel) => {
                 let members = cache.members(channel.guild_id.ok_or(())?).ok_or(())?;
 
@@ -113,14 +114,14 @@ impl GuildChannelExt for GuildChannel {
         match self {
             GuildChannel::Category(c) => c.kind == ChannelType::GuildText,
             GuildChannel::Text(c) => c.kind == ChannelType::GuildText,
-            GuildChannel::Voice(_) => false,
+            GuildChannel::Voice(_) | GuildChannel::Stage(_) => false,
         }
     }
 
     fn last_message_id(&self) -> Option<MessageId> {
         match self {
             GuildChannel::Text(c) => c.last_message_id,
-            GuildChannel::Category(_) | GuildChannel::Voice(_) => None,
+            GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => None,
         }
     }
 }

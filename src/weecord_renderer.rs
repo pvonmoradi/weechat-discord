@@ -722,6 +722,16 @@ fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) 
             weechat::Prefix::Network,
             format!("This channel is now following {}", bold(&msg.content)),
         ),
+        // TODO:  How should these be worded?
+        GuildDiscoveryGracePeriodInitialWarning => (
+            weechat::Prefix::Network,
+            "This is the server discovery initial grace period warning".to_owned(),
+        ),
+        GuildDiscoveryGracePeriodFinalWarning => (
+            weechat::Prefix::Network,
+            "This is the server discovery final grace period warning".to_owned(),
+        ),
+        GuildInviteReminder => (weechat::Prefix::Network, "Invite reminder".to_owned()),
         Regular | Reply => unreachable!(),
     };
     (Weechat::prefix(prefix), body)

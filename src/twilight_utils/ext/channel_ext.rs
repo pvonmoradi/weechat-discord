@@ -73,6 +73,7 @@ impl ChannelExt for GuildChannel {
             GuildChannel::Category(c) => c.kind,
             GuildChannel::Text(c) => c.kind,
             GuildChannel::Voice(c) => c.kind,
+            GuildChannel::Stage(c) => c.kind,
         }
     }
 

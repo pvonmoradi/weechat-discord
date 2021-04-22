@@ -66,7 +66,9 @@ impl BarItems {
                 };
 
                 match &*channel {
-                    GuildChannel::Category(_) | GuildChannel::Voice(_) => "".into(),
+                    GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => {
+                        "".into()
+                    },
                     GuildChannel::Text(channel) => match channel.rate_limit_per_user {
                         None => "".into(),
                         Some(rate_limit) => {

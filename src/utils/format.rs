@@ -149,11 +149,10 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) 
                     crate::utils::color::colorize_discord_member(state.cache, &member, true)
                 })
             } else {
-                state.cache.user(id).map(|user| {
-                    let mut str = StyledString::from("@".to_owned());
-                    str.append(crate::utils::color::colorize_weechat_nick(&user.name));
-                    str
-                })
+                state
+                    .cache
+                    .user(id)
+                    .map(|user| crate::utils::color::colorize_weechat_nick(&user.name, true))
             };
 
             let mention = if let Some(replacement) = replacement {

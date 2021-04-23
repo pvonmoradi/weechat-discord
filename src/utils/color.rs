@@ -32,8 +32,12 @@ pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -
         })
 }
 
-pub fn colorize_weechat_nick(nick: &str) -> StyledString {
+pub fn colorize_weechat_nick(nick: &str, at: bool) -> StyledString {
     let color = Weechat2::info_get("nick_color_name", nick).unwrap_or_else(|| "reset".into());
 
-    colorize_string(nick, &color)
+    if at {
+        colorize_string(&("@".to_owned() + nick), &color)
+    } else {
+        colorize_string(nick, &color)
+    }
 }

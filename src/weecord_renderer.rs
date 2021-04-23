@@ -528,8 +528,13 @@ fn render_msg(
         Reply if msg.referenced_message.is_none() => (prefix, msg_content),
         Reply => match msg.referenced_message.as_ref() {
             Some(ref_msg) => {
+                let mut ref_msg = ref_msg.clone();
+                // The original message returned by the api does not include a guild id, even if the
+                // parent message has one, so we set it so that render_msg can lookup members/channels
+                // correctly
+                ref_msg.guild_id = msg.reference.as_ref().and_then(|m| m.guild_id);
                 let (ref_prefix, ref_msg_content) =
-                    render_msg(cache, config, ref_msg, &mut Vec::new());
+                    render_msg(cache, config, &ref_msg, &mut Vec::new());
 
                 let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
                 (

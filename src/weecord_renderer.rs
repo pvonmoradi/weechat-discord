@@ -111,6 +111,7 @@ impl WeechatMessage<MessageId, State> for WeecordMessage {
                 &state.conn.cache,
                 &state.config,
                 msg,
+                false,
                 &mut state.unknown_members,
             ),
             #[cfg(feature = "images")]
@@ -119,6 +120,7 @@ impl WeechatMessage<MessageId, State> for WeecordMessage {
                     &state.conn.cache,
                     &state.config,
                     msg,
+                    false,
                     &mut state.unknown_members,
                 );
 
@@ -493,6 +495,7 @@ fn render_msg(
     cache: &Cache,
     config: &Config,
     msg: &DiscordMessage,
+    include_at: bool,
     unknown_members: &mut Vec<UserId>,
 ) -> (String, String) {
     use twilight_model::channel::message::MessageType::*;
@@ -519,7 +522,7 @@ fn render_msg(
 
     msg_content.append(format_reactions(&msg));
 
-    let (prefix, author) = format_author_prefix(cache, &config, msg);
+    let (prefix, author) = format_author_prefix(cache, &config, msg, include_at);
 
     let prefix = prefix.build();
     let msg_content = msg_content.build();
@@ -533,8 +536,9 @@ fn render_msg(
                 // parent message has one, so we set it so that render_msg can lookup members/channels
                 // correctly
                 ref_msg.guild_id = msg.reference.as_ref().and_then(|m| m.guild_id);
+                let mentions_user = msg.mentions.iter().any(|m| m.id == ref_msg.author.id);
                 let (ref_prefix, ref_msg_content) =
-                    render_msg(cache, config, &ref_msg, &mut Vec::new());
+                    render_msg(cache, config, &ref_msg, mentions_user, &mut Vec::new());
 
                 let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
                 (
@@ -639,6 +643,7 @@ fn format_author_prefix(
     cache: &Cache,
     config: &Config,
     msg: &DiscordMessage,
+    include_at: bool,
 ) -> (StyledString, StyledString) {
     let mut prefix = StyledString::new();
 
@@ -653,7 +658,7 @@ fn format_author_prefix(
         let member = cache.member(guild_id, msg.author.id)?;
 
         Some(crate::utils::color::colorize_discord_member(
-            cache, &member, false,
+            cache, &member, include_at,
         ))
     })()
     .unwrap_or_else(|| msg.author.name.clone().into());

@@ -146,6 +146,7 @@ fn fake_guild(guild_id: GuildId) -> Guild {
         members: Default::default(),
         mfa_level: MfaLevel::None,
         name: "".to_string(),
+        nsfw: false,
         owner_id: Default::default(),
         owner: None,
         permissions: None,

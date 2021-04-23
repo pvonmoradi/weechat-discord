@@ -278,7 +278,6 @@ fn format_block_quote(lines: impl Iterator<Item = StyledString>) -> StyledString
 #[cfg(test)]
 mod tests {
     use super::discord_to_weechat;
-    use crate::weechat2::StyledString;
     use twilight_cache_inmemory::InMemoryCache as Cache;
     use twilight_model::{
         channel::{Channel, ChannelType, GuildChannel, TextChannel},

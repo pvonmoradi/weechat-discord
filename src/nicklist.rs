@@ -25,42 +25,28 @@ impl Nicklist {
                 let member_color = member
                     .color(&self.conn.cache)
                     .map(Color::as_8bit)
-                    .unwrap_or_default()
-                    .to_string();
+                    .filter(|&c| c != 0)
+                    .map(|c| c.to_string());
+                let mut nick_settings = NickSettings::new(&member.display_name());
+                if let Some(ref member_color) = member_color {
+                    nick_settings = nick_settings.set_color(member_color);
+                }
                 if let Some(role) = member.highest_role_info(&self.conn.cache) {
                     let role_color = Color::new(role.color).as_8bit().to_string();
                     if let Some(group) = buffer.search_nicklist_group(&role.name) {
-                        if group
-                            .add_nick(
-                                NickSettings::new(&member.display_name()).set_color(&member_color),
-                            )
-                            .is_err()
-                        {
+                        if group.add_nick(nick_settings).is_err() {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
                     } else if let Ok(group) =
                         buffer.add_nicklist_group(&role.name, &role_color, true, None)
                     {
-                        if group
-                            .add_nick(
-                                NickSettings::new(&member.display_name()).set_color(&member_color),
-                            )
-                            .is_err()
-                        {
+                        if group.add_nick(nick_settings).is_err() {
                             tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
                         }
-                    } else if buffer
-                        .add_nick(
-                            NickSettings::new(&member.display_name()).set_color(&member_color),
-                        )
-                        .is_err()
-                    {
+                    } else if buffer.add_nick(nick_settings).is_err() {
                         tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
                     }
-                } else if buffer
-                    .add_nick(NickSettings::new(&member.display_name()).set_color(&member_color))
-                    .is_err()
-                {
+                } else if buffer.add_nick(nick_settings).is_err() {
                     tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
                 }
             }

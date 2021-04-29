@@ -10,7 +10,7 @@ from datetime import datetime
 from collections import namedtuple
 
 ParsedToken = namedtuple("ParsedToken", ["raw", "userid", "created", "hmac"])
-
+DB_FILTER = ["chrome", "vivaldi", "discord"]
 
 def round_down(num, divisor):
     return num - (num % divisor)
@@ -96,10 +96,9 @@ def main():
         print("No databases found.")
         sys.exit(1)
 
-    # Only search for tokens in ldb files likely belonging to a discord applications local storage
-    # (this prevents searching browsers, but browser localstorage returns lots of false positives).
+    # Only search for tokens in local starage directories belonging known Chromium browsers or discord
     discord_databases = list(
-        filter(lambda x: "discord" in x and "Local Storage" in x, results)
+        filter(lambda x: any([db in x.lower() for db in DB_FILTER]) and "Local Storage" in x, results)
     )
 
     # Then collect strings that look like discord tokens.

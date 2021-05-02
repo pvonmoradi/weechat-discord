@@ -115,17 +115,22 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages: impl Iterator<Item = &'a M>,
         last_read_id: &Option<I>,
     ) {
-        self.buffer_handle.upgrade().unwrap().disable_print_hooks();
+        // Holding a buffer ref should be fine even though the message type may access it as it
+        // cannot be accessed mutably, which would panic.
+        // It is however important not to hold onto the mutable state reference, as it is very likely
+        // the message type will access the state while rendering
+        let buffer = self.buffer_handle.upgrade().unwrap();
+        buffer.disable_print_hooks();
         for msg in messages {
             self.print_msg(msg, false);
             if let Some(last_read_id) = &*last_read_id {
                 if &msg.id(&mut self.state.borrow_mut()) == last_read_id {
-                    self.buffer_handle.upgrade().unwrap().mark_read();
+                    buffer.mark_read();
                 }
             }
         }
-        self.buffer_handle.upgrade().unwrap().enable_print_hooks();
-        self.buffer_handle.upgrade().unwrap().clear_hotlist();
+        buffer.enable_print_hooks();
+        buffer.clear_hotlist();
     }
 
     pub fn update_message<F>(&self, id: &I, f: F)

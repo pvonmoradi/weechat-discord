@@ -465,9 +465,17 @@ impl Channel {
             None => return Ok(()),
         };
 
-        if Some(last_displayed_id) == conn.cache.read_state(self.id).map(|rs| rs.last_message_id) {
-            tracing::trace!("Skipping ack, already ack'd msg {:?}", last_displayed_id);
-            return Ok(());
+        if let Some(last_read_message) = conn.cache.read_state(self.id).map(|rs| rs.last_message_id)
+        {
+            // The user must have read a message that was deleted
+            if last_read_message >= last_displayed_id {
+                tracing::trace!(
+                    "Skipping ack, last read message {:?} >= channels' last message {:?}",
+                    last_read_message,
+                    last_displayed_id,
+                );
+                return Ok(());
+            }
         }
 
         let result = conn

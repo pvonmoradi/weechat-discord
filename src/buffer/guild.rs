@@ -196,7 +196,7 @@ impl Guild {
     ) -> anyhow::Result<Channel> {
         let weak_inner = Rc::downgrade(&self.inner);
         let channel_id = channel.id();
-        let last_read_id = channel.last_message_id();
+        let last_message_id = channel.last_message_id();
         let channel = crate::buffer::channel::Channel::guild(
             &channel,
             &guild,
@@ -217,7 +217,7 @@ impl Guild {
         inner.channels.insert(channel_id, channel.clone());
 
         if let Some(read_state) = inner.conn.cache.read_state(channel_id) {
-            if last_read_id != Some(read_state.last_message_id) {
+            if last_message_id > Some(read_state.last_message_id) {
                 channel.mark_unread(read_state.mention_count.map(|mc| mc > 0).unwrap_or(false));
             }
         }

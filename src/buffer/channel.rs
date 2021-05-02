@@ -339,8 +339,13 @@ impl Channel {
             "@{}",
             crate::twilight_utils::current_user_nick(&guild, &conn.cache).build()
         );
+        let channel_name = config
+            .guilds()
+            .get(&guild.id)
+            .and_then(|g| g.channel_renames().get(&channel.id()).cloned())
+            .unwrap_or_else(|| channel.name().to_owned());
         let channel_buffer = ChannelBuffer::guild(
-            channel.name(),
+            &channel_name,
             &nick,
             &guild.name,
             channel.id(),

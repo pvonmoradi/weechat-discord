@@ -2302,6 +2302,7 @@ dependencies = [
  "rand 0.8.3",
  "regex",
  "serde",
+ "serde_json",
  "syntect",
  "term-image",
  "tokio",

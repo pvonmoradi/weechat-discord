@@ -389,7 +389,7 @@ impl Config {
                         };
                     }),
             )
-            .expect("Unable to create image charset option");
+                .expect("Unable to create image charset option");
         }
 
         {

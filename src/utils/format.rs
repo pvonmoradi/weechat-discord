@@ -306,7 +306,8 @@ mod tests {
     fn color_stack() {
         assert_eq!(
             format("||foo ~~strikethrough~~ baz `code` spam||"),
-            "italic||foo red~~strikethrough~~resetitalic baz 8bold`code`-boldresetitalic spam||-italic"
+            "italic||foo red~~strikethrough~~resetitalic baz 8bold`code`-boldresetitalic \
+             spam||-italic"
         );
     }
 
@@ -478,12 +479,8 @@ mod tests {
             emojis,
             guild_id: GuildId(0),
         });
-        let src = "<:one:1><:two:2><:one:1>\
-        <:three:3><:four:4><:five:5>\
-        <:one:1><:six:6><:one:1>";
-        let target = ":one::two::one:\
-        :three::four::five:\
-        :one::six::one:";
+        let src = "<:one:1><:two:2><:one:1><:three:3><:four:4><:five:5><:one:1><:six:6><:one:1>";
+        let target = ":one::two::one::three::four::five::one::six::one:";
         assert_eq!(format_with_cache(src, &cache, None), target);
     }
 }

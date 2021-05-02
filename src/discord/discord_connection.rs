@@ -111,8 +111,9 @@ impl DiscordConnection {
                         if waiting(&shard) {
                             Weechat::spawn_from_thread(async {
                                 Weechat::print(
-                                    "discord: Gateway still not successfully connected...  \
-                                there is likely an issue with Discord or weecord, see logs for more details",
+                                    "discord: Gateway still not successfully connected...  there \
+                                     is likely an issue with Discord or weecord, see logs for \
+                                     more details",
                                 );
                             });
                         }

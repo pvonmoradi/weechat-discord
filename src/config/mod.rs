@@ -370,7 +370,10 @@ impl Config {
             let inner_clone = Weak::clone(&inner);
             look.new_integer_option(
                 IntegerOptionSettings::new("image_charset")
-                    .description("Charset to use for rendering images, 0=halfs, 1=blocks; 2=full; 3=full+slopes")
+                    .description(
+                        "Charset to use for rendering images, 0=halfs, 1=blocks; 2=full; \
+                         3=full+slopes",
+                    )
                     .min(0)
                     .max(3)
                     .default_value(1)
@@ -379,10 +382,10 @@ impl Config {
                             .upgrade()
                             .expect("Outer config has outlived inner config");
                         inner.borrow_mut().look.image_charset = match option.value() {
-                            0=>Charset::Halfs,
-                            1=>Charset::Blocks,
-                            2=>Charset::NoSlopes,
-                            _=>Charset::All,
+                            0 => Charset::Halfs,
+                            1 => Charset::Blocks,
+                            2 => Charset::NoSlopes,
+                            _ => Charset::All,
                         };
                     }),
             )

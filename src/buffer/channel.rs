@@ -565,7 +565,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 if !msg.is_own(&cache) {
                     if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
                         if !has_manage {
-                            Weechat::print("discord: you don't have permission to edit other users messages in this channel");
+                            Weechat::print(
+                                "discord: you don't have permission to edit other users messages \
+                                 in this channel",
+                            );
                             tracing::trace!(?channel.id, "Not editing message, user does not have permission");
                         }
                     } else {
@@ -616,7 +619,10 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 if !msg.is_own(&cache) {
                     if let Some(has_manage) = has_manage_message_perm(&channel, &cache) {
                         if !has_manage {
-                            Weechat::print("discord: you don't have permission to delete other users messages in this channel");
+                            Weechat::print(
+                                "discord: you don't have permission to delete other users \
+                                 messages in this channel",
+                            );
                             tracing::trace!(?channel.id, "Not deleting message, user does not have permission");
                             return;
                         }

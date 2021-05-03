@@ -43,6 +43,7 @@ impl ChannelBuffer {
     #[allow(clippy::too_many_arguments)]
     pub fn guild(
         name: &str,
+        topic: Option<String>,
         nick: &str,
         guild_name: &str,
         id: ChannelId,
@@ -92,6 +93,9 @@ impl ChannelBuffer {
 
         buffer.set_localvar("nick", nick);
 
+        if let Some(topic) = topic {
+            buffer.set_title(&topic);
+        }
         buffer.set_short_name(&format!("#{}", name));
         buffer.set_localvar("type", "channel");
         buffer.set_localvar("server", &clean_guild_name);
@@ -346,6 +350,7 @@ impl Channel {
             .unwrap_or_else(|| channel.name().to_owned());
         let channel_buffer = ChannelBuffer::guild(
             &channel_name,
+            channel.topic(),
             &nick,
             &guild.name,
             channel.id(),

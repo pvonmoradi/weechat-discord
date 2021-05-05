@@ -9,12 +9,7 @@ use crate::{
 use anyhow::Result;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
-use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, error::Error, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     sync::{
@@ -167,32 +162,45 @@ impl DiscordConnection {
     pub async fn send_guild_subscription(&self, guild_id: GuildId, channel_id: ChannelId) {
         let inner = self.0.borrow().as_ref().cloned();
         if let Some(inner) = inner {
-            static CHANNELS: Lazy<TokioMutex<HashMap<GuildId, HashSet<ChannelId>>>> =
+            static CHANNELS: Lazy<TokioMutex<HashMap<GuildId, Vec<ChannelId>>>> =
                 Lazy::new(|| TokioMutex::new(HashMap::new()));
 
-            let mut channels = CHANNELS.lock().await;
-            let send = if let Some(guild_channels) = channels.get_mut(&guild_id) {
-                guild_channels.insert(channel_id)
-            } else {
-                channels.insert(guild_id, vec![channel_id].into_iter().collect());
-                true
-            };
+            let mut subscriptions = CHANNELS.lock().await;
+
+            let subscribed_channels = subscriptions.entry(guild_id).or_default();
+            let send = !subscribed_channels.contains(&channel_id);
+            subscribed_channels.insert(0, channel_id);
+            if subscribed_channels.len() > 5 {
+                subscribed_channels.pop();
+            }
+            let full = subscribed_channels.len() == 1;
 
             if send {
-                let channels = channels.get(&guild_id).unwrap();
-                let channels_obj = channels.iter().map(|&ch| (ch, vec![vec![0, 99]])).collect();
-                if let Err(e) = inner
-                    .shard
-                    .command(&super::custom_commands::GuildSubscription {
-                        d: super::custom_commands::GuildSubscriptionInfo {
+                let channels_obj = subscribed_channels
+                    .iter()
+                    .map(|&ch| (ch, vec![vec![0, 99]]))
+                    .collect();
+                let info = if full {
+                    super::custom_commands::GuildSubscriptionInfo::Full(
+                        super::custom_commands::GuildSubscriptionFull {
                             guild_id,
                             typing: true,
                             activities: true,
-                            members: vec![],
+                            threads: true,
                             channels: channels_obj,
                         },
-                        op: 14,
-                    })
+                    )
+                } else {
+                    super::custom_commands::GuildSubscriptionInfo::Minimal(
+                        super::custom_commands::GuildSubscriptionMinimal {
+                            guild_id,
+                            channels: channels_obj,
+                        },
+                    )
+                };
+                if let Err(e) = inner
+                    .shard
+                    .command(&super::custom_commands::GuildSubscription { d: info, op: 14 })
                     .await
                 {
                     tracing::warn!(guild.id=?guild_id, channel.id=?channel_id, "Unable to send guild subscription (14): {}", e);

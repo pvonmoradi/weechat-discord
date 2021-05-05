@@ -1,17 +1,30 @@
 use serde::Serialize;
 use std::collections::HashMap;
-use twilight_model::id::{ChannelId, GuildId, UserId};
+use twilight_model::id::{ChannelId, GuildId};
 
-#[derive(Serialize)]
-pub struct GuildSubscriptionInfo {
+#[derive(Serialize, Debug)]
+pub struct GuildSubscriptionFull {
     pub guild_id: GuildId,
     pub typing: bool,
     pub activities: bool,
-    pub members: Vec<UserId>,
+    pub threads: bool,
     pub channels: HashMap<ChannelId, Vec<Vec<u8>>>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
+pub struct GuildSubscriptionMinimal {
+    pub guild_id: GuildId,
+    pub channels: HashMap<ChannelId, Vec<Vec<u8>>>,
+}
+
+#[derive(Serialize, Debug)]
+#[serde(untagged)]
+pub enum GuildSubscriptionInfo {
+    Full(GuildSubscriptionFull),
+    Minimal(GuildSubscriptionMinimal),
+}
+
+#[derive(Serialize, Debug)]
 pub struct GuildSubscription {
     pub d: GuildSubscriptionInfo,
     pub op: u8,

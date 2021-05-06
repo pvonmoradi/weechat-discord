@@ -125,8 +125,8 @@ def main():
         print("No Discord tokens found")
         return
 
-    print("Possible Discord tokens found:\n")
-    token_candidates = sorted(token_candidates, key=lambda t: t.created)
+    print("Possible Discord tokens found (sorted newest to oldest):\n")
+    token_candidates = sorted(token_candidates, key=lambda t: t.created, reverse=True)
     for token in token_candidates:
         if skip_username_lookup:
             print("{} created: {}".format(token.raw, token.created))

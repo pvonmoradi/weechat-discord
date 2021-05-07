@@ -5,9 +5,10 @@ use crate::twilight_utils::{
 use twilight_cache_inmemory::{InMemoryCache as Cache, InMemoryCache};
 use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
+    gateway::payload::MemberListId,
+    guild::Permissions,
     id::{ChannelId, MessageId},
 };
-use twilight_permission_calculator::prelude::Permissions;
 
 pub trait ChannelExt {
     fn name(&self) -> String;
@@ -15,6 +16,7 @@ pub trait ChannelExt {
     fn kind(&self) -> ChannelType;
     fn can_send(&self, cache: &Cache) -> Option<bool>;
     fn last_message_id(&self) -> Option<MessageId>;
+    fn member_list_id(&self) -> MemberListId;
 }
 
 impl ChannelExt for DynamicChannel {
@@ -57,6 +59,14 @@ impl ChannelExt for DynamicChannel {
             DynamicChannel::Group(ch) => ch.last_message_id(),
         }
     }
+
+    fn member_list_id(&self) -> MemberListId {
+        match self {
+            DynamicChannel::Guild(ch) => ch.member_list_id(),
+            DynamicChannel::Private(ch) => ch.member_list_id(),
+            DynamicChannel::Group(ch) => ch.member_list_id(),
+        }
+    }
 }
 
 impl ChannelExt for GuildChannel {
@@ -83,6 +93,10 @@ impl ChannelExt for GuildChannel {
 
     fn last_message_id(&self) -> Option<MessageId> {
         GuildChannelExt::last_message_id(self)
+    }
+
+    fn member_list_id(&self) -> MemberListId {
+        MemberListId::from_overwrites(self.permission_overwrites())
     }
 }
 
@@ -113,6 +127,10 @@ impl ChannelExt for PrivateChannel {
     fn last_message_id(&self) -> Option<MessageId> {
         self.last_message_id
     }
+
+    fn member_list_id(&self) -> MemberListId {
+        MemberListId::Everyone
+    }
 }
 
 impl ChannelExt for Group {
@@ -142,5 +160,9 @@ impl ChannelExt for Group {
 
     fn last_message_id(&self) -> Option<MessageId> {
         self.last_message_id
+    }
+
+    fn member_list_id(&self) -> MemberListId {
+        MemberListId::Everyone
     }
 }

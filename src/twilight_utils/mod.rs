@@ -7,11 +7,13 @@ mod color;
 pub mod content;
 mod dynamic_channel;
 pub mod ext;
+mod member_list;
 pub mod mention;
 
 use crate::weechat2::StyledString;
 pub use color::*;
 pub use dynamic_channel::*;
+pub use member_list::*;
 pub use mention::*;
 
 pub fn search_cached_striped_guild_name(cache: &Cache, target: &str) -> Option<Arc<CachedGuild>> {

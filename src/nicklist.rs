@@ -1,54 +1,102 @@
 use crate::{
     discord::discord_connection::ConnectionInner,
-    twilight_utils::{ext::MemberExt, Color},
+    twilight_utils::{ext::MemberExt, Color, GroupIdExt},
 };
-use std::{rc::Rc, sync::Arc};
-use twilight_cache_inmemory::model::CachedMember;
+use std::rc::Rc;
+use twilight_model::{gateway::payload::MemberListItem, id::GuildId};
 use weechat::buffer::{BufferHandle, NickSettings};
 
 pub struct Nicklist {
     conn: ConnectionInner,
+    guild_id: Option<GuildId>,
     handle: Rc<BufferHandle>,
 }
 
 impl Nicklist {
-    pub fn new(conn: &ConnectionInner, handle: Rc<BufferHandle>) -> Nicklist {
+    pub fn new(
+        conn: &ConnectionInner,
+        guild_id: Option<GuildId>,
+        handle: Rc<BufferHandle>,
+    ) -> Nicklist {
         Nicklist {
             conn: conn.clone(),
+            guild_id,
             handle,
         }
     }
 
-    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
+    pub fn update(&self, member_list: &[MemberListItem]) {
         if let Ok(buffer) = self.handle.upgrade() {
-            for member in members {
-                let member_color = member
-                    .color(&self.conn.cache)
-                    .map(Color::as_8bit)
-                    .filter(|&c| c != 0)
-                    .map(|c| c.to_string());
-                let mut nick_settings = NickSettings::new(&member.display_name());
-                if let Some(ref member_color) = member_color {
-                    nick_settings = nick_settings.set_color(member_color);
-                }
-                if let Some(role) = member.highest_role_info(&self.conn.cache) {
-                    let role_color = Color::new(role.color).as_8bit().to_string();
-                    if let Some(group) = buffer.search_nicklist_group(&role.name) {
-                        if group.add_nick(nick_settings).is_err() {
-                            tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
+            // TODO: Optimize with diffing/change tracking?
+            buffer.clear_nicklist();
+
+            let mut current_group_idx = 0;
+            let mut current_group = None;
+
+            for item in member_list {
+                match item {
+                    MemberListItem::Group(group) => {
+                        let role_color = group
+                            .id
+                            .role(&self.conn.cache)
+                            .map(|role| Color::new(role.color).as_8bit())
+                            .filter(|&c| c != 0)
+                            .map(|c| c.to_string())
+                            .unwrap_or_default();
+                        let nick_group = buffer
+                            .add_nicklist_group(
+                                &format!(
+                                    "{}|{}",
+                                    current_group_idx,
+                                    group.id.name(&self.conn.cache)
+                                ),
+                                &role_color,
+                                true,
+                                None,
+                            )
+                            .unwrap();
+                        current_group = Some(nick_group);
+                        current_group_idx += 1;
+                        continue;
+                    },
+                    MemberListItem::Member(member) => {
+                        let nick_group = if let Some(nick_group) = current_group.as_ref() {
+                            nick_group
+                        } else {
+                            tracing::error!("Nick list in an invalid state: {:#?}", member_list);
+                            continue;
+                        };
+                        if let Some(guild_id) = self.guild_id {
+                            if let Some(guild_member) =
+                                self.conn.cache.member(guild_id, member.user.id)
+                            {
+                                let color = guild_member
+                                    .color(&self.conn.cache)
+                                    .map(Color::as_8bit)
+                                    .filter(|&c| c != 0)
+                                    .map(|c| c.to_string());
+
+                                let mut settings = NickSettings::new(&guild_member.display_name());
+                                if let Some(ref color) = color {
+                                    settings = settings.set_color(color);
+                                }
+                                if let Err(()) = nick_group.add_nick(settings) {
+                                    tracing::warn!(
+                                        "Failed to add member \"{}\" to nicklist",
+                                        member.user.username
+                                    );
+                                }
+                            }
+                        } else if let Err(()) =
+                            nick_group.add_nick(NickSettings::new(&member.user.username))
+                        {
+                            tracing::warn!(
+                                "Failed to add member \"{}\" to nicklist",
+                                member.user.username
+                            );
                         }
-                    } else if let Ok(group) =
-                        buffer.add_nicklist_group(&role.name, &role_color, true, None)
-                    {
-                        if group.add_nick(nick_settings).is_err() {
-                            tracing::error!(user.id=?member.user.id, group=%role.name, "Unable to add nick to nicklist");
-                        }
-                    } else if buffer.add_nick(nick_settings).is_err() {
-                        tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
-                    }
-                } else if buffer.add_nick(nick_settings).is_err() {
-                    tracing::error!(user.id=?member.user.id, "Unable to add nick to nicklist");
-                }
+                    },
+                };
             }
         }
     }

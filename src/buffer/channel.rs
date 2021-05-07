@@ -13,18 +13,15 @@ use crate::{
 };
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
-use std::{borrow::Cow, rc::Rc, sync::Arc};
-use twilight_cache_inmemory::{
-    model::{CachedGuild as TwilightGuild, CachedMember},
-    InMemoryCache as Cache,
-};
+use std::{borrow::Cow, rc::Rc};
+use twilight_cache_inmemory::{model::CachedGuild as TwilightGuild, InMemoryCache as Cache};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{
         message::MessageReaction, GuildChannel as TwilightGuildChannel, Message,
         PrivateChannel as TwilightPrivateChannel, Reaction,
     },
-    gateway::payload::MessageUpdate,
+    gateway::payload::{MemberListItem, MessageUpdate},
     guild::Permissions,
     id::{ChannelId, EmojiId, GuildId, MessageId, UserId},
     user::User,
@@ -109,7 +106,7 @@ impl ChannelBuffer {
         let handle = Rc::new(handle);
         Ok(Self {
             renderer: WeecordRenderer::new(conn, Rc::clone(&handle), config),
-            nicklist: Nicklist::new(conn, handle),
+            nicklist: Nicklist::new(conn, Some(guild_id), handle),
         })
     }
 
@@ -173,7 +170,7 @@ impl ChannelBuffer {
         let handle = Rc::new(handle);
         Ok(Self {
             renderer: WeecordRenderer::new(&conn, Rc::clone(&handle), config),
-            nicklist: Nicklist::new(conn, handle),
+            nicklist: Nicklist::new(conn, None, handle),
         })
     }
 
@@ -282,10 +279,6 @@ impl ChannelBuffer {
 
     pub fn redraw_buffer(&self, ignore_users: &[UserId]) {
         self.renderer.redraw_buffer(ignore_users);
-    }
-
-    pub fn add_members(&self, members: &[Arc<CachedMember>]) {
-        self.nicklist.add_members(members);
     }
 }
 
@@ -501,20 +494,18 @@ impl Channel {
         Ok(())
     }
 
-    pub fn load_users(&self) -> anyhow::Result<()> {
+    pub fn load_users(&self, instance: &Instance) -> anyhow::Result<()> {
         let conn = self.inner.borrow().conn.clone();
-        if let Some(channel) = conn.cache.guild_channel(self.id) {
-            if let Ok(members) = channel.members(&conn.cache) {
-                self.inner.borrow().buffer.add_members(&members);
-                Ok(())
-            } else {
-                tracing::error!(guild.id=?self.guild_id, channel.id=%self.id, "unable to load members for nicklist");
-                Err(anyhow::anyhow!("unable to load members for nicklist"))
+        if let Some(guild_id) = self.guild_id {
+            let mut member_lists = instance.borrow_member_lists_mut();
+            let member_list = member_lists.entry(guild_id).or_default();
+
+            if let Some(channel_memberlist) = member_list.get_list_for_channel(self.id, &conn.cache)
+            {
+                self.update_nicklist(channel_memberlist);
             }
-        } else {
-            tracing::warn!(guild.id=?self.guild_id, channel.id=%self.id, "unable to find channel in cache");
-            Err(anyhow::anyhow!("unable to load members for nicklist"))
         }
+        Ok(())
     }
 
     pub fn add_message(&self, msg: &WeecordMessage) {
@@ -546,6 +537,10 @@ impl Channel {
             .inner
             .try_borrow_mut()
             .map(|mut inner| inner.closed = true);
+    }
+
+    pub fn update_nicklist(&self, member_list: &[MemberListItem]) {
+        self.inner.borrow().buffer.nicklist.update(member_list);
     }
 }
 

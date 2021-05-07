@@ -511,6 +511,35 @@ impl DiscordConnection {
                         },
                     }
                 },
+                PluginMessage::MemberListUpdate(update) => {
+                    let mut member_lists = instance.borrow_member_lists_mut();
+                    let member_list = member_lists.entry(update.guild_id).or_default();
+                    let guild_id = update.guild_id;
+
+                    member_list.apply_update(*update);
+
+                    let channel_id =
+                        match unsafe { Weechat::weechat() }.current_buffer().channel_id() {
+                            Some(channel_id) => channel_id,
+                            None => continue,
+                        };
+
+                    let channels = match instance.borrow_guilds().get(&guild_id) {
+                        Some(guild) => guild.channels(),
+                        None => continue,
+                    };
+
+                    let channel = match channels.get(&channel_id) {
+                        Some(channel) => channel,
+                        None => continue,
+                    };
+
+                    if let Some(channel_memberlist) =
+                        member_list.get_list_for_channel(channel_id, &conn.cache)
+                    {
+                        channel.update_nicklist(channel_memberlist);
+                    }
+                },
             }
         }
     }
@@ -607,6 +636,11 @@ impl DiscordConnection {
                 .expect("Receiving thread has died"),
             GatewayEvent::ReactionAdd(reaction_add) => tx
                 .send(PluginMessage::ReactionAdd(reaction_add))
+                .await
+                .ok()
+                .expect("Receiving thread has died"),
+            GatewayEvent::MemberListUpdate(update) => tx
+                .send(PluginMessage::MemberListUpdate(update))
                 .await
                 .ok()
                 .expect("Receiving thread has died"),

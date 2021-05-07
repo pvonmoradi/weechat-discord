@@ -39,6 +39,19 @@ impl Signals {
 
                     if let Some(channel) = instance.search_buffer(guild_id, channel_id) {
                         if loaded {
+                            if let Some(guild_id) = guild_id {
+                                if let Some(member_list) =
+                                    instance.borrow_member_lists().get(&guild_id)
+                                {
+                                    if let Some(conn) = inner_connection.borrow().as_ref() {
+                                        if let Some(channel_memberlist) = member_list
+                                            .get_list_for_channel(channel_id, &conn.cache)
+                                        {
+                                            channel.update_nicklist(channel_memberlist);
+                                        }
+                                    };
+                                }
+                            }
                             Weechat::spawn(async move {
                                 Signals::ack(guild_id, channel_id, &channel).await;
                             })
@@ -80,7 +93,7 @@ impl Signals {
                                 }
                             })
                             .detach();
-                            if let Err(e) = channel.load_users() {
+                            if let Err(e) = channel.load_users(&instance) {
                                 tracing::error!(
                                     ?guild_id,
                                     ?channel_id,

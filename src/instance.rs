@@ -2,6 +2,7 @@ use crate::{
     buffer::{channel::Channel, guild::Guild, pins::Pins},
     discord::typing_indicator::TypingTracker,
     refcell::{Ref, RefCell, RefMut},
+    twilight_utils::MemberList,
 };
 use std::{cell::BorrowMutError, collections::HashMap, rc::Rc};
 use twilight_model::id::{ChannelId, GuildId};
@@ -12,6 +13,7 @@ pub struct Instance {
     private_channels: Rc<RefCell<HashMap<ChannelId, Channel>>>,
     pins: Rc<RefCell<HashMap<(GuildId, ChannelId), Pins>>>,
     typing_tracker: Rc<RefCell<TypingTracker>>,
+    member_lists: Rc<RefCell<HashMap<GuildId, MemberList>>>,
 }
 
 impl Instance {
@@ -21,6 +23,7 @@ impl Instance {
             private_channels: Rc::new(RefCell::new(HashMap::new())),
             pins: Rc::new(RefCell::new(HashMap::new())),
             typing_tracker: Rc::new(RefCell::new(TypingTracker::new())),
+            member_lists: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 
@@ -74,5 +77,13 @@ impl Instance {
         }
 
         None
+    }
+
+    pub fn borrow_member_lists(&self) -> Ref<'_, HashMap<GuildId, MemberList>> {
+        self.member_lists.borrow()
+    }
+
+    pub fn borrow_member_lists_mut(&self) -> RefMut<'_, HashMap<GuildId, MemberList>> {
+        self.member_lists.borrow_mut()
     }
 }

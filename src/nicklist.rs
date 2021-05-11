@@ -39,10 +39,10 @@ impl Nicklist {
                         let role_color = group
                             .id
                             .role(&self.conn.cache)
-                            .map(|role| Color::new(role.color).as_8bit())
+                            .map(|role| role.color)
                             .filter(|&c| c != 0)
-                            .map(|c| c.to_string())
-                            .unwrap_or_default();
+                            .map(|c| Color::new(c).as_8bit().to_string())
+                            .unwrap_or_else(|| "default".to_owned());
                         let nick_group = buffer
                             .add_nicklist_group(
                                 &format!(
@@ -72,9 +72,8 @@ impl Nicklist {
                             {
                                 let color = guild_member
                                     .color(&self.conn.cache)
-                                    .map(Color::as_8bit)
-                                    .filter(|&c| c != 0)
-                                    .map(|c| c.to_string());
+                                    .filter(|&c| c.0 != 0)
+                                    .map(|c| c.as_8bit().to_string());
 
                                 let mut settings = NickSettings::new(&guild_member.display_name());
                                 if let Some(ref color) = color {

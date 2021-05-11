@@ -30,7 +30,7 @@ impl GroupIdExt for GroupId {
             GroupId::RoleId(role_id) => cache
                 .role(*role_id)
                 .map(|role| role.name.clone())
-                .unwrap_or_else(|| "Unkown Role".to_owned()),
+                .unwrap_or_else(|| "Unknown Role".to_owned()),
         }
     }
 }

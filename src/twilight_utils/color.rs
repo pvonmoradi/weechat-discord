@@ -1,5 +1,5 @@
 #[derive(Copy, Clone, Debug)]
-pub struct Color(u32);
+pub struct Color(pub u32);
 
 impl Color {
     #[cfg(feature = "syntax_highlighting")]

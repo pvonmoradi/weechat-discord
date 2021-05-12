@@ -43,18 +43,25 @@ impl Nicklist {
                             .filter(|&c| c != 0)
                             .map(|c| Color::new(c).as_8bit().to_string())
                             .unwrap_or_else(|| "default".to_owned());
-                        let nick_group = buffer
-                            .add_nicklist_group(
-                                &format!(
-                                    "{}|{}",
-                                    current_group_idx,
-                                    group.id.name(&self.conn.cache)
-                                ),
-                                &role_color,
-                                true,
-                                None,
-                            )
-                            .unwrap();
+                        let group_name = group
+                            .id
+                            .name(&self.conn.cache)
+                            .unwrap_or_else(|| "Unknown Group".to_owned());
+                        let nick_group = match buffer.add_nicklist_group(
+                            &format!("{}|{}", current_group_idx, group_name),
+                            &role_color,
+                            true,
+                            None,
+                        ) {
+                            Ok(group) => group,
+                            Err(()) => {
+                                tracing::error!(
+                                    "Failed to add group \"{}\" to nicklist",
+                                    group_name,
+                                );
+                                continue;
+                            },
+                        };
                         current_group = Some(nick_group);
                         current_group_idx += 1;
                         continue;
@@ -63,6 +70,8 @@ impl Nicklist {
                         let nick_group = if let Some(nick_group) = current_group.as_ref() {
                             nick_group
                         } else {
+                            // There should always be a "current group", if not it likely means we failed
+                            // to handle an update from discord
                             tracing::error!("Nick list in an invalid state: {:#?}", member_list);
                             continue;
                         };
@@ -80,7 +89,7 @@ impl Nicklist {
                                     settings = settings.set_color(color);
                                 }
                                 if let Err(()) = nick_group.add_nick(settings) {
-                                    tracing::warn!(
+                                    tracing::error!(
                                         "Failed to add member \"{}\" to nicklist",
                                         member.user.username
                                     );
@@ -89,7 +98,7 @@ impl Nicklist {
                         } else if let Err(()) =
                             nick_group.add_nick(NickSettings::new(&member.user.username))
                         {
-                            tracing::warn!(
+                            tracing::error!(
                                 "Failed to add member \"{}\" to nicklist",
                                 member.user.username
                             );

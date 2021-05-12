@@ -11,7 +11,7 @@ use twilight_model::{
 
 pub trait GroupIdExt {
     fn role(&self, cache: &InMemoryCache) -> Option<Arc<Role>>;
-    fn name(&self, cache: &InMemoryCache) -> String;
+    fn name(&self, cache: &InMemoryCache) -> Option<String>;
 }
 
 impl GroupIdExt for GroupId {
@@ -23,14 +23,11 @@ impl GroupIdExt for GroupId {
         }
     }
 
-    fn name(&self, cache: &InMemoryCache) -> String {
+    fn name(&self, cache: &InMemoryCache) -> Option<String> {
         match self {
-            GroupId::Online => "Online".into(),
-            GroupId::Offline => "Offline".into(),
-            GroupId::RoleId(role_id) => cache
-                .role(*role_id)
-                .map(|role| role.name.clone())
-                .unwrap_or_else(|| "Unknown Role".to_owned()),
+            GroupId::Online => Some("Online".into()),
+            GroupId::Offline => Some("Offline".into()),
+            GroupId::RoleId(role_id) => cache.role(*role_id).map(|role| role.name.clone()),
         }
     }
 }

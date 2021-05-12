@@ -7,7 +7,7 @@ use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
     gateway::payload::MemberListId,
     guild::Permissions,
-    id::{ChannelId, MessageId},
+    id::{ChannelId, MessageId, RoleId},
 };
 
 pub trait ChannelExt {
@@ -16,7 +16,7 @@ pub trait ChannelExt {
     fn kind(&self) -> ChannelType;
     fn can_send(&self, cache: &Cache) -> Option<bool>;
     fn last_message_id(&self) -> Option<MessageId>;
-    fn member_list_id(&self) -> MemberListId;
+    fn member_list_id(&self, cache: &InMemoryCache) -> MemberListId;
 }
 
 impl ChannelExt for DynamicChannel {
@@ -60,11 +60,11 @@ impl ChannelExt for DynamicChannel {
         }
     }
 
-    fn member_list_id(&self) -> MemberListId {
+    fn member_list_id(&self, cache: &InMemoryCache) -> MemberListId {
         match self {
-            DynamicChannel::Guild(ch) => ch.member_list_id(),
-            DynamicChannel::Private(ch) => ch.member_list_id(),
-            DynamicChannel::Group(ch) => ch.member_list_id(),
+            DynamicChannel::Guild(ch) => ch.member_list_id(cache),
+            DynamicChannel::Private(ch) => ch.member_list_id(cache),
+            DynamicChannel::Group(ch) => ch.member_list_id(cache),
         }
     }
 }
@@ -95,8 +95,16 @@ impl ChannelExt for GuildChannel {
         GuildChannelExt::last_message_id(self)
     }
 
-    fn member_list_id(&self) -> MemberListId {
-        MemberListId::from_overwrites(self.permission_overwrites())
+    fn member_list_id(&self, cache: &InMemoryCache) -> MemberListId {
+        let everyone_perms = cache
+            .role(RoleId(
+                self.guild_id()
+                    .expect("a guild channel must have a guild id")
+                    .0,
+            ))
+            .expect("Every guild has an @everyone role")
+            .permissions;
+        MemberListId::from_overwrites(everyone_perms, self.permission_overwrites())
     }
 }
 
@@ -128,7 +136,7 @@ impl ChannelExt for PrivateChannel {
         self.last_message_id
     }
 
-    fn member_list_id(&self) -> MemberListId {
+    fn member_list_id(&self, _cache: &InMemoryCache) -> MemberListId {
         MemberListId::Everyone
     }
 }
@@ -162,7 +170,7 @@ impl ChannelExt for Group {
         self.last_message_id
     }
 
-    fn member_list_id(&self) -> MemberListId {
+    fn member_list_id(&self, _cache: &InMemoryCache) -> MemberListId {
         MemberListId::Everyone
     }
 }

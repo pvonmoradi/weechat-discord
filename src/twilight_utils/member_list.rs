@@ -60,7 +60,12 @@ impl MemberList {
         for op in update.ops {
             match op {
                 MemberListUpdateOp::Sync { range, items } => {
-                    tracing::trace!("sync: range: {:?}, items.len(): {}", range, items.len());
+                    tracing::trace!(
+                        "sync: range: {:?}, items.len(): {} id: {:?}",
+                        range,
+                        items.len(),
+                        update.id
+                    );
                     let offset = range[0] as usize;
                     for (i, item) in items.into_iter().enumerate() {
                         match this_list.get_mut(i + offset) {
@@ -101,7 +106,7 @@ impl MemberList {
     ) -> Option<&Vec<MemberListItem>> {
         cache
             .guild_channel(channel_id)
-            .map(|ch| ch.member_list_id())
+            .map(|ch| ch.member_list_id(cache))
             .and_then(|id| self.raw_lists.get(&id))
     }
 }

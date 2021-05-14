@@ -978,16 +978,6 @@ checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
 [[package]]
 name = "parking_lot"
 version = "0.9.0"
-source = "git+https://github.com/terminal-discord/parking_lot?rev=046a171#046a17142065ea47e2ae8073ba1fd55a4ce9efdd"
-dependencies = [
- "autocfg 0.1.7",
- "lock_api 0.3.1",
- "parking_lot_core 0.6.2 (git+https://github.com/terminal-discord/parking_lot?rev=046a171)",
-]
-
-[[package]]
-name = "parking_lot"
-version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f842b1982eb6c2fe34036a4fbfb06dd185a3f5c8edfaacdf7d1ea10b07de6252"
 dependencies = [
@@ -997,17 +987,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "parking_lot_core"
-version = "0.6.2"
+name = "parking_lot"
+version = "0.9.0"
 source = "git+https://github.com/terminal-discord/parking_lot?rev=046a171#046a17142065ea47e2ae8073ba1fd55a4ce9efdd"
 dependencies = [
  "autocfg 0.1.7",
- "cfg-if 0.1.10",
- "cloudabi",
- "libc",
- "redox_syscall",
- "smallvec 1.5.0",
- "winapi 0.3.9",
+ "lock_api 0.3.1",
+ "parking_lot_core 0.6.2 (git+https://github.com/terminal-discord/parking_lot?rev=046a171)",
 ]
 
 [[package]]
@@ -1022,6 +1008,20 @@ dependencies = [
  "redox_syscall",
  "rustc_version",
  "smallvec 0.6.13",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.6.2"
+source = "git+https://github.com/terminal-discord/parking_lot?rev=046a171#046a17142065ea47e2ae8073ba1fd55a4ce9efdd"
+dependencies = [
+ "autocfg 0.1.7",
+ "cfg-if 0.1.10",
+ "cloudabi",
+ "libc",
+ "redox_syscall",
+ "smallvec 1.5.0",
  "winapi 0.3.9",
 ]
 
@@ -1488,7 +1488,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.7.0"
-source = "git+https://github.com/terminal-discord/serenity?rev=100fed8e#100fed8e79646d94402e8f5a86a6904ff329a612"
+source = "git+https://github.com/terminal-discord/serenity?rev=1cc746dd#1cc746dd1ec0f234f7a04a8183b9f1b42cc9e42f"
 dependencies = [
  "base64 0.10.1",
  "bitflags",

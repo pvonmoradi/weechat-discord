@@ -2,7 +2,7 @@ use crate::utils::BufferExt;
 use serenity::{
     cache::CacheRwLock,
     model::{
-        channel::Message,
+        channel::{Message, MessageType},
         id::{MessageId, UserId},
     },
 };
@@ -55,8 +55,12 @@ impl MessageManager {
 
     /// Add a message to the end of a buffer (chronologically)
     pub fn add_message(&self, cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<UserId> {
-        let unknown_users = self.print_msg(cache, msg, notify);
-        self.messages.borrow_mut().push(msg.clone());
+        let mut msg = msg.clone();
+        if msg.referenced_message.is_some() && msg.message_reference.is_some() {
+            msg.kind = MessageType::InlineReply;
+        }
+        let unknown_users = self.print_msg(cache, &msg, notify);
+        self.messages.borrow_mut().push(msg);
         unknown_users
     }
 
@@ -288,47 +292,68 @@ mod formatting_utils {
         }
 
         use serenity::model::channel::MessageType::*;
-        if let Regular = msg.kind {
-            (
+        match msg.kind {
+            Regular => (
                 prefix,
                 formatting::discord_to_weechat(weechat, &msg_content),
                 unknown_users,
-            )
-        } else {
-            let (prefix, body) = match msg.kind {
-                GroupRecipientAddition | MemberJoin => {
-                    ("join", format!("{} joined the group.", author))
+            ),
+            InlineReply => match msg.referenced_message.as_ref() {
+                Some(ref_msg) => {
+                    let (ref_prefix, ref_msg_content, mut ref_unknown_users) =
+                        render_msg(cache, weechat, &ref_msg, guild);
+                    ref_unknown_users.extend(unknown_users);
+                    ref_unknown_users.sort();
+                    ref_unknown_users.dedup();
+                    let ref_msg_content = fold_lines(ref_msg_content.lines(), "▎");
+                    (
+                        prefix,
+                        format!("{}:\n{}{}", ref_prefix, ref_msg_content, msg_content),
+                        ref_unknown_users,
+                    )
                 },
-                GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
-                GroupNameUpdate => (
-                    "network",
-                    format!("{} changed the channel name: {}.", author, msg.content),
+                None => (
+                    prefix,
+                    format!("<nested reply>\n{}", msg_content),
+                    unknown_users,
                 ),
-                GroupCallCreation => ("network", format!("{} started a call.", author)),
-                GroupIconUpdate => ("network", format!("{} changed the channel icon.", author)),
-                PinsAdd => (
-                    "network",
-                    format!("{} pinned a message to this channel", author),
-                ),
-                NitroBoost => (
-                    "network",
-                    format!("{} boosted this channel with nitro", author),
-                ),
-                NitroTier1 => (
-                    "network",
-                    "This channel has achieved nitro level 1".to_string(),
-                ),
-                NitroTier2 => (
-                    "network",
-                    "This channel has achieved nitro level 2".to_string(),
-                ),
-                NitroTier3 => (
-                    "network",
-                    "This channel has achieved nitro level 3".to_string(),
-                ),
-                Regular | __Nonexhaustive => unreachable!(),
-            };
-            (weechat.get_prefix(prefix).into_owned(), body, unknown_users)
+            },
+            _ => {
+                let (prefix, body) = match msg.kind {
+                    GroupRecipientAddition | MemberJoin => {
+                        ("join", format!("{} joined the group.", author))
+                    },
+                    GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
+                    GroupNameUpdate => (
+                        "network",
+                        format!("{} changed the channel name: {}.", author, msg.content),
+                    ),
+                    GroupCallCreation => ("network", format!("{} started a call.", author)),
+                    GroupIconUpdate => ("network", format!("{} changed the channel icon.", author)),
+                    PinsAdd => (
+                        "network",
+                        format!("{} pinned a message to this channel", author),
+                    ),
+                    NitroBoost => (
+                        "network",
+                        format!("{} boosted this channel with nitro", author),
+                    ),
+                    NitroTier1 => (
+                        "network",
+                        "This channel has achieved nitro level 1".to_string(),
+                    ),
+                    NitroTier2 => (
+                        "network",
+                        "This channel has achieved nitro level 2".to_string(),
+                    ),
+                    NitroTier3 => (
+                        "network",
+                        "This channel has achieved nitro level 3".to_string(),
+                    ),
+                    Regular | InlineReply | __Nonexhaustive => unreachable!(),
+                };
+                (weechat.get_prefix(prefix).into_owned(), body, unknown_users)
+            },
         }
     }
 
@@ -435,5 +460,9 @@ mod formatting_utils {
             }
         }
         unknown_users
+    }
+
+    pub fn fold_lines<'a>(lines: impl Iterator<Item = &'a str>, sep: &'a str) -> String {
+        lines.fold(String::new(), |acc, x| format!("{}{}{}\n", acc, sep, x))
     }
 }

@@ -528,7 +528,6 @@ fn render_msg(
     let msg_content = msg_content.build();
     match msg.kind {
         Regular => (prefix, msg_content),
-        Reply if msg.referenced_message.is_none() => (prefix, msg_content),
         Reply => match msg.referenced_message.as_ref() {
             Some(ref_msg) => {
                 let mut ref_msg = ref_msg.clone();
@@ -551,8 +550,7 @@ fn render_msg(
                     ),
                 )
             },
-            // TODO: Currently never called due to the first Reply block above
-            //       Nested replies contain only ids, so cache lookup is needed
+            // TODO: Nested replies contain only ids, so cache lookup is needed
             None => (prefix, format!("<nested reply>\n{}", msg_content)),
         },
         _ => format_event_message(msg, &author.build()),

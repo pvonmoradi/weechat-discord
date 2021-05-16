@@ -8,15 +8,18 @@ import json
 from functools import cache
 from datetime import datetime
 from collections import namedtuple
+from typing import Optional, Iterator, List
 
 ParsedToken = namedtuple("ParsedToken", ["raw", "userid", "created", "hmac"])
 DB_FILTER = ["chrome", "vivaldi", "discord"]
+_urlsafe_decode_translation = str.maketrans("-_", "+/")
+
 
 def round_down(num, divisor):
     return num - (num % divisor)
 
 
-def strings(filename, min=4):
+def strings(filename, min=4) -> Iterator[str]:
     with open(filename, errors="ignore") as f:
         result = ""
         for c in f.read():
@@ -30,8 +33,14 @@ def strings(filename, min=4):
             yield result
 
 
+
+def urlsafe_b64decode(s: str):
+    s = s.translate(_urlsafe_decode_translation)
+    return b64decode(s, validate=True)
+
+
 @cache
-def id2username(id):
+def id2username(id: str) -> str:
     try:
         resp = urllib.request.urlopen(
             "https://terminal-discord.vercel.app/api/lookup-user?id={}".format(id)
@@ -42,22 +51,24 @@ def id2username(id):
         return "Unkown"
 
 
-def parseIdPart(id_part):
-    return b64decode(id_part, validate=True).decode()
+def parseIdPart(id_part: str) -> str:
+    return urlsafe_b64decode(id_part).decode()
 
 
-def parseTimePart(time_part):
+def parseTimePart(time_part: str) -> datetime:
+    if len(time_part) < 6:
+        raise Exception("Time part too short")
     padded_time_part = time_part + "=" * (
         (round_down(len(time_part), 4) + 4) - len(time_part)
     )
-    # not sure if altchars is `_/`, `+_` or something else for the second non standard char
-    # the order does affect the result
-    decoded = b64decode(padded_time_part, altchars="_/", validate=True)
+    decoded = urlsafe_b64decode(padded_time_part)
     timestamp = sum((item * 256 ** idx for idx, item in enumerate(reversed(decoded))))
+    if timestamp < 1293840000:
+        timestamp += 1293840000
     return datetime.fromtimestamp(timestamp)
 
 
-def parseToken(token):
+def parseToken(token: str) -> ParsedToken:
     parts = token.split(".")
     return ParsedToken(
         raw=token,
@@ -67,7 +78,7 @@ def parseToken(token):
     )
 
 
-def run_command(cmd):
+def run_command(cmd: str) -> List[str]:
     output = subprocess.Popen(
         [cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
     )
@@ -98,7 +109,11 @@ def main():
 
     # Only search for tokens in local starage directories belonging known Chromium browsers or discord
     discord_databases = list(
-        filter(lambda x: any([db in x.lower() for db in DB_FILTER]) and "Local Storage" in x, results)
+        filter(
+            lambda x: any([db in x.lower() for db in DB_FILTER])
+            and "Local Storage" in x,
+            results,
+        )
     )
 
     # Then collect strings that look like discord tokens.

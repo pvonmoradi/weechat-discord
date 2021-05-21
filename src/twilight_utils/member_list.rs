@@ -53,18 +53,19 @@ pub struct MemberList {
 /// Single item form of Invalidate
 /// # Invalidate
 /// Remove a range of items.
-
 impl MemberList {
     pub fn apply_update(&mut self, update: MemberListUpdate) {
         let this_list = self.raw_lists.entry(update.id).or_default();
+        let _span =
+            tracing::info_span!("member list update", guild.id = ?update.guild_id).entered();
         for op in update.ops {
             match op {
                 MemberListUpdateOp::Sync { range, items } => {
                     tracing::trace!(
-                        "sync: range: {:?}, items.len(): {} id: {:?}",
-                        range,
-                        items.len(),
-                        update.id
+                        ?range,
+                        items.len = items.len(),
+                        ?update.id,
+                        "SYNC",
                     );
                     let offset = range[0] as usize;
                     for (i, item) in items.into_iter().enumerate() {
@@ -75,7 +76,19 @@ impl MemberList {
                     }
                 },
                 MemberListUpdateOp::Update { index, item } => {
-                    tracing::trace!("update: index: {}", index,);
+                    match &item {
+                        MemberListItem::Group(group) => {
+                            tracing::trace!(index, ?group.id, "UPDATE group");
+                        },
+                        MemberListItem::Member(member) => {
+                            tracing::trace!(
+                                index,
+                                member.id=?member.user.id,
+                                member.username=?member.user.username,
+                                "UPDATE member"
+                            );
+                        },
+                    }
                     this_list[index as usize] = item;
                 },
                 MemberListUpdateOp::Delete { index } => {
@@ -83,18 +96,30 @@ impl MemberList {
                     //       since the gateway sends a group delete followed by a insert in order
                     //       to move it's position, we can't trivially tell if it's being moved,
                     //       or actually deleted
-                    tracing::trace!("delete: index: {}", index);
+                    tracing::trace!(index, "DELETE");
                     this_list.remove(index as usize);
                 },
                 MemberListUpdateOp::Insert { index, item } => {
-                    tracing::trace!("insert: index: {}", index);
+                    match &item {
+                        MemberListItem::Group(group) => {
+                            tracing::trace!(index, ?group.id, "INSERT group");
+                        },
+                        MemberListItem::Member(member) => {
+                            tracing::trace!(
+                                index,
+                                member.id=?member.user.id,
+                                member.username=?member.user.username,
+                                "INSERT member"
+                            );
+                        },
+                    }
                     this_list.insert(index as usize, item);
                 },
                 MemberListUpdateOp::Invalidate { range } => {
-                    tracing::trace!("invalidate: range: {:?}", range);
-                    this_list.drain((range[0] as usize)..(range[0] as usize));
+                    tracing::trace!(?range, "INVALIDATE");
+                    this_list.drain((range[0] as usize)..=(range[0] as usize));
                 },
-                MemberListUpdateOp::Unknown => unimplemented!(),
+                MemberListUpdateOp::Unknown => unreachable!(),
             }
         }
     }

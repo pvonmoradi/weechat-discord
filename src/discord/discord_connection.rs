@@ -9,7 +9,7 @@ use crate::{
 use anyhow::Result;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, error::Error, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{
     runtime::Runtime,
     sync::{
@@ -19,8 +19,8 @@ use tokio::{
     },
 };
 use twilight_cache_inmemory::InMemoryCache as Cache;
-use twilight_gateway::{Event as GatewayEvent, Intents, Shard};
-use twilight_http::Client as HttpClient;
+use twilight_gateway::{shard::ShardStartErrorType, Event as GatewayEvent, Intents, Shard};
+use twilight_http::{error::ErrorType as HttpErrorType, Client as HttpClient};
 use twilight_model::{
     channel::PrivateChannel,
     id::{ChannelId, GuildId},
@@ -62,21 +62,25 @@ impl DiscordConnection {
                         Weechat::print(&err_msg);
                     });
 
+                    tracing::error!("An error occurred connecting to Discord: {:#?}", e);
+
                     // Check if the error is a 401 Unauthorized, which is likely an invalid token
-                    if let Some(twilight_http::error::Error::Response { status, .. }) = e
-                        .source()
-                        .and_then(|e| e.downcast_ref::<twilight_http::error::Error>())
-                    {
-                        if status.as_u16() == 401 {
-                            Weechat::spawn_from_thread(async move {
-                                Weechat::print(
-                                    "discord: unauthorized: check that your token is valid",
-                                );
-                            });
+                    if let ShardStartErrorType::RetrievingGatewayUrl = e.kind() {
+                        if let Some(e) = e
+                            .into_source()
+                            .and_then(|s| s.downcast::<twilight_http::error::Error>().ok())
+                        {
+                            if let HttpErrorType::Response { status, .. } = e.kind() {
+                                if status.as_u16() == 401 {
+                                    Weechat::spawn_from_thread(async move {
+                                        Weechat::print(
+                                            "discord: unauthorized: check that your token is valid",
+                                        );
+                                    });
+                                }
+                            }
                         }
                     }
-
-                    tracing::error!("An error occurred connecting to Discord: {:#?}", e);
                     return;
                 };
 

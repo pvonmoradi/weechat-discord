@@ -2,7 +2,6 @@ use twilight_cache_inmemory::InMemoryCache as Cache;
 use twilight_model::{
     channel::{message::Mention, Message},
     gateway::payload::MessageUpdate,
-    user::UserFlags,
 };
 
 pub trait MessageExt {
@@ -34,7 +33,7 @@ impl MessageExt for Message {
                 // TODO: Should this be populated somehow?
                 member: None,
                 name: user.name.clone(),
-                public_flags: user.public_flags.unwrap_or_else(UserFlags::empty),
+                public_flags: user.public_flags,
             };
             self.mentions.push(mention);
         }

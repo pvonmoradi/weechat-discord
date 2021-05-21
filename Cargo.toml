@@ -127,3 +127,7 @@ branch = "trunk"
 
 [patch.crates-io]
 twilight-model = { git = "https://github.com/terminal-discord/twilight", branch = "next" }
+
+[patch.'https://github.com/twilight-rs/permission-calculator'.twilight-permission-calculator]
+git = "https://github.com/terminal-discord/permission-calculator"
+branch = "trunk"

@@ -670,12 +670,37 @@ fn format_author_prefix(
     (prefix, author)
 }
 
+fn format_join_message(msg: &DiscordMessage, author: &str) -> String {
+    // Based on discord.py
+    const FORMATS: [&str; 13] = [
+        "{0} joined the party.",
+        "{0} is here.",
+        "Welcome, {0}. We hope you brought pizza.",
+        "A wild {0} appeared.",
+        "{0} just landed.",
+        "{0} just slid into the server.",
+        "{0} just showed up!",
+        "Welcome {0}. Say hi!",
+        "{0} hopped into the server.",
+        "Everyone welcome {0}!",
+        "Glad you're here, {0}.",
+        "Good to see you, {0}.",
+        "Yay you made it, {0}!",
+    ];
+
+    let created_at_ms = chrono::DateTime::parse_from_rfc3339(&msg.timestamp)
+        .expect("Discord returned an invalid datetime")
+        .timestamp_millis() as u64;
+
+    FORMATS[(created_at_ms % FORMATS.len() as u64) as usize].replace("{0}", author)
+}
+
 fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) {
     use twilight_model::channel::message::MessageType::*;
     let (prefix, body) = match msg.kind {
         RecipientAdd | GuildMemberJoin => (
             weechat::Prefix::Join,
-            format!("{} joined the group.", bold(&author)),
+            format_join_message(msg, &bold(&author)),
         ),
         RecipientRemove => (
             weechat::Prefix::Quit,

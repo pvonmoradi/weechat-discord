@@ -1,16 +1,16 @@
 use crate::twilight_utils::color::Color;
 use std::sync::Arc;
-use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache};
 use twilight_model::guild::{Member, Role};
 
 pub trait MemberExt {
-    fn color(&self, cache: &Cache) -> Option<Color>;
+    fn color(&self, cache: &InMemoryCache) -> Option<Color>;
     fn display_name(&self) -> &str;
-    fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>>;
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>>;
 }
 
 impl MemberExt for Member {
-    fn color(&self, cache: &Cache) -> Option<Color> {
+    fn color(&self, cache: &InMemoryCache) -> Option<Color> {
         let mut roles = Vec::new();
         for role in &self.roles {
             if let Some(role) = cache.role(*role) {
@@ -37,7 +37,7 @@ impl MemberExt for Member {
         self.nick.as_ref().unwrap_or(&self.user.name)
     }
 
-    fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>> {
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>> {
         let mut highest: Option<(Arc<Role>, i64)> = None;
 
         for role_id in &self.roles {
@@ -62,7 +62,7 @@ impl MemberExt for Member {
 }
 
 impl MemberExt for CachedMember {
-    fn color(&self, cache: &Cache) -> Option<Color> {
+    fn color(&self, cache: &InMemoryCache) -> Option<Color> {
         let mut roles = Vec::new();
         for role in &self.roles {
             if let Some(role) = cache.role(*role) {
@@ -89,7 +89,7 @@ impl MemberExt for CachedMember {
         self.nick.as_ref().unwrap_or(&self.user.name)
     }
 
-    fn highest_role_info(&self, cache: &Cache) -> Option<Arc<Role>> {
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>> {
         let mut highest: Option<(Arc<Role>, i64)> = None;
 
         for role_id in &self.roles {

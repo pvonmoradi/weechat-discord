@@ -14,7 +14,7 @@ use crate::{
 use parsing::{Emoji, LineEdit};
 use rand::{thread_rng, Rng};
 use std::{borrow::Cow, rc::Rc};
-use twilight_cache_inmemory::{model::CachedGuild as TwilightGuild, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedGuild as TwilightGuild, InMemoryCache};
 use twilight_http::request::channel::reaction::RequestReactionType;
 use twilight_model::{
     channel::{
@@ -174,7 +174,7 @@ impl ChannelBuffer {
         })
     }
 
-    fn nick(cache: &Cache) -> String {
+    fn nick(cache: &InMemoryCache) -> String {
         format!(
             "@{}",
             cache
@@ -220,7 +220,7 @@ impl ChannelBuffer {
         self.renderer.add_msg(msg);
     }
 
-    pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
+    pub fn add_reaction(&self, cache: &InMemoryCache, reaction: &Reaction) {
         self.renderer.update_message(reaction.message_id, |msg| {
             // Copied from twilight
             if let Some(msg_reaction) = msg.reactions.iter_mut().find(|r| r.emoji == reaction.emoji)
@@ -512,7 +512,7 @@ impl Channel {
         self.inner.borrow().buffer.add_msg(msg);
     }
 
-    pub fn add_reaction(&self, cache: &Cache, reaction: &Reaction) {
+    pub fn add_reaction(&self, cache: &InMemoryCache, reaction: &Reaction) {
         self.inner.borrow().buffer.add_reaction(cache, reaction);
     }
 
@@ -760,7 +760,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
     };
 }
 
-fn has_manage_message_perm(channel: &Channel, cache: &Cache) -> Option<bool> {
+fn has_manage_message_perm(channel: &Channel, cache: &InMemoryCache) -> Option<bool> {
     match_map!(
         cache.dynamic_channel(channel.id),
         Some(DynamicChannel::Guild(channel)) => channel,

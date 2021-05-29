@@ -17,7 +17,7 @@ use std::{
     collections::{HashSet, VecDeque},
     rc::Rc,
 };
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::{
     channel::{Message as DiscordMessage, ReactionType},
     gateway::payload::{MessageUpdate, RequestGuildMembers},
@@ -492,7 +492,7 @@ impl WeecordRenderer {
 }
 
 fn render_msg(
-    cache: &Cache,
+    cache: &InMemoryCache,
     config: &Config,
     msg: &DiscordMessage,
     include_at: bool,
@@ -638,7 +638,7 @@ fn format_reactions(msg: &DiscordMessage) -> StyledString {
 }
 
 fn format_author_prefix(
-    cache: &Cache,
+    cache: &InMemoryCache,
     config: &Config,
     msg: &DiscordMessage,
     include_at: bool,

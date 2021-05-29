@@ -18,7 +18,7 @@ use tokio::{
         Mutex as TokioMutex,
     },
 };
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::{shard::ShardStartErrorType, Event as GatewayEvent, Intents, Shard};
 use twilight_http::{error::ErrorType as HttpErrorType, Client as HttpClient};
 use twilight_model::{
@@ -31,7 +31,7 @@ use weechat::Weechat;
 pub struct ConnectionInner {
     pub shard: Shard,
     pub rt: Arc<Runtime>,
-    pub cache: Cache,
+    pub cache: InMemoryCache,
     pub http: HttpClient,
 }
 
@@ -119,7 +119,7 @@ impl DiscordConnection {
                     }
                 });
 
-                let cache = Cache::new();
+                let cache = InMemoryCache::new();
 
                 tracing::info!("Connected to Discord, waiting for Ready...");
                 Weechat::spawn_from_thread(async {

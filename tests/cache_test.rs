@@ -1,4 +1,4 @@
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::{
     channel::{Channel, ChannelType, GuildChannel, TextChannel},
     gateway::payload::{ChannelCreate, GuildCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
@@ -12,7 +12,7 @@ use twilight_model::{
 
 #[tokio::test]
 async fn guild_emojis_updates() {
-    let cache = Cache::new();
+    let cache = InMemoryCache::new();
     let guild_id = GuildId(1);
     cache.update(&GuildCreate(fake_guild(guild_id)));
 
@@ -34,7 +34,7 @@ async fn guild_emojis_updates() {
 
 #[tokio::test]
 async fn guild_roles_updates() {
-    let cache = Cache::new();
+    let cache = InMemoryCache::new();
     let guild_id = GuildId(1);
     cache.update(&GuildCreate(fake_guild(guild_id)));
 
@@ -57,7 +57,7 @@ async fn guild_roles_updates() {
 
 #[tokio::test]
 async fn guild_members_updates() {
-    let cache = Cache::new();
+    let cache = InMemoryCache::new();
     let guild_id = GuildId(1);
     cache.update(&GuildCreate(fake_guild(guild_id)));
 
@@ -95,7 +95,7 @@ async fn guild_members_updates() {
 
 #[tokio::test]
 async fn guild_channels_updates() {
-    let cache = Cache::new();
+    let cache = InMemoryCache::new();
     let guild_id = GuildId(1);
     cache.update(&GuildCreate(fake_guild(guild_id)));
 

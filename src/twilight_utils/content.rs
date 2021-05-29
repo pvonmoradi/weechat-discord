@@ -1,10 +1,10 @@
 use crate::twilight_utils::Mentionable;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::id::GuildId;
 
-pub fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub fn create_mentions(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &str) -> String {
     let mut out = create_channels(cache, guild_id, input);
     out = create_users(cache, guild_id, &out);
     out = create_roles(cache, guild_id, &out);
@@ -13,7 +13,7 @@ pub fn create_mentions(cache: &Cache, guild_id: Option<GuildId>, input: &str) ->
     out
 }
 
-pub fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub fn create_channels(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &str) -> String {
     static CHANNEL_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"#([a-z_\-\d]+)").unwrap());
 
     let mut out = String::from(input);
@@ -47,7 +47,7 @@ pub fn create_channels(cache: &Cache, guild_id: Option<GuildId>, input: &str) ->
     out
 }
 
-pub fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub fn create_users(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &str) -> String {
     static USER_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap());
 
     let mut out = String::from(input);
@@ -85,7 +85,7 @@ pub fn create_users(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
     out
 }
 
-pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub fn create_roles(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &str) -> String {
     static ROLE_MENTION: Lazy<Regex> = Lazy::new(|| Regex::new(r"@([^\s]{1,32})").unwrap());
 
     let mut out = String::from(input);
@@ -116,7 +116,7 @@ pub fn create_roles(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> St
     out
 }
 
-pub fn create_emojis(cache: &Cache, guild_id: Option<GuildId>, input: &str) -> String {
+pub fn create_emojis(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &str) -> String {
     static EMOJI_MENTIONS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\\?):(\w+):").unwrap());
 
     let mut out = String::from(input);

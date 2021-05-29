@@ -1,6 +1,6 @@
 use crate::twilight_utils::ext::ChannelExt;
 use std::sync::Arc;
-use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache, InMemoryCache};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache};
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwrite, ChannelType, GuildChannel},
     guild::Permissions,
@@ -10,15 +10,15 @@ use twilight_model::{
 pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
-    fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()>;
+    fn members(&self, cache: &InMemoryCache) -> Result<Vec<Arc<CachedMember>>, ()>;
     fn member_has_permission(
         &self,
-        cache: &Cache,
+        cache: &InMemoryCache,
         member: UserId,
         permissions: Permissions,
     ) -> Option<bool>;
-    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool>;
-    fn is_text_channel(&self, cache: &Cache) -> bool;
+    fn has_permission(&self, cache: &InMemoryCache, permissions: Permissions) -> Option<bool>;
+    fn is_text_channel(&self, cache: &InMemoryCache) -> bool;
     fn last_message_id(&self) -> Option<MessageId>;
 }
 
@@ -39,7 +39,7 @@ impl GuildChannelExt for GuildChannel {
         }
     }
 
-    fn members(&self, cache: &Cache) -> Result<Vec<Arc<CachedMember>>, ()> {
+    fn members(&self, cache: &InMemoryCache) -> Result<Vec<Arc<CachedMember>>, ()> {
         match self {
             GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => Err(()),
             GuildChannel::Text(channel) => {
@@ -68,7 +68,7 @@ impl GuildChannelExt for GuildChannel {
 
     fn member_has_permission(
         &self,
-        cache: &Cache,
+        cache: &InMemoryCache,
         member_id: UserId,
         permissions: Permissions,
     ) -> Option<bool> {
@@ -94,7 +94,7 @@ impl GuildChannelExt for GuildChannel {
         Some(false)
     }
 
-    fn has_permission(&self, cache: &Cache, permissions: Permissions) -> Option<bool> {
+    fn has_permission(&self, cache: &InMemoryCache, permissions: Permissions) -> Option<bool> {
         let current_user = cache.current_user()?;
 
         self.member_has_permission(cache, current_user.id, permissions)

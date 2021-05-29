@@ -1,6 +1,6 @@
 use crate::{twilight_utils::ext::GuildChannelExt, utils};
 use std::sync::Arc;
-use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache};
 use twilight_model::{channel::GuildChannel, id::GuildId};
 
 mod color;
@@ -16,7 +16,10 @@ pub use dynamic_channel::*;
 pub use member_list::*;
 pub use mention::*;
 
-pub fn search_cached_striped_guild_name(cache: &Cache, target: &str) -> Option<Arc<CachedGuild>> {
+pub fn search_cached_striped_guild_name(
+    cache: &InMemoryCache,
+    target: &str,
+) -> Option<Arc<CachedGuild>> {
     crate::twilight_utils::search_striped_guild_name(
         cache,
         cache.guild_ids().expect("guild_ids never fails"),
@@ -25,7 +28,7 @@ pub fn search_cached_striped_guild_name(cache: &Cache, target: &str) -> Option<A
 }
 
 pub fn search_striped_guild_name(
-    cache: &Cache,
+    cache: &InMemoryCache,
     guilds: impl IntoIterator<Item = GuildId>,
     target: &str,
 ) -> Option<Arc<CachedGuild>> {
@@ -42,7 +45,7 @@ pub fn search_striped_guild_name(
 }
 
 pub fn search_cached_stripped_guild_channel_name(
-    cache: &Cache,
+    cache: &InMemoryCache,
     guild_id: GuildId,
     target: &str,
 ) -> Option<Arc<GuildChannel>> {
@@ -64,7 +67,7 @@ pub fn search_cached_stripped_guild_channel_name(
     None
 }
 
-pub fn current_user_nick(guild: &CachedGuild, cache: &Cache) -> StyledString {
+pub fn current_user_nick(guild: &CachedGuild, cache: &InMemoryCache) -> StyledString {
     let current_user = cache
         .current_user()
         .expect("We have a connection, there must be a user");

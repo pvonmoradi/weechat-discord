@@ -5,11 +5,11 @@ use crate::{
 use itertools::{Itertools, Position};
 use parsing::MarkdownNode;
 use std::{rc::Rc, sync::RwLock};
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::id::{GuildId, UserId};
 
 struct FormattingState<'a> {
-    cache: &'a Cache,
+    cache: &'a InMemoryCache,
     guild_id: Option<GuildId>,
     show_unknown_ids: bool,
     unknown_members: &'a mut Vec<UserId>,
@@ -17,7 +17,7 @@ struct FormattingState<'a> {
 
 pub fn discord_to_weechat(
     msg: &str,
-    cache: &Cache,
+    cache: &InMemoryCache,
     guild_id: Option<GuildId>,
     show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
@@ -277,7 +277,7 @@ fn format_block_quote(lines: impl Iterator<Item = StyledString>) -> StyledString
 #[cfg(test)]
 mod tests {
     use super::discord_to_weechat;
-    use twilight_cache_inmemory::InMemoryCache as Cache;
+    use twilight_cache_inmemory::InMemoryCache;
     use twilight_model::{
         channel::{Channel, ChannelType, GuildChannel, TextChannel},
         gateway::payload::{ChannelCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
@@ -287,11 +287,11 @@ mod tests {
     };
 
     fn format(str: &str) -> String {
-        format_with_cache(str, &Cache::new(), None)
+        format_with_cache(str, &InMemoryCache::new(), None)
     }
 
-    fn format_with_cache(str: &str, cache: &Cache, guild_id: Option<GuildId>) -> String {
-        discord_to_weechat(str, cache, guild_id, false, &mut Vec::new()).build()
+    fn format_with_cache(str: &str, cache: &InMemoryCache, guild_id: Option<GuildId>) -> String {
+        discord_to_weechat(str, cache, guild_id, true, false, &mut Vec::new()).build()
     }
 
     #[test]
@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn roles() {
-        let cache = Cache::new();
+        let cache = InMemoryCache::new();
         let role = Role {
             color: 0,
             hoist: false,
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn channels() {
-        let cache = Cache::new();
+        let cache = InMemoryCache::new();
         let guild_id = Some(GuildId(0));
         let channel = GuildChannel::Text(TextChannel {
             guild_id,
@@ -380,7 +380,7 @@ mod tests {
     fn users() {
         let guild_id = GuildId(0);
 
-        let cache = Cache::new();
+        let cache = InMemoryCache::new();
         let member = Member {
             deaf: false,
             guild_id,
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn emojis() {
-        let cache = Cache::new();
+        let cache = InMemoryCache::new();
         let emojis = vec![
             Emoji {
                 animated: false,
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn evil_pony() {
-        let cache = Cache::new();
+        let cache = InMemoryCache::new();
         let mut emojis = Vec::new();
         for (i, n) in ["one", "two", "three", "four", "five", "six"]
             .iter()

@@ -1,17 +1,17 @@
-use twilight_cache_inmemory::InMemoryCache as Cache;
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::{
     channel::{message::Mention, Message},
     gateway::payload::MessageUpdate,
 };
 
 pub trait MessageExt {
-    fn is_own(&self, cache: &Cache) -> bool;
+    fn is_own(&self, cache: &InMemoryCache) -> bool;
 
     fn update(&mut self, update: MessageUpdate);
 }
 
 impl MessageExt for Message {
-    fn is_own(&self, cache: &Cache) -> bool {
+    fn is_own(&self, cache: &InMemoryCache) -> bool {
         let current_user = match cache.current_user() {
             Some(current_user) => current_user,
             None => return false,

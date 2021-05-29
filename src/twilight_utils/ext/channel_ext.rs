@@ -2,7 +2,7 @@ use crate::twilight_utils::{
     ext::{GuildChannelExt, UserExt},
     DynamicChannel,
 };
-use twilight_cache_inmemory::{InMemoryCache as Cache, InMemoryCache};
+use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::{
     channel::{ChannelType, Group, GuildChannel, PrivateChannel},
     gateway::payload::MemberListId,
@@ -14,7 +14,7 @@ pub trait ChannelExt {
     fn name(&self) -> String;
     fn id(&self) -> ChannelId;
     fn kind(&self) -> ChannelType;
-    fn can_send(&self, cache: &Cache) -> Option<bool>;
+    fn can_send(&self, cache: &InMemoryCache) -> Option<bool>;
     fn last_message_id(&self) -> Option<MessageId>;
     fn member_list_id(&self, cache: &InMemoryCache) -> MemberListId;
 }
@@ -87,7 +87,7 @@ impl ChannelExt for GuildChannel {
         }
     }
 
-    fn can_send(&self, cache: &Cache) -> Option<bool> {
+    fn can_send(&self, cache: &InMemoryCache) -> Option<bool> {
         self.has_permission(cache, Permissions::SEND_MESSAGES)
     }
 
@@ -128,7 +128,7 @@ impl ChannelExt for PrivateChannel {
         self.kind
     }
 
-    fn can_send(&self, _cache: &Cache) -> Option<bool> {
+    fn can_send(&self, _cache: &InMemoryCache) -> Option<bool> {
         Some(true)
     }
 

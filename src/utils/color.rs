@@ -3,7 +3,7 @@ use crate::{
     weechat2::{Style, StyledString},
     Weechat2,
 };
-use twilight_cache_inmemory::{model::CachedMember, InMemoryCache as Cache};
+use twilight_cache_inmemory::{model::CachedMember, InMemoryCache};
 
 pub fn colorize_string(text: &str, color: &str) -> StyledString {
     let mut builder = StyledString::new();
@@ -15,7 +15,11 @@ pub fn colorize_string(text: &str, color: &str) -> StyledString {
     builder
 }
 
-pub fn colorize_discord_member(cache: &Cache, member: &CachedMember, at: bool) -> StyledString {
+pub fn colorize_discord_member(
+    cache: &InMemoryCache,
+    member: &CachedMember,
+    at: bool,
+) -> StyledString {
     let color = member.color(cache);
     let nick = member
         .nick

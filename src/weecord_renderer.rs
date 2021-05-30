@@ -503,6 +503,7 @@ fn render_msg(
         &msg.content,
         cache,
         msg.guild_id,
+        config.show_formatting_chars(),
         config.show_unknown_user_ids(),
         unknown_members,
     );

@@ -33,6 +33,7 @@ impl Config {
     }
 }
 
+use crate::weechat2::{Style, StyledString};
 use std::borrow::Cow;
 #[cfg(feature = "images")]
 pub use term_image::block::Charset;
@@ -52,6 +53,7 @@ pub struct LookConfig {
     pub auto_open_tracing: bool,
     pub typing_list_style: i32,
     pub typing_list_max: i32,
+    pub show_formatting_chars: bool,
     pub show_unknown_user_ids: bool,
     pub message_fetch_count: i32,
     pub readonly_value: String,
@@ -63,6 +65,7 @@ impl Default for LookConfig {
     fn default() -> LookConfig {
         LookConfig {
             auto_open_tracing: false,
+            show_formatting_chars: true,
             show_unknown_user_ids: false,
             nick_prefix: "".to_owned(),
             nick_suffix: "".to_owned(),
@@ -323,6 +326,32 @@ impl Config {
             .expect("Unable to create typing list style option");
 
             let inner_clone = Weak::clone(&inner);
+            let description = StyledString::new()
+                .push_str("Should styled text render with the formatting characters? (i.e., \"")
+                .push_style(Style::Italic)
+                .push_str("_Hello_")
+                .pop_style(Style::Italic)
+                .push_str(" there\" instead of \"")
+                .push_style(Style::Italic)
+                .push_str("Hello")
+                .pop_style(Style::Italic)
+                .push_str(" there\"")
+                .build();
+
+            look.new_boolean_option(
+                BooleanOptionSettings::new("show_formatting_chars")
+                    .description(description)
+                    .default_value(true)
+                    .set_change_callback(move |_, option| {
+                        let inner = inner_clone
+                            .upgrade()
+                            .expect("Outer config has outlived inner config");
+                        inner.borrow_mut().look.show_formatting_chars = option.value();
+                    }),
+            )
+            .expect("Unable to create show formatting chars option");
+
+            let inner_clone = Weak::clone(&inner);
             look.new_boolean_option(
                 BooleanOptionSettings::new("show_unknown_user_ids")
                     .description(
@@ -474,6 +503,10 @@ impl Config {
 
     pub fn auto_open_tracing(&self) -> bool {
         self.inner.borrow().look.auto_open_tracing
+    }
+
+    pub fn show_formatting_chars(&self) -> bool {
+        self.inner.borrow().look.show_formatting_chars
     }
 
     pub fn show_unknown_user_ids(&self) -> bool {

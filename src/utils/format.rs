@@ -12,6 +12,7 @@ struct FormattingState<'a> {
     cache: &'a InMemoryCache,
     guild_id: Option<GuildId>,
     show_unknown_ids: bool,
+    show_formatting_chars: bool,
     unknown_members: &'a mut Vec<UserId>,
 }
 
@@ -19,6 +20,7 @@ pub fn discord_to_weechat(
     msg: &str,
     cache: &InMemoryCache,
     guild_id: Option<GuildId>,
+    show_formatting_chars: bool,
     show_unknown_ids: bool,
     unknown_members: &mut Vec<UserId>,
 ) -> StyledString {
@@ -26,6 +28,7 @@ pub fn discord_to_weechat(
         cache,
         guild_id,
         show_unknown_ids,
+        show_formatting_chars,
         unknown_members,
     };
     let ast = parsing::parse_markdown(msg);
@@ -46,43 +49,66 @@ fn collect_children(
         })
 }
 
+trait Magic {
+    fn if_do<'a, F: Fn(&'a mut Self) -> &mut Self>(
+        &'a mut self,
+        condition: bool,
+        f: F,
+    ) -> &'a mut Self;
+}
+
+impl Magic for StyledString {
+    fn if_do<'a, F: Fn(&'a mut Self) -> &mut Self>(
+        &'a mut self,
+        condition: bool,
+        f: F,
+    ) -> &'a mut Self {
+        if condition {
+            f(self)
+        } else {
+            self
+        }
+    }
+}
+
 // TODO: if the whole line is wrapped in *, render as CTCP ACTION rather than
 //       as fully italicized message.
 #[allow(clippy::too_many_lines)]
 fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) -> StyledString {
     use MarkdownNode::*;
+    let show_fmt = state.show_formatting_chars;
     let mut out = StyledString::new();
 
     match node {
         Bold(children) => {
             out.push_style(Style::Bold)
-                .push_str("**")
+                .if_do(show_fmt, |s| s.push_str("**"))
                 .absorb(collect_children(children, state))
-                .push_str("**")
+                .if_do(show_fmt, |s| s.push_str("**"))
                 .pop_style(Style::Bold);
             out
         },
         Italic(children) => {
             out.push_style(Style::Italic)
-                .push_str("_")
+                .if_do(show_fmt, |s| s.push_str("_"))
                 .absorb(collect_children(children, state))
-                .push_str("_")
+                .if_do(show_fmt, |s| s.push_str("_"))
                 .pop_style(Style::Italic);
             out
         },
         Underline(children) => {
             out.push_style(Style::Underline)
-                .push_str("__")
+                .if_do(show_fmt, |s| s.push_str("__"))
                 .absorb(collect_children(children, state))
-                .push_str("__")
+                .if_do(show_fmt, |s| s.push_str("__"))
                 .pop_style(Style::Underline);
             out
         },
         Strikethrough(children) => {
             out.push_style(Style::Color("red".into()))
-                .push_str("~~")
+                .if_do(show_fmt, |s| s.push_str("~~"))
                 .absorb(collect_children(children, state))
-                .push_str("~~")
+                .if_do(show_fmt, |s| s.push_str("~~"))
                 .pop_style(Style::Color("red".into()));
             out
         },
@@ -101,9 +127,9 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) 
         InlineCode(string) => {
             out.push_style(Style::color("8"))
                 .push_style(Style::Bold)
-                .push_str("`")
+                .if_do(show_fmt, |s| s.push_str("`"))
                 .push_str(&string)
-                .push_str("`")
+                .if_do(show_fmt, |s| s.push_str("`"))
                 .pop_style(Style::Bold)
                 .pop_style(Style::color("8"));
 
@@ -114,15 +140,14 @@ fn discord_to_weechat_reducer(node: &MarkdownNode, state: &mut FormattingState) 
             let text = syntax::format_code(text, language);
 
             out.push_style(Style::Reset)
-                .push_str("```")
-                .push_str(language)
+                .if_do(show_fmt, |s| s.push_str("```").push_str(language))
                 .push_str("\n")
                 .push_style(Style::color("8"))
                 .push_style(Style::Bold)
                 .push_str(&text)
                 .pop_style(Style::Bold)
                 .pop_style(Style::color("8"))
-                .push_str("\n```")
+                .if_do(show_fmt, |s| s.push_str("\n```"))
                 .pop_style(Style::Reset);
             out
         },

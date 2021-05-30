@@ -288,18 +288,6 @@ struct ChannelInner {
     closed: bool,
 }
 
-impl Drop for ChannelInner {
-    fn drop(&mut self) {
-        // This feels ugly, but without it, closing a buffer causes this struct to drop, which in turn
-        // causes a segfault (for some reason)
-        if self.closed {
-            return;
-        }
-
-        self.buffer.close();
-    }
-}
-
 impl ChannelInner {
     pub fn new(conn: ConnectionInner, buffer: ChannelBuffer) -> Self {
         Self {
@@ -310,9 +298,22 @@ impl ChannelInner {
     }
 }
 
+impl Drop for ChannelInner {
+    fn drop(&mut self) {
+        // This feels ugly, but without it, closing a buffer runs the close callback, which drops,
+        // this struct, which in turn causes a segfault, as the buffer has already been explicitly
+        // closed
+        if self.closed {
+            return;
+        }
+
+        self.buffer.close();
+    }
+}
+
 #[derive(Clone)]
 pub struct Channel {
-    pub(crate) id: ChannelId,
+    pub id: ChannelId,
     guild_id: Option<GuildId>,
     inner: Rc<RefCell<ChannelInner>>,
     config: Config,

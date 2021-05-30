@@ -68,21 +68,6 @@ pub struct GuildInner {
     closed: bool,
 }
 
-impl Drop for GuildInner {
-    fn drop(&mut self) {
-        // This feels ugly, but without it, closing a buffer causes this struct to drop, which in turn
-        // causes a segfault (for some reason)
-        if self.closed {
-            return;
-        }
-        if let Some(buffer) = self.buffer.as_ref() {
-            if let Ok(buffer) = buffer.0.upgrade() {
-                buffer.close();
-            }
-        }
-    }
-}
-
 impl GuildInner {
     pub fn new(conn: ConnectionInner) -> Self {
         Self {
@@ -94,9 +79,25 @@ impl GuildInner {
     }
 }
 
+impl Drop for GuildInner {
+    fn drop(&mut self) {
+        // This feels ugly, but without it, closing a buffer runs the close callback, which drops,
+        // this struct, which in turn causes a segfault, as the buffer has already been explicitly
+        // closed
+        if self.closed {
+            return;
+        }
+        if let Some(buffer) = self.buffer.as_ref() {
+            if let Ok(buffer) = buffer.0.upgrade() {
+                buffer.close();
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Guild {
-    pub(crate) id: GuildId,
+    pub id: GuildId,
     inner: Rc<RefCell<GuildInner>>,
     pub guild_config: GuildConfig,
     pub config: Config,

@@ -20,6 +20,8 @@ pub struct MessageRenderer<M: WeechatMessage<I, S> + Clone, I: Eq, S> {
     state: Rc<RefCell<S>>,
     max_buffer_messages: Rc<usize>,
     last_read_id: Rc<RefCell<Option<I>>>,
+    // the oldest timestamp currently rendered
+    oldest_rendered_timestamp: Rc<RefCell<Option<i64>>>,
 }
 
 impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> Clone for MessageRenderer<M, I, S> {
@@ -30,6 +32,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> Clone for MessageRenderer<M, I, 
             state: Rc::clone(&self.state),
             max_buffer_messages: Rc::clone(&self.max_buffer_messages),
             last_read_id: Rc::clone(&self.last_read_id),
+            oldest_rendered_timestamp: Rc::clone(&self.oldest_rendered_timestamp),
         }
     }
 }
@@ -42,6 +45,7 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
             max_buffer_messages: Rc::new(max_buffer_messages),
             messages: Rc::new(RefCell::new(VecDeque::new())),
             last_read_id: Rc::new(RefCell::new(None)),
+            oldest_rendered_timestamp: Rc::new(RefCell::new(None)),
         }
     }
 
@@ -115,11 +119,32 @@ impl<M: WeechatMessage<I, S> + Clone, I: Eq, S> MessageRenderer<M, I, S> {
         messages: impl Iterator<Item = &'a M>,
         last_read_id: &Option<I>,
     ) {
+        // TODO: Can the oldest message check be optimized to avoid copying?
+        let messages = messages.collect::<Vec<_>>();
+        let oldest_timestamp_to_render = {
+            let mut state = self.state.borrow_mut();
+            messages.iter().map(|msg| msg.timestamp(&mut state)).min()
+        };
+
+        let buffer = self.buffer_handle.upgrade().unwrap();
+
+        // If there is no oldest rendered timestamp, then no messages have been rendered,
+        // and we don't need to clear
+        if let Some(&oldest_rendered_timestamp) = self.oldest_rendered_timestamp.borrow().as_ref() {
+            if let Some(oldest_timestamp_to_render) = oldest_timestamp_to_render {
+                // if the oldest message to render is older than our current oldest rendered timestamp,
+                // then we need to prepend the new message, which requires we clear the buffer first
+                if oldest_timestamp_to_render < oldest_rendered_timestamp {
+                    buffer.clear();
+                }
+            }
+        }
+        *self.oldest_rendered_timestamp.borrow_mut() = oldest_timestamp_to_render;
+
         // Holding a buffer ref should be fine even though the message type may access it as it
         // cannot be accessed mutably, which would panic.
         // It is however important not to hold onto the mutable state reference, as it is very likely
         // the message type will access the state while rendering
-        let buffer = self.buffer_handle.upgrade().unwrap();
         buffer.disable_print_hooks();
         for msg in messages {
             self.print_msg(msg, false);

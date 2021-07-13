@@ -8,15 +8,19 @@ import json
 from functools import cache
 from datetime import datetime
 from collections import namedtuple
+from typing import Optional, Iterator, List
+import re
 
 ParsedToken = namedtuple("ParsedToken", ["raw", "userid", "created", "hmac"])
+DB_FILTER = ["chrome", "vivaldi", "discord"]
+_urlsafe_decode_translation = str.maketrans("-_", "+/")
 
 
 def round_down(num, divisor):
     return num - (num % divisor)
 
 
-def strings(filename, min=4):
+def strings(filename, min=4) -> Iterator[str]:
     with open(filename, errors="ignore") as f:
         result = ""
         for c in f.read():
@@ -30,8 +34,14 @@ def strings(filename, min=4):
             yield result
 
 
+
+def urlsafe_b64decode(s: str):
+    s = s.translate(_urlsafe_decode_translation)
+    return b64decode(s, validate=True)
+
+
 @cache
-def id2username(id):
+def id2username(id: str) -> str:
     try:
         resp = urllib.request.urlopen(
             "https://terminal-discord.vercel.app/api/lookup-user?id={}".format(id)
@@ -39,25 +49,27 @@ def id2username(id):
         data = json.load(resp)
         return data.get("username") or "Unknown"
     except:
-        return "Unkown"
+        return "Unknown"
 
 
-def parseIdPart(id_part):
-    return b64decode(id_part, validate=True).decode()
+def parseIdPart(id_part: str) -> str:
+    return urlsafe_b64decode(id_part).decode()
 
 
-def parseTimePart(time_part):
+def parseTimePart(time_part: str) -> datetime:
+    if len(time_part) < 6:
+        raise Exception("Time part too short")
     padded_time_part = time_part + "=" * (
         (round_down(len(time_part), 4) + 4) - len(time_part)
     )
-    # not sure if altchars is `_/`, `+_` or something else for the second non standard char
-    # the order does affect the result
-    decoded = b64decode(padded_time_part, altchars="_/", validate=True)
+    decoded = urlsafe_b64decode(padded_time_part)
     timestamp = sum((item * 256 ** idx for idx, item in enumerate(reversed(decoded))))
+    if timestamp < 1293840000:
+        timestamp += 1293840000
     return datetime.fromtimestamp(timestamp)
 
 
-def parseToken(token):
+def parseToken(token: str) -> ParsedToken:
     parts = token.split(".")
     return ParsedToken(
         raw=token,
@@ -67,7 +79,7 @@ def parseToken(token):
     )
 
 
-def run_command(cmd):
+def run_command(cmd: str) -> List[str]:
     output = subprocess.Popen(
         [cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
     )
@@ -96,10 +108,13 @@ def main():
         print("No databases found.")
         sys.exit(1)
 
-    # Only search for tokens in ldb files likely belonging to a discord applications local storage
-    # (this prevents searching browsers, but browser localstorage returns lots of false positives).
+    # Only search for tokens in local starage directories belonging known Chromium browsers or discord
     discord_databases = list(
-        filter(lambda x: "discord" in x and "Local Storage" in x, results)
+        filter(
+            lambda x: any([db in x.lower() for db in DB_FILTER])
+            and "Local Storage" in x,
+            results,
+        )
     )
 
     # Then collect strings that look like discord tokens.
@@ -107,12 +122,15 @@ def main():
     for database in discord_databases:
         for candidates in map(lambda s: s.split(), strings(database, 40)):
             for candidate in candidates:
-                candidate = candidate[1:-1]
+                try:
+                    candidate = candidate.split('"')[-2]
+                except:
+                    pass
                 if len(candidate) < 15:
                     continue
                 if " " in candidate:
                     continue
-                parts = candidate.split(".")
+                parts = re.split(r"(?<=\w)\.(?=\w)", candidate)
                 if len(parts) != 3:
                     continue
                 if len(parts[1]) < 6:
@@ -126,8 +144,8 @@ def main():
         print("No Discord tokens found")
         return
 
-    print("Possible Discord tokens found:\n")
-    token_candidates = sorted(token_candidates, key=lambda t: t.created)
+    print("Possible Discord tokens found (sorted newest to oldest):\n")
+    token_candidates = sorted(token_candidates, key=lambda t: t.created, reverse=True)
     for token in token_candidates:
         if skip_username_lookup:
             print("{} created: {}".format(token.raw, token.created))

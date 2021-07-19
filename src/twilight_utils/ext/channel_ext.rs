@@ -22,7 +22,7 @@ pub trait ChannelExt {
 impl ChannelExt for DynamicChannel {
     fn name(&self) -> String {
         match self {
-            DynamicChannel::Guild(ch) => ChannelExt::name(&**ch),
+            DynamicChannel::Guild(ch) => ChannelExt::name(ch),
             DynamicChannel::Private(ch) => ch.name(),
             DynamicChannel::Group(ch) => ch.name(),
         }
@@ -54,7 +54,7 @@ impl ChannelExt for DynamicChannel {
 
     fn last_message_id(&self) -> Option<MessageId> {
         match self {
-            DynamicChannel::Guild(ch) => GuildChannelExt::last_message_id(ch.as_ref()),
+            DynamicChannel::Guild(ch) => GuildChannelExt::last_message_id(ch),
             DynamicChannel::Private(ch) => ch.last_message_id(),
             DynamicChannel::Group(ch) => ch.last_message_id(),
         }

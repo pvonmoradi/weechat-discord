@@ -1,5 +1,5 @@
 use crate::twilight_utils::ext::ChannelExt;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::{
     gateway::payload::{
@@ -10,12 +10,12 @@ use twilight_model::{
 };
 
 pub trait GroupIdExt {
-    fn role(&self, cache: &InMemoryCache) -> Option<Arc<Role>>;
+    fn role(&self, cache: &InMemoryCache) -> Option<Role>;
     fn name(&self, cache: &InMemoryCache) -> Option<String>;
 }
 
 impl GroupIdExt for GroupId {
-    fn role(&self, cache: &InMemoryCache) -> Option<Arc<Role>> {
+    fn role(&self, cache: &InMemoryCache) -> Option<Role> {
         match self {
             GroupId::Online => None,
             GroupId::Offline => None,
@@ -27,7 +27,7 @@ impl GroupIdExt for GroupId {
         match self {
             GroupId::Online => Some("Online".into()),
             GroupId::Offline => Some("Offline".into()),
-            GroupId::RoleId(role_id) => cache.role(*role_id).map(|role| role.name.clone()),
+            GroupId::RoleId(role_id) => cache.role(*role_id).map(|role| role.name),
         }
     }
 }

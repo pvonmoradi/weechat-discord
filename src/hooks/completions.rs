@@ -35,7 +35,7 @@ impl Completions {
 
                 if let Some(connection) = connection_clone.borrow().as_ref() {
                     let cache = connection.cache.clone();
-                    let guilds = cache.guild_ids().expect("guild_ids never fails");
+                    let guilds = cache.guilds().expect("guilds never fails");
                     for guild_id in guilds {
                         if let Some(guild) = cache.guild(guild_id) {
                             completion.add(&utils::clean_name(&guild.name));
@@ -70,7 +70,7 @@ impl Completions {
 
                 match crate::twilight_utils::search_cached_striped_guild_name(&cache, &guild_name) {
                     Some(guild) => {
-                        if let Some(channels) = cache.channel_ids_in_guild(guild.id) {
+                        if let Some(channels) = cache.guild_channels(guild.id) {
                             for channel_id in channels {
                                 match cache.guild_channel(channel_id) {
                                     Some(channel) => {

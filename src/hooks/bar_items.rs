@@ -65,7 +65,7 @@ impl BarItems {
                     None => return "".into(),
                 };
 
-                match &*channel {
+                match channel {
                     GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => {
                         "".into()
                     },

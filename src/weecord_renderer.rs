@@ -529,6 +529,7 @@ fn render_msg(
     let msg_content = msg_content.build();
     match msg.kind {
         Regular => (prefix, msg_content),
+        ApplicationCommand => (prefix, msg_content),
         Reply => match msg.referenced_message.as_ref() {
             Some(ref_msg) => {
                 let mut ref_msg = ref_msg.clone();
@@ -766,7 +767,7 @@ fn format_event_message(msg: &DiscordMessage, author: &str) -> (String, String) 
             "This is the server discovery final grace period warning".to_owned(),
         ),
         GuildInviteReminder => (weechat::Prefix::Network, "Invite reminder".to_owned()),
-        Regular | Reply => unreachable!(),
+        ApplicationCommand | Regular | Reply => unreachable!(),
     };
     (Weechat::prefix(prefix), body)
 }

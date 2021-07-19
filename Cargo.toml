@@ -103,30 +103,30 @@ branch = "mk3"
 
 [dependencies.twilight-cache-inmemory]
 git = "https://github.com/terminal-discord/twilight"
-branch = "next"
+branch = "main"
 
 [dependencies.twilight-gateway]
 git = "https://github.com/terminal-discord/twilight"
-branch = "next"
+branch = "main"
 
 [dependencies.twilight-http]
 git = "https://github.com/terminal-discord/twilight"
-branch = "next"
+branch = "main"
 
 [dependencies.twilight-model]
 git = "https://github.com/terminal-discord/twilight"
-branch = "next"
+branch = "main"
 
 [dependencies.twilight-mention]
 git = "https://github.com/terminal-discord/twilight"
-branch = "next"
+branch = "main"
 
 [dependencies.twilight-permission-calculator]
 git = "https://github.com/twilight-rs/permission-calculator"
 branch = "trunk"
 
 [patch.crates-io]
-twilight-model = { git = "https://github.com/terminal-discord/twilight", branch = "next" }
+twilight-model = { git = "https://github.com/terminal-discord/twilight", branch = "main" }
 
 [patch.'https://github.com/twilight-rs/permission-calculator'.twilight-permission-calculator]
 git = "https://github.com/terminal-discord/permission-calculator"

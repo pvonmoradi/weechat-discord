@@ -1,5 +1,5 @@
 use crate::{
-    twilight_utils::ext::MemberExt,
+    twilight_utils::ext::CachedMemberExt,
     weechat2::{Style, StyledString},
     Weechat2,
 };
@@ -24,7 +24,7 @@ pub fn colorize_discord_member(
     let nick = member
         .nick
         .clone()
-        .unwrap_or_else(|| member.user.name.clone());
+        .unwrap_or_else(|| member.user(cache).expect("FIX ME").name);
 
     let nick_prefix = if at { "@" } else { "" };
     let nick = format!("{}{}", nick_prefix, nick);
@@ -32,7 +32,11 @@ pub fn colorize_discord_member(
     color
         .map(|color| colorize_string(&nick, &color.as_8bit().to_string()))
         .unwrap_or_else(|| {
-            StyledString::from(format!("{}{}", nick_prefix, member.user.name.clone()))
+            StyledString::from(format!(
+                "{}{}",
+                nick_prefix,
+                member.user(cache).expect("FIX ME").name
+            ))
         })
 }
 

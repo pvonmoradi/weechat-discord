@@ -55,7 +55,7 @@ impl DiscordConnection {
             let tx = tx.clone();
             let rt = runtime.clone();
             runtime.spawn(async move {
-                let mut shard = Shard::new(&token, Intents::all());
+                let (shard, mut events) = Shard::new(&token, Intents::all());
                 if let Err(e) = shard.start().await {
                     let err_msg = format!("An error occurred connecting to Discord: {}", e);
                     Weechat::spawn_from_thread(async move {
@@ -125,7 +125,6 @@ impl DiscordConnection {
                 Weechat::spawn_from_thread(async {
                     Weechat::print("discord: connected, waiting for ready...");
                 });
-                let mut events = shard.events();
 
                 let http = shard.config().http_client();
                 cache_tx
@@ -236,7 +235,7 @@ impl DiscordConnection {
                     tracing::info!("Ready as {}", user.tag());
 
                     if config.join_all() {
-                        for guild_id in conn.cache.guild_ids().expect("Cache always returns some") {
+                        for guild_id in conn.cache.guilds().expect("Cache always returns some") {
                             let guild = crate::buffer::guild::Guild::new(
                                 guild_id,
                                 conn.clone(),
@@ -430,7 +429,7 @@ impl DiscordConnection {
                     if let Some(name) = typing
                         .member
                         .map(|m| m.display_name().to_owned())
-                        .or_else(|| conn.cache.user(typing_user_id).map(|u| u.name.clone()))
+                        .or_else(|| conn.cache.user(typing_user_id).map(|u| u.name))
                     {
                         instance.borrow_typing_tracker_mut().add(TypingEntry {
                             channel_id: typing.channel_id,

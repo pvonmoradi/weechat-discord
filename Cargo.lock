@@ -1960,8 +1960,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-cache-inmemory"
-version = "0.4.1"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.2"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
  "bitflags",
  "dashmap",
@@ -1972,11 +1972,10 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway"
-version = "0.4.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.3"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
  "bitflags",
- "dashmap",
  "flate2",
  "futures-util",
  "once_cell",
@@ -1993,8 +1992,8 @@ dependencies = [
 
 [[package]]
 name = "twilight-gateway-queue"
-version = "0.4.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.0"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
  "tokio",
  "tracing",
@@ -2003,35 +2002,31 @@ dependencies = [
 
 [[package]]
 name = "twilight-http"
-version = "0.4.1"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.4"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
- "bytes",
- "futures-util",
  "hyper",
  "hyper-rustls",
  "percent-encoding",
  "rand 0.8.3",
  "serde",
  "serde_json",
- "serde_repr",
  "tokio",
- "tracing",
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-mention"
-version = "0.4.0"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.1"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
  "twilight-model",
 ]
 
 [[package]]
 name = "twilight-model"
-version = "0.4.1"
-source = "git+https://github.com/terminal-discord/twilight?branch=next#2f2c177e7cd4187b6be77094792f8e5babe36dd7"
+version = "0.5.3"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
  "bitflags",
  "murmur3",
@@ -2044,7 +2039,7 @@ dependencies = [
 [[package]]
 name = "twilight-permission-calculator"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/permission-calculator?branch=trunk#d065cb5aadafef34a8738da32413c23e0dd5284f"
+source = "git+https://github.com/terminal-discord/permission-calculator?branch=trunk#87487a771f36f7da282a549eb7621cb4dcf015ad"
 dependencies = [
  "tracing",
  "twilight-model",

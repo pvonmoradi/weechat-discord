@@ -1,4 +1,4 @@
-use crate::twilight_utils::Mentionable;
+use crate::twilight_utils::{ext::CachedMemberExt, Mentionable};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use twilight_cache_inmemory::InMemoryCache;
@@ -26,7 +26,7 @@ pub fn create_channels(cache: &InMemoryCache, guild_id: Option<GuildId>, input: 
             .as_str();
 
         if let Some(guild_id) = guild_id {
-            if let Some(channel_ids) = cache.channel_ids_in_guild(guild_id) {
+            if let Some(channel_ids) = cache.guild_channels(guild_id) {
                 for channel_id in channel_ids {
                     if let Some(channel) = cache.guild_channel(channel_id) {
                         if channel.name() == channel_name {
@@ -66,15 +66,15 @@ pub fn create_users(cache: &InMemoryCache, guild_id: Option<GuildId>, input: &st
                         if nick == user_name {
                             out = out.replace(
                                 user_match.get(0).expect("group zero must exist").as_str(),
-                                &member.user.id.mention(),
+                                &member.user_id.mention(),
                             );
                         }
                     }
 
-                    if member.user.name == user_name {
+                    if member.user(cache).expect("FIX ME").name == user_name {
                         out = out.replace(
                             user_match.get(0).expect("group zero must exist").as_str(),
-                            &member.user.id.mention(),
+                            &member.user_id.mention(),
                         );
                     }
                 }

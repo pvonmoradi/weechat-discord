@@ -1,6 +1,6 @@
 use crate::{
     discord::discord_connection::ConnectionInner,
-    twilight_utils::{ext::MemberExt, Color, GroupIdExt},
+    twilight_utils::{ext::CachedMemberExt, Color, GroupIdExt},
 };
 use std::rc::Rc;
 use twilight_model::{gateway::payload::MemberListItem, id::GuildId};
@@ -84,7 +84,8 @@ impl Nicklist {
                                     .filter(|&c| c.0 != 0)
                                     .map(|c| c.as_8bit().to_string());
 
-                                let mut settings = NickSettings::new(&guild_member.display_name());
+                                let display_name = guild_member.display_name(&self.conn.cache);
+                                let mut settings = NickSettings::new(&display_name);
                                 if let Some(ref color) = color {
                                     settings = settings.set_color(color);
                                 }

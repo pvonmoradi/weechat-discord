@@ -1,12 +1,22 @@
 use crate::twilight_utils::color::Color;
-use std::sync::Arc;
+use std::borrow::Cow;
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache};
-use twilight_model::guild::{Member, Role};
+use twilight_model::{
+    guild::{Member, Role},
+    user::User,
+};
 
 pub trait MemberExt {
     fn color(&self, cache: &InMemoryCache) -> Option<Color>;
     fn display_name(&self) -> &str;
-    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>>;
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Role>;
+}
+
+pub trait CachedMemberExt {
+    fn color(&self, cache: &InMemoryCache) -> Option<Color>;
+    fn display_name(&self, cache: &InMemoryCache) -> Cow<str>;
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Role>;
+    fn user(&self, cache: &InMemoryCache) -> Option<User>;
 }
 
 impl MemberExt for Member {
@@ -37,8 +47,8 @@ impl MemberExt for Member {
         self.nick.as_ref().unwrap_or(&self.user.name)
     }
 
-    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>> {
-        let mut highest: Option<(Arc<Role>, i64)> = None;
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Role> {
+        let mut highest: Option<(Role, i64)> = None;
 
         for role_id in &self.roles {
             if let Some(role) = cache.role(*role_id) {
@@ -61,7 +71,7 @@ impl MemberExt for Member {
     }
 }
 
-impl MemberExt for CachedMember {
+impl CachedMemberExt for CachedMember {
     fn color(&self, cache: &InMemoryCache) -> Option<Color> {
         let mut roles = Vec::new();
         for role in &self.roles {
@@ -85,12 +95,15 @@ impl MemberExt for CachedMember {
             .map(|role| Color::new(role.color))
     }
 
-    fn display_name(&self) -> &str {
-        self.nick.as_ref().unwrap_or(&self.user.name)
+    fn display_name(&self, cache: &InMemoryCache) -> Cow<str> {
+        self.nick
+            .as_ref()
+            .map(Cow::from)
+            .unwrap_or_else(|| Cow::from(self.user(cache).expect("FIX ME").name))
     }
 
-    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Arc<Role>> {
-        let mut highest: Option<(Arc<Role>, i64)> = None;
+    fn highest_role_info(&self, cache: &InMemoryCache) -> Option<Role> {
+        let mut highest: Option<(Role, i64)> = None;
 
         for role_id in &self.roles {
             if let Some(role) = cache.role(*role_id) {
@@ -110,5 +123,9 @@ impl MemberExt for CachedMember {
         }
 
         highest.map(|h| h.0)
+    }
+
+    fn user(&self, cache: &InMemoryCache) -> Option<User> {
+        cache.user(self.user_id)
     }
 }

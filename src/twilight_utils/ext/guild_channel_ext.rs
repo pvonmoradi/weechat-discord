@@ -1,5 +1,3 @@
-use crate::twilight_utils::ext::ChannelExt;
-use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedMember, InMemoryCache};
 use twilight_model::{
     channel::{permission_overwrite::PermissionOverwrite, ChannelType, GuildChannel},
@@ -10,7 +8,7 @@ use twilight_model::{
 pub trait GuildChannelExt {
     fn permission_overwrites(&self) -> &[PermissionOverwrite];
     fn topic(&self) -> Option<String>;
-    fn members(&self, cache: &InMemoryCache) -> Result<Vec<Arc<CachedMember>>, ()>;
+    fn members(&self, cache: &InMemoryCache) -> Result<Vec<CachedMember>, ()>;
     fn member_has_permission(
         &self,
         cache: &InMemoryCache,
@@ -39,27 +37,21 @@ impl GuildChannelExt for GuildChannel {
         }
     }
 
-    fn members(&self, cache: &InMemoryCache) -> Result<Vec<Arc<CachedMember>>, ()> {
+    fn members(&self, cache: &InMemoryCache) -> Result<Vec<CachedMember>, ()> {
         match self {
             GuildChannel::Category(_) | GuildChannel::Voice(_) | GuildChannel::Stage(_) => Err(()),
             GuildChannel::Text(channel) => {
                 let members = cache.members(channel.guild_id.ok_or(())?).ok_or(())?;
 
                 Ok(members
-                    .iter()
-                    .filter_map(|member| {
-                        if self
-                            .member_has_permission(
-                                cache,
-                                member.user.id,
-                                Permissions::READ_MESSAGE_HISTORY,
-                            )
-                            .unwrap_or(false)
-                        {
-                            Some(Arc::clone(member))
-                        } else {
-                            None
-                        }
+                    .into_iter()
+                    .filter(|member| {
+                        self.member_has_permission(
+                            cache,
+                            member.user_id,
+                            Permissions::READ_MESSAGE_HISTORY,
+                        )
+                        .unwrap_or(false)
                     })
                     .collect())
             },

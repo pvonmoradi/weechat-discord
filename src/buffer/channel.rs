@@ -179,7 +179,7 @@ impl ChannelBuffer {
             "@{}",
             cache
                 .current_user()
-                .map(|u| u.name.clone())
+                .map(|u| u.name)
                 .expect("No current user?")
         )
     }
@@ -399,7 +399,7 @@ impl Channel {
         let last_msg = self.inner.borrow().buffer.renderer.nth_oldest_message(0);
         let conn = self.inner.borrow().conn.clone();
 
-        let result: twilight_http::Result<_> = conn
+        let result: Result<_, twilight_http::error::Error> = conn
             .rt
             .spawn({
                 let id = self.id;
@@ -750,7 +750,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                     }
                 }
             });
-            let username = cache.current_user().unwrap().name.clone();
+            let username = cache.current_user().unwrap().name;
             channel
                 .inner
                 .borrow()

@@ -1,5 +1,4 @@
 use crate::{twilight_utils::ext::GuildChannelExt, utils};
-use std::sync::Arc;
 use twilight_cache_inmemory::{model::CachedGuild, InMemoryCache};
 use twilight_model::{channel::GuildChannel, id::GuildId};
 
@@ -19,10 +18,10 @@ pub use mention::*;
 pub fn search_cached_striped_guild_name(
     cache: &InMemoryCache,
     target: &str,
-) -> Option<Arc<CachedGuild>> {
+) -> Option<CachedGuild> {
     crate::twilight_utils::search_striped_guild_name(
         cache,
-        cache.guild_ids().expect("guild_ids never fails"),
+        cache.guilds().expect("guilds never fails"),
         target,
     )
 }
@@ -31,7 +30,7 @@ pub fn search_striped_guild_name(
     cache: &InMemoryCache,
     guilds: impl IntoIterator<Item = GuildId>,
     target: &str,
-) -> Option<Arc<CachedGuild>> {
+) -> Option<CachedGuild> {
     for guild_id in guilds {
         if let Some(guild) = cache.guild(guild_id) {
             if utils::clean_name(&guild.name) == utils::clean_name(target) {
@@ -48,10 +47,10 @@ pub fn search_cached_stripped_guild_channel_name(
     cache: &InMemoryCache,
     guild_id: GuildId,
     target: &str,
-) -> Option<Arc<GuildChannel>> {
+) -> Option<GuildChannel> {
     let channels = cache
-        .channel_ids_in_guild(guild_id)
-        .expect("guild_ids never fails");
+        .guild_channels(guild_id)
+        .expect("guild_channels never fails");
     for channel_id in channels {
         if let Some(channel) = cache.guild_channel(channel_id) {
             if !channel.is_text_channel(cache) {
@@ -74,10 +73,9 @@ pub fn current_user_nick(guild: &CachedGuild, cache: &InMemoryCache) -> StyledSt
 
     let member = cache.member(guild.id, current_user.id);
 
-    let nick = if let Some(member) = member {
-        crate::utils::color::colorize_discord_member(cache, member.as_ref(), false)
+    if let Some(member) = member {
+        crate::utils::color::colorize_discord_member(cache, &member, false)
     } else {
-        current_user.name.clone().into()
-    };
-    nick
+        current_user.name.into()
+    }
 }

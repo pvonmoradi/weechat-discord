@@ -5,7 +5,7 @@ use crate::{
     instance::Instance,
     twilight_utils::ext::UserExt,
 };
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 use twilight_cache_inmemory::model::CachedGuild;
 use twilight_model::channel::GuildChannel;
 use weechat::{
@@ -340,7 +340,7 @@ impl DiscordCommand {
     fn resolve_channel_and_guild(
         &self,
         matches: ParsedCommand,
-    ) -> Option<(Arc<CachedGuild>, Guild, Arc<GuildChannel>)> {
+    ) -> Option<(CachedGuild, Guild, GuildChannel)> {
         let guild_name = matches
             .arg("guild_name")
             .expect("guild name is enforced by verification")

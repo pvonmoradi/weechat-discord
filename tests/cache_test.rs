@@ -4,7 +4,7 @@ use twilight_model::{
     gateway::payload::{ChannelCreate, GuildCreate, GuildEmojisUpdate, MemberAdd, RoleCreate},
     guild::{
         DefaultMessageNotificationLevel, Emoji, ExplicitContentFilter, Guild, Member, MfaLevel,
-        Permissions, Role, SystemChannelFlags, VerificationLevel,
+        NSFWLevel, Permissions, Role, SystemChannelFlags, VerificationLevel,
     },
     id::{EmojiId, GuildId, RoleId, UserId},
     user::User,
@@ -99,7 +99,7 @@ async fn guild_channels_updates() {
     let guild_id = GuildId(1);
     cache.update(&GuildCreate(fake_guild(guild_id)));
 
-    assert!(cache.guild_channel_ids().unwrap().is_empty());
+    assert!(cache.guild_channels(GuildId(1)).unwrap().is_empty());
     let channel = GuildChannel::Text(TextChannel {
         guild_id: Some(guild_id),
         id: Default::default(),
@@ -116,7 +116,7 @@ async fn guild_channels_updates() {
     });
     cache.update(&ChannelCreate(Channel::Guild(channel)));
 
-    assert_eq!(cache.guild_channel_ids().unwrap().len(), 1);
+    assert_eq!(cache.guild_channels(GuildId(1)).unwrap().len(), 1);
 }
 
 fn fake_guild(guild_id: GuildId) -> Guild {
@@ -145,7 +145,7 @@ fn fake_guild(guild_id: GuildId) -> Guild {
         members: Default::default(),
         mfa_level: MfaLevel::None,
         name: "".to_string(),
-        nsfw: false,
+        nsfw_level: NSFWLevel::Default,
         owner_id: Default::default(),
         owner: None,
         permissions: None,
@@ -153,10 +153,10 @@ fn fake_guild(guild_id: GuildId) -> Guild {
         premium_subscription_count: None,
         premium_tier: Default::default(),
         presences: Default::default(),
-        region: "".to_string(),
         roles: Default::default(),
         rules_channel_id: None,
         splash: None,
+        stage_instances: vec![],
         system_channel_flags: SystemChannelFlags::from_bits(0).unwrap(),
         system_channel_id: None,
         unavailable: false,

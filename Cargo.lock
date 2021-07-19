@@ -2037,11 +2037,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "twilight-permission-calculator"
-version = "0.1.0"
-source = "git+https://github.com/terminal-discord/permission-calculator?branch=trunk#87487a771f36f7da282a549eb7621cb4dcf015ad"
+name = "twilight-util"
+version = "0.5.2"
+source = "git+https://github.com/terminal-discord/twilight?branch=main#67d20f5b3598679fa34855a0be77e2a4546dceb2"
 dependencies = [
- "tracing",
  "twilight-model",
 ]
 
@@ -2283,7 +2282,7 @@ dependencies = [
  "twilight-http",
  "twilight-mention",
  "twilight-model",
- "twilight-permission-calculator",
+ "twilight-util",
  "weechat",
  "weechat-command-parser",
  "weechat-sys",

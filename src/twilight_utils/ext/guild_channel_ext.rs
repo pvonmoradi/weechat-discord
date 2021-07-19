@@ -75,15 +75,21 @@ impl GuildChannelExt for GuildChannel {
             .map(|role| (role.id, role.permissions))
             .collect();
 
-        let calc = twilight_permission_calculator::Calculator::new(guild_id, member_id, &roles);
+        let everyone_role = cache.role(RoleId(guild_id.0)).map(|r| r.permissions)?;
+
+        let calc = twilight_util::permission_calculator::PermissionCalculator::new(
+            guild_id,
+            member_id,
+            everyone_role,
+            &roles,
+        );
         let perms = calc.in_channel(self.kind(), self.permission_overwrites());
 
-        if let Ok(perms) = perms {
-            if perms.contains(permissions) {
-                return Some(true);
-            }
+        if perms.contains(permissions) {
+            Some(true)
+        } else {
+            Some(false)
         }
-        Some(false)
     }
 
     fn has_permission(&self, cache: &InMemoryCache, permissions: Permissions) -> Option<bool> {

@@ -139,7 +139,9 @@ impl Signals {
                                 let http = conn.http.clone();
                                 conn.rt.spawn(async move {
                                     tracing::trace!(?channel_id, "Sending typing event");
-                                    if let Err(e) = http.create_typing_trigger(channel_id).await {
+                                    if let Err(e) =
+                                        http.create_typing_trigger(channel_id).exec().await
+                                    {
                                         tracing::error!("Sending typing start failed: {:#?}", e);
                                     };
                                 });

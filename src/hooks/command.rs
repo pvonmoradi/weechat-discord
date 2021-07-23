@@ -553,7 +553,7 @@ impl DiscordCommand {
         if let Some(channel_id) = channel_id {
             let http = conn.http.clone();
             conn.rt.spawn(async move {
-                let future = match http.create_message(channel_id).content(msg) {
+                let create_message = match http.create_message(channel_id).content(&msg) {
                     Ok(future) => future,
                     Err(e) => {
                         tracing::error!(
@@ -565,7 +565,7 @@ impl DiscordCommand {
                         return;
                     },
                 };
-                if let Err(e) = future.await {
+                if let Err(e) = create_message.exec().await {
                     tracing::error!(
                         channel.id = channel_id.0,
                         "an error occurred sending message in this channel: {}",

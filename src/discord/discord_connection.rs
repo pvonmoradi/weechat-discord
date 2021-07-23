@@ -71,7 +71,7 @@ impl DiscordConnection {
                             .and_then(|s| s.downcast::<twilight_http::error::Error>().ok())
                         {
                             if let HttpErrorType::Response { status, .. } = e.kind() {
-                                if status.as_u16() == 401 {
+                                if status.raw() == 401 {
                                     Weechat::spawn_from_thread(async move {
                                         Weechat::print(
                                             "discord: unauthorized: check that your token is valid",

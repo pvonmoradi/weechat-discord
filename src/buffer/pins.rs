@@ -132,14 +132,15 @@ impl Pins {
             PinsBuffer::new(&name, self.guild_id, self.channel_id, &conn, &self.config)?;
         self.inner.borrow_mut().buffer.replace(pins_buffer);
 
-        let pins = rt
+        let pins: anyhow::Result<_> = rt
             .spawn({
                 let channel_id = self.channel_id;
                 let http = conn.http.clone();
-                async move { http.pins(channel_id).await }
+                async move { Ok(http.pins(channel_id).exec().await?.models().await?) }
             })
             .await
-            .expect("Task is never aborted")?;
+            .expect("Task is never aborted");
+        let pins = pins?;
 
         self.inner
             .borrow()

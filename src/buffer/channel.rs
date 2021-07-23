@@ -399,7 +399,7 @@ impl Channel {
         let last_msg = self.inner.borrow().buffer.renderer.nth_oldest_message(0);
         let conn = self.inner.borrow().conn.clone();
 
-        let result: Result<_, twilight_http::error::Error> = conn
+        let result: anyhow::Result<_> = conn
             .rt
             .spawn({
                 let id = self.id;
@@ -414,9 +414,14 @@ impl Channel {
                     let mut messages = match last_msg {
                         Some(last_msg) => {
                             tracing::trace!("Getting history before id: {}", last_msg.id());
-                            message_fetcher.before(last_msg.id()).await?
+                            message_fetcher
+                                .before(last_msg.id())
+                                .exec()
+                                .await?
+                                .models()
+                                .await?
                         },
-                        None => message_fetcher.await?,
+                        None => message_fetcher.exec().await?.models().await?,
                     };
 
                     // This is a bit of a hack because the returned messages have no guild id, even if
@@ -484,13 +489,13 @@ impl Channel {
                 let http = conn.http.clone();
                 let token = conn.cache.ack_token();
 
-                async move { http.ack_message(id, last_displayed_id, token).await }
+                async move { http.ack_message(id, last_displayed_id, token).exec().await }
             })
             .await
-            .expect("Task is never aborted");
+            .expect("Task is never aborted")?;
         // This endpoint returns a new token every time, not really sure how it's supposed to be used
         // but this is a best attempt
-        let token = result?;
+        let token = result.model().await?;
         conn.cache.set_ack_token(&token.token);
         Ok(())
     }
@@ -597,14 +602,22 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
 
                 conn.rt.spawn(async move {
                     let e = http.update_message(id, msg.id);
-                    let future = if options.map(|o| o.contains('g')).unwrap_or_default() {
-                        e.content(orig.replace(&old, &new))
+                    let replaced = if options.map(|o| o.contains('g')).unwrap_or_default() {
+                        orig.replace(&old, &new)
                     } else {
-                        e.content(orig.replacen(&old, &new, 1))
-                    }
-                    .expect("new content is always Some");
+                        orig.replacen(&old, &new, 1)
+                    };
 
-                    if let Err(e) = future.await {
+                    let update_message = match e.content(Some(&replaced)) {
+                        Ok(update_message) => update_message,
+                        Err(e) => {
+                            tracing::error!("Message update failed: {:?}", e);
+                            Weechat::print(&format!("discord: failed to update message: {}", e));
+                            return;
+                        },
+                    };
+
+                    if let Err(e) = update_message.exec().await {
                         tracing::error!("Unable to update message: {}", e);
                     } else {
                         tracing::trace!("Successfully updated message {}", msg.id);
@@ -646,7 +659,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 }
                 // TODO: Check if user has permission to delete messages
                 conn.rt.spawn(async move {
-                    if let Err(e) = http.delete_message(id, msg.id).await {
+                    if let Err(e) = http.delete_message(id, msg.id).exec().await {
                         tracing::error!("Unable to delete message: {}", e);
                     } else {
                         tracing::trace!("Successfully deleted message {}", msg.id);
@@ -660,10 +673,6 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
         None => {
             if let Some(reaction) = parsing::Reaction::parse(&input) {
                 let add = reaction.add;
-                let reaction_type = match request_from_reaction(&reaction) {
-                    Some(reaction) => reaction,
-                    None => return,
-                };
 
                 // TODO: Check if user can add reactions
                 if let Some(msg) = channel
@@ -681,8 +690,18 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                         WeecordMessage::Notification { .. } => return,
                     };
                     conn.rt.spawn(async move {
+                        let reaction =
+                            parsing::Reaction::parse(&input).expect("already checked to be some");
+                        let reaction_type = match request_from_reaction(&reaction) {
+                            Some(reaction) => reaction,
+                            None => return,
+                        };
                         if add {
-                            if let Err(e) = http.create_reaction(id, msg.id, reaction_type).await {
+                            if let Err(e) = http
+                                .create_reaction(id, msg.id, &reaction_type)
+                                .exec()
+                                .await
+                            {
                                 tracing::error!("Failed to add reaction: {:#?}", e);
                                 Weechat::spawn_from_thread(async move {
                                     Weechat::print(&format!(
@@ -692,7 +711,8 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                                 });
                             }
                         } else if let Err(e) = http
-                            .delete_current_user_reaction(id, msg.id, reaction_type)
+                            .delete_current_user_reaction(id, msg.id, &reaction_type)
+                            .exec()
                             .await
                         {
                             tracing::error!("Failed to remove reaction: {:#?}", e);
@@ -729,9 +749,9 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
             conn.rt.spawn({
                 let input = input.clone();
                 async move {
-                    match http.create_message(id).nonce(nonce).content(input) {
+                    match http.create_message(id).nonce(nonce).content(&input) {
                         Ok(msg) => {
-                            if let Err(e) = msg.await {
+                            if let Err(e) = msg.exec().await {
                                 tracing::error!("Failed to send message: {:?}", e);
                                 Weechat::spawn_from_thread(async move {
                                     Weechat::print(&format!(
@@ -756,7 +776,7 @@ fn send_message(channel: &Channel, conn: &ConnectionInner, input: &str) {
                 .borrow()
                 .buffer
                 .renderer
-                .add_msg(&WeecordMessage::new_echo(username, input, nonce));
+                .add_msg(&WeecordMessage::new_echo(username, "".to_owned(), nonce));
         },
     };
 }
@@ -771,23 +791,19 @@ fn has_manage_message_perm(channel: &Channel, cache: &InMemoryCache) -> Option<b
     })
 }
 
-fn request_from_reaction(reaction: &parsing::Reaction) -> Option<RequestReactionType> {
+fn request_from_reaction<'a>(reaction: &'a parsing::Reaction) -> Option<RequestReactionType<'a>> {
     Some(match reaction.emoji {
         Emoji::Shortcode(name) => {
             if let Some(emoji) = discord_emoji::lookup(name) {
-                RequestReactionType::Unicode {
-                    name: emoji.to_owned(),
-                }
+                RequestReactionType::Unicode { name: emoji }
             } else {
                 return None;
             }
         },
         Emoji::Custom(name, id) => RequestReactionType::Custom {
             id: EmojiId(id),
-            name: Some(name.to_owned()),
+            name: Some(name),
         },
-        Emoji::Unicode(name) => RequestReactionType::Unicode {
-            name: name.to_owned(),
-        },
+        Emoji::Unicode(name) => RequestReactionType::Unicode { name },
     })
 }

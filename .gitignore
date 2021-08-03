@@ -6,3 +6,6 @@
 /.vscode/
 *.iml
 /.idea/
+
+*.swp
+*.swo
